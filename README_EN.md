@@ -39,7 +39,7 @@ Agents must be signed in once on the remote host (e.g. `claude` / `pi` first-run
 
 ```bash
 # npm (once published)
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.7.0
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.7.1
 
 # or GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh

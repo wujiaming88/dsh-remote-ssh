@@ -131,7 +131,7 @@ console.log('H · 无头 Chat（结构化）')
 
 console.log('G · 版本与文档')
 {
-  check(pkg.version === '2.7.0', '版本 2.7.0')
+  check(pkg.version === '2.7.1', '版本 2.7.1')
   check(/## \[2\.7\.0\]/.test(changelog) && /远程 Agent/.test(changelog), 'CHANGELOG 有 2.7.0 段并描述功能')
 }
 
