@@ -103,6 +103,7 @@ console.log('E · 会话内常驻 Agent View（conversation.view）')
   
   check(client.includes('function acpWriteAgentPref') && client.includes('function acpReadAgentPref'), '建区 Agent 偏好有读写助手')
   check(client.includes('flow.agent') && client.includes('acpWriteAgentPref(profileId, remotePath'), '建区时保存 Agent 偏好，start 时回写')
+  check(client.includes('function AcpSessionMarker') && client.includes('acpStart') && client.includes('focusAgentTab'), '有 Agent 偏好的新会话自动启动 ACP 并切 Tab')
 check(client.includes('slots.inject("conversation.view"'), '注册 conversation.view')
   check(client.includes('name: "conversation.view"') && client.includes('id: "remote-acp"'), 'View name/id = remote-acp')
   check(client.includes('order: 15'), 'View order = 15（Chat 之后）')

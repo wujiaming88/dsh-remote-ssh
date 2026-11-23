@@ -1,6 +1,6 @@
 {
   "name": "@wujiaming88/dsh-remote-ssh",
-  "version": "2.10.0",
+  "version": "2.11.0",
   "description": "DSH web plugin: VSCode Remote-SSH-like remote development (SSH to supercomputers/servers over key, Kerberos/GSSAPI or password auth; remote workspace, file explorer, integrated terminal), integrated with dsh-better-sidebar and DSH settings.",
   "keywords": [
     "dsh",
