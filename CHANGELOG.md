@@ -2,6 +2,14 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.15.0] — 2026-11-23
+
+### 新：空白会话直接接管 Hero，不再依赖 Tab
+
+- 注册 conversation.hero.frame HOC；当前 DSH 会话已有 ACP 会话时，直接渲染 AcpChatView 替换 hero + 原生 composer
+- 新建会话不再需要 Tab 行（DSH 空白会话本来就会 hideChrome），加载完成后直接进入远端 Agent
+- 保留原有 conversation.view 作为有 Tab 时的落点
+
 ## [2.14.5] — 2026-11-23
 
 ### 新：自动进入 ACP 时显示加载动画
