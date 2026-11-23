@@ -15,7 +15,7 @@
 - **会话**：每个会话是远端 tmux 会话（`dsh-rs-*`），支持 Chat（直接跑 agent TUI）与 Shell 两种模式；
   刷新页面 / 重启 DSH / SSH 断线都不会杀掉远端 agent，用户仍可在 SSH 终端里 `tmux attach` 接管。
 - **交互**：输出通过 `capture-pane` 轮询回看，输入经 `paste-buffer + Enter` 转发；支持 Ctrl-C 与结束会话。
-- **文件**：面板内浏览远端目录、预览文本、上传（流式）与下载；不要求该目录先注册成 DSH 工作区。
+- **文件**：面板内浏览远端目录、预览文本 / 图片、上传（流式）与下载；不要求该目录先注册成 DSH 工作区。
 - **Worktree**：列出仓库的 `git worktree`，或按分支创建新 worktree 并作为会话工作目录。
 - **UI**：全部复用 `@deepseek-ai/dsh-client-ui-primitives`（Button / Input / Menu / Pill / StateDot / Modal）
   与设置页的 `rssh-ui-*` 行风格，不引入独立视觉体系。
