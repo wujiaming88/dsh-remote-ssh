@@ -64,7 +64,14 @@ console.log('A · 模块加载（真实 import）')
     // 这样「新增运行时依赖忘了同步测试环境」不会再伪装成加载失败。
     const linked = []
     const missing = []
-    for (const spec of bareImports(src)) {
+    const acpPath = join(dirname(target), 'acp.js')
+    let acpSrc = ''
+    if (existsSync(acpPath)) {
+      acpSrc = readFileSync(acpPath, 'utf8')
+      copyFileSync(acpPath, join(dir, 'acp.js'))
+    }
+    const allImports = Array.from(new Set([...bareImports(src), ...bareImports(acpSrc)]))
+    for (const spec of allImports) {
       if (stubbed.includes(spec)) continue
       const pkgDir = findDependency(spec)
       if (!pkgDir) { missing.push(spec); continue }

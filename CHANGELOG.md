@@ -2,6 +2,45 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.8.0] — 2026-11-23
+
+### 新：ACP Chat 客户端 UI（conversation.hero.options）
+
+- 入口：DSH「新建会话」页选项行的「**远端 Agent**」按钮（`conversation.hero.options`，list / session scope，
+  `id: "remote-acp"`，`order: 50`）；点击打开大尺寸 DSH `Modal`，不再从右侧栏进入
+- 移除右侧栏 `sidebarRightTabs` / `sidebar.right.pane.tab` 注册与设置页「打开 Agent 面板」按钮；
+  旧 TUI/Shell 面板组件保留在 `lib/client.js` 里但不再注册任何 Slot
+- 创建流程：选连接 →「探测」（`acpAgents`）→ 选远端工作区（`listWorkspaces` 的 `mirrorPath` / `remotePath`，
+  或手填 `mirrorCwd`）→ 选 agent / 权限（Accept edits / Plan / Bypass）→ `acpStart`
+- Chat：`acpPrompt` NDJSON 流按行 `JSON.parse`，渲染 text / thought / tool_call / tool_call_update / plan /
+  commands / usage / notice / error / stop / session_info / permission；正文用 `MarkdownText`，
+  工具内容用 `DiffBlock` / `TerminalBlock` / `ReadBlock`，状态用 `StateDot` / `Tag`，全部复用 DSH 原语与 `--dsw-*` token
+- HITL 权限：`permission` 事件渲染成带 `alertdialog` 的卡片，按 adapter 的 options 原样渲染并回传 optionId；
+  「忽略」回传 `cancelled`；不自动批准（Bypass 由 Host 自动，UI 显示已自动批准）
+- Steer：`runningRef` 标记 turn 是否运行中；运行中发送走 `acpSteer`，user_message(steering) 立即上屏，
+  Host 回显按「文本 + steering」去重
+- 配置：顶部用 `CompactMenuSelect` 渲染 `config.models` / `config.reasoning` / `config.modes` 与其余
+  `configOptions` select，分别调 `acpSetConfig` / `acpSetMode`；显示当前值、usage 与权限等待数
+- 停止 / 恢复 / 关闭：`acpCancel`、`acpList` + `acpResume`、`acpClose`；对话框关闭时若有运行中的 turn 或
+  未处理权限，先显示确认条而不是直接丢弃
+- 状态与错误：连接中 / 运行中 / 等待权限 / 就绪 / 错误 / 已关闭；流断开保留已收消息并提示重试；
+  Esc 由 Modal 处理，运行中关闭需确认；窄屏（<768px）Modal 与消息区自适应
+- 测试：`tests/remote-agents.test.mjs` 改为断言 hero 入口、无 sidebarRight 注册、ACP 端点/权限/steer/
+  模型/思考级别/模式调用、MarkdownText/DiffBlock 使用与 ACP 区域无 emoji
+
+### 新：ACP Chat 的 Host/HTTP 层
+
+- 本地 ACP adapter（`@agentclientprotocol/claude-agent-acp` / `@agentclientprotocol/codex-acp`）+ 生成的 SSH wrapper
+  驱动远端 Claude Code / Codex；每个会话一个 adapter 子进程 + 一条 `client()` 连接
+- wrapper 落在 `~/.dsh/remote-ssh/acp/<agent>-remote.mjs`：读取 `.remote-ssh.json` 与 `DSH_ACP_*` env，
+  经 `ssh` 执行远端 `bash -ic 'exec <agentPath> ...'`，参数以 base64 JSON 交给远端 python3 解码；
+  支持 key / Kerberos，password 明确报错
+- 新端点：`acpAgents` / `acpStart` / `acpPrompt`（NDJSON 流）/ `acpSteer` / `acpSetConfig` / `acpSetMode` /
+  `acpPermission` / `acpCancel` / `acpResume` / `acpClose` / `acpList` / `acpState`
+- 结构化事件：文本/思考/工具/diff/终端/计划/命令/usage/notice/权限；配置（models/modes/reasoning）归一化；
+  权限挂起 + optionId 回传；`_session/steering` 支持 turn 内追加；session id 持久化并可 resume
+- 纯单元测试 `tests/acp-host.test.mjs`（wrapper、事件映射、配置归一化、持久化、权限、cancel/steer/close）
+
 ## [2.7.2] — 2026-11-23
 
 ### 修：Agent 探测与执行环境（codex / pi / claude）
