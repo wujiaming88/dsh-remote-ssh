@@ -2,7 +2,7 @@
 
 English | [中文](./README.md)
 
-Develop directly on remote machines inside DSH: SSH connections, remote workspaces, remote files and terminals, and Claude Code / Codex agents running remotely — open **Remote Agent** on the New Session page to chat over ACP.
+Develop directly on remote machines inside DSH: SSH connections, remote workspaces, remote files and terminals, and Claude Code / Codex agents running remotely — create a session through the native **New Session / ⌘N → SSH** flow, then switch to the **Remote Agent** tab.
 
 ## Features
 
@@ -14,37 +14,23 @@ Develop directly on remote machines inside DSH: SSH connections, remote workspac
 - **Files and terminal**: the built-in Files tab reads/writes remote files over SSH (with `dsh-better-sidebar`); the Terminal tab opens in the workspace's remote directory
 - **Sync and write-back**: whole-tree or scoped sync, upload/download, remote-freshness guard
 
-### Remote agents (2.7.0 legacy panel)
+### ACP Chat (resident session View)
 
-> From the next release the entry point is **ACP Chat** on the New Session page. The right-sidebar **Remote Agents** tab and the Settings "Open Agent Panel" button are gone. The TUI / Shell / headless-chat code remains in the repo but is no longer registered anywhere in the UI.
+Create a session through the native **New Session / ⌘N** flow: choose **SSH** in the DSH workspace picker, pick a remote workspace,
+then switch to the **Remote Agent** tab in the session. The View binds the current DSH session (`dshSessionId`):
+on mount it calls `acpList({dshSessionId})` and `acpResume` when a record exists; otherwise it shows setup inside the View.
 
-The 2.7.0 right-sidebar panel detected installed agents and managed sessions:
+1. Setup defaults to the current session's **remote workspace** (`useWorkspaces.sessionIds` + `mirrorPath`); you can still change connection/workspace
+2. Pick an agent (Claude Code / Codex) and permission level (Accept edits / Plan / Bypass) → **Start session** (`acpStart` with `dshSessionId`)
+3. Switching views or refreshing restores the session; **switching views never ends it**
 
-| Capability | Detail |
-| --- | --- |
-| Detection | One SSH probe for `codex` / `claude` / `pi`, versions, `tmux`, `git`; clear install hints when missing |
-| Chat | Headless structured chat: Claude `-p --output-format json`, pi `-p --mode json`, codex `exec --json`; resumes via the CLI session id and persists messages |
-| TUI | The agent's interactive UI runs in remote tmux (`dsh-rs-*`); the panel replays output and forwards input; survives disconnects/restarts |
-| Shell | Remote login shell, also in tmux |
-| Permission | Per Chat session: `Plan` (read-only), `Accept edits` (default), `Bypass` (dangerous) |
-| Sessions | List, switch, key menu (arrows/Esc/Ctrl-C), stop |
-| Files | Browse remote directories, preview text/images, stream upload, download |
-| Worktree | List `git worktree`, or create a branch worktree as the session directory |
+The View renders Markdown text, tool/native/subagent cards, model / reasoning / mode selectors (`acpSetConfig` / `acpSetMode`),
+in-turn steering (`acpSteer`), Stop (`acpCancel`, current turn only), HITL permission cards, session list/resume (`acpList` / `acpResume`)
+and End session (`acpClose`, confirmed).
 
-Agents must be signed in once on the remote host (e.g. `claude` / `pi` first-run auth). TUI/Shell sessions require `tmux` on the remote.
-
-### ACP Chat
-
-On the **New Session** page, click **Remote Agent** in the options row to open a large DSH Modal:
-
-1. Pick a connection → **Detect** to find remote Claude Code / Codex (`acpAgents`)
-2. Pick a remote workspace (fills `mirrorPath` / `remotePath`) or enter `mirrorCwd`
-3. Pick an agent and permission level (Accept edits / Plan / Bypass) → **Start session** (`acpStart`)
-
-The chat renders Markdown text, tool cards (DiffBlock / TerminalBlock / ReadBlock), plans and commands, model / reasoning / mode selectors
-(`acpSetConfig` / `acpSetMode`), in-turn steering (`acpSteer`, shown immediately), Stop (`acpCancel`), HITL permission cards
-(adapter options returned verbatim as optionId; never auto-approved except Host-side Bypass), session list/resume (`acpList` / `acpResume`),
-and End session (`acpClose`). Esc closes the Modal; while a turn is running it asks first.
+- **Files**: the top Files button opens the existing remote file panel (listDir / readFile / upload / download), text and image preview, defaulting to the session `remotePath`
+- **Commands / skills**: the ACP `commands` list becomes a searchable, grouped panel that inserts `/name` or Codex `/skills` into the composer, with description and input hint; sending is an ordinary message
+- **Lifecycle**: no Modal shell; switching views/refresh does not call `acpClose`; only End session removes the record
 
 Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrapper drives the remote agent and streams NDJSON events. Native/subagent events are surfaced too: Claude `_meta.claudeCode.parentToolUseId` becomes `parentToolCallId`; `Agent`/`Task` tools and `<task-notification>` messages become subagent cards; Codex `subagent_update`, `state_update`, `session_message`, terminal and usage events pass through; each card can expand its truncated native `_meta` JSON.
 
@@ -56,7 +42,7 @@ Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrappe
 
 ```bash
 # npm (once published)
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.2
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.9.0
 
 # or GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh
@@ -70,16 +56,16 @@ Restart DSH after installing. Remote read/write in the Files tab needs `dsh-bett
    - Kerberos: `kinit <principal>` first, then choose **Kerberos (GSSAPI)**
 2. **Add Workspace → Select Remote Directory**: pick a connection, browse, create the native workspace
 3. Inside it, edit files in the Files tab and open the Terminal tab in the remote directory
-4. **New Session → Remote Agent**: choose a connection → Detect → pick a remote workspace → pick agent / permission → Start session; then chat, steer, stop or resume inside the Modal
+4. **New Session / ⌘N → SSH → remote workspace**: open the session, switch to the **Remote Agent** tab; the View defaults to the current remote workspace, then pick agent / permission and start
 
 ## Using agent sessions
 
-- **Create**: New Session → Remote Agent → connection → Detect → remote workspace (or `mirrorCwd`) → agent / permission → Start
+- **Create**: New Session / ⌘N → SSH → remote workspace → switch to the **Remote Agent** tab → confirm connection/workspace → start
 - **Chat**: Enter sends, Shift+Enter inserts a newline; while a turn runs the Send action becomes **Steer**, delivering immediately without waiting for the turn to end
 - **Permissions**: when a tool asks, a permission card appears; allow once / always / reject exactly as the adapter offers, or Dismiss to send `cancelled`. Bypass is auto-approved by the Host
-- **Model / reasoning / mode**: selectors at the top of the chat apply to the live session
-- **Stop / end**: Stop cancels the current turn; End session removes it (no resume afterwards); closing the Modal only stops a running turn and keeps the session resumable under Saved sessions
-- **Files**: diff/terminal/read tool cards render via DiffBlock / TerminalBlock / ReadBlock; the Files button in the chat header browses the remote directory
+- **Model / reasoning / mode**: selectors at the top of the View apply to the live session
+- **Stop / end**: Stop cancels only the current turn; End session is confirmed and removes it (no resume afterwards); switching views/refresh keeps the session resumable
+- **Files / commands**: the top Files button browses the remote directory; the Commands button opens the searchable/grouped panel for `/name` and `/skills`
 - Legacy sessions are still recorded in `~/.dsh/remote-ssh/agent-sessions.json`; TUI/Shell processes live in tmux and can be attached with `tmux attach -t dsh-rs-*`
 
 ### Cancel, timeout, and kill
@@ -99,7 +85,7 @@ The stop button or `remote_ssh_kill` best-effort sends `SIGHUP` to the remote pr
 | Kerberos auth fails | Check `klist`; run `kinit <principal>`; ensure the profile user matches the principal; remote sshd needs `GSSAPIAuthentication yes` |
 | Test Connection says the key file is missing | Fix `keyPath`, or clear it to rely on ssh-agent / `~/.ssh/config` |
 | Detect cannot find an agent | Sign in to `claude` / `codex` once over an SSH terminal, then Detect again (checks PATH, login shell and common install dirs) |
-| The Remote Agent button is missing | Refresh the page; it lives on the New Session page (`conversation.hero.options`) |
+| The Remote Agent tab is missing | Make sure the session came from an SSH remote workspace; refresh the page, then switch to the tab (`conversation.view`) |
 | Files tab cannot read remote files | Install `dsh-better-sidebar`; a standalone install degrades that tab |
 | Command timing out | `timeoutMs` on `remote_ssh_exec` is a local wait budget; use `timeoutMs: 0` for long jobs and remote `timeout` for a hard limit |
 

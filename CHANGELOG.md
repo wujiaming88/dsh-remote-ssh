@@ -2,6 +2,22 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.9.0] — 2026-11-23
+
+### 改：从 Modal 改为会话内 conversation.view
+- 注册 `conversation.view`（Agent Tab，`id: "remote-acp"`，`order: 15`，label「远端 Agent」）；删除 hero/header 的 Modal 入口
+- View 绑定 `props.sessionId`（Host `dshSessionId`）：挂载 `acpList({dshSessionId})`，有记录自动 `acpResume`；`acpStart`/`acpResume` 带 `dshSessionId`
+- 切换 View/刷新使用 `acpViewCache` 保留已渲染消息并重新 `resume`；切 View 不调用 `acpClose`
+- 入口走工作区原生「新会话 / ⌘N → SSH → 远端工作区」；View 内 setup 通过 `useWorkspaces.sessionIds` + `mirrorPath` 默认当前会话的远端工作区
+- 顶部「文件」复用远端文件面板（listDir/readFile/上传/下载）；ACP `commands` 做搜索 + 分组 + 点击插入的命令/skill 面板，支持 `/name` 与 Codex `/skills`
+- 全区域 View 布局（无 Modal 壳）；停止只停 turn，结束会话需确认；窄屏适配
+- 移除不支持的 agent 探测与提示，只保留 Claude Code / Codex；README/CHANGELOG 同步
+
+### 生命周期与续接
+- `acpPrompt` 断流不再 cancel turn；新增 `acpAttach`（NDJSON replay+live）与 `acpEvents`，切 View/刷新可恢复历史与 in-flight turn
+- `acpStop` 只停 turn，`acpClose` 才移除记录；`acpStart` 按 `dshSessionId` 复用唯一 active，`acpList` 可按 DSH session 过滤
+- stop 事件进入事件缓冲，即使无订阅者也不丢；`acpResume` 保留绑定与事件
+
 ## [2.8.2] — 2026-11-23
 
 ### 新：原生事件与子 Agent
@@ -61,20 +77,20 @@
 
 ## [2.7.2] — 2026-11-23
 
-### 修：Agent 探测与执行环境（codex / pi / claude）
+### 修：Agent 探测与执行环境（codex / claude）
 
 - **探测增强**：探测脚本先增强 PATH（`~/.local/bin`、`~/.npm-global/bin`、`~/.bun/bin`、`~/.cargo/bin`、
   `~/.volta`、`~/.asdf`、nvm 的 node bin 等），再用登录 shell 回退，最后按常见安装目录逐个检查。
   此前非登录 SSH 的 PATH 只有 `/usr/bin:/bin`，devbox2 / devbox_sg 上装在 `~/.local/bin`、`~/.npm-global/bin`
-  的 codex / claude / pi 全部漏检；现在三台机器都能识别 codex 0.171.0、claude 2.1.3x、pi 0.74/1.5。
+  的 codex / claude 全部漏检；现在都能识别 codex 0.171.0、claude 2.1.3x。
 - **绝对路径执行**：会话记录探测到的绝对路径，TUI 与 Chat 都直接执行该路径，不再依赖远端默认 PATH。
 - **交互环境**：agent 的模型 key / 代理常写在 `~/.bashrc`（非交互 shell 会提前 return），Chat 与 TUI
   改为经 `bash -ic` 启动并关闭 stdin，codex 因此能读到 `LOCAL_API_KEY`。
 - **codex 适配**：`codex exec --json --skip-git-repo-check`，权限映射 `-s read-only` / `-s workspace-write` /
   `--dangerously-bypass-approvals-and-sandbox`；解析 `thread.started` / `agent_message` / `turn.failed` 并续聊。
 
-实测：devbox / devbox2 / devbox_sg 均探测到 codex、claude、pi；Codex Chat 首轮 `CODEX_OK` 与续聊、
-Claude/pi Chat 续聊、TUI 启动均通过。
+实测：devbox / devbox2 / devbox_sg 均探测到 codex、claude；Codex Chat 首轮 `CODEX_OK` 与续聊、
+Claude Chat 续聊、TUI 启动均通过。
 
 ## [2.7.1] — 2026-11-23
 
@@ -89,8 +105,8 @@ Claude/pi Chat 续聊、TUI 启动均通过。
 
 ### 新：远程 Agent 面板
 
-- 右侧栏新增「远程 Agent」页签（原生 `sidebarRightTabs` 扩展），识别远端 `codex` / `claude` / `pi` 及 `tmux` / `git`
-- **Chat**：无头结构化对话（Claude `-p --output-format json`、pi `-p --mode json`、codex `exec --json`），按 CLI session id 续聊，消息落盘
+- 右侧栏新增「远程 Agent」页签（原生 `sidebarRightTabs` 扩展），识别远端 `codex` / `claude` 及 `tmux` / `git`
+- **Chat**：无头结构化对话（Claude `-p --output-format json`、codex `exec --json`），按 CLI session id 续聊，消息落盘
 - **TUI**：agent 交互界面跑在远端 tmux；面板回看输出、转发输入与按键，断线/重启不丢会话
 - **Shell**：远端登录 shell（tmux）
 - **权限**：Chat 会话可选 Plan / Accept edits / Bypass，映射到各 CLI 参数

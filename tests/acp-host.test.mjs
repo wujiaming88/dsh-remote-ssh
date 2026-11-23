@@ -30,6 +30,7 @@ import {
 
 const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const src = readFileSync(join(root, 'lib/index.js'), 'utf8')
+const acpSrc = readFileSync(join(root, 'lib/acp.js'), 'utf8')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const readme = readFileSync(join(root, 'README.md'), 'utf8')
 const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8')
@@ -420,23 +421,172 @@ console.log('H · 原生事件与子 Agent')
   check(emitted.agent === 'claude' && emitted.native === 'subagent_update', '子 Agent 事件仍带 agent/native 元数据')
 }
 
+console.log('I · DSH session 绑定 / 生命周期')
+{
+  const storePath = join(tmp, 'store', 'bindings.json')
+  let seq = 0
+  const fake = (args) => ({
+    id: args.id,
+    sessionId: args.resumeSessionId || ('remote-sess-' + (++seq)),
+    dshSessionId: args.dshSessionId || '',
+    agent: args.agent,
+    profile: args.profile,
+    cwd: args.cwd,
+    mirrorCwd: args.mirrorCwd,
+    remotePath: args.remotePath,
+    permissionMode: args.permission,
+    createdAt: Date.now(),
+    alive: true,
+    reused: false,
+    replacedId: '',
+    closed: false,
+    started: 0,
+    stopped: false,
+    async start() { this.started++ },
+    async stop() { this.stopped = true; return { ok: true, stopped: true, closed: false, id: this.id, dshSessionId: this.dshSessionId } },
+    async close() { this.closed = true; this.alive = false },
+    state() {
+      return {
+        id: this.id, sessionId: this.sessionId, dshSessionId: this.dshSessionId,
+        agent: this.agent, profileId: this.profile && this.profile.id ? this.profile.id : '',
+        mirrorCwd: this.mirrorCwd, status: this.alive ? 'ready' : 'closed',
+        lifecycle: this.alive ? 'active' : 'closed', detached: false,
+        resumable: !this.alive && !!this.sessionId, alive: this.alive, busy: false,
+        createdAt: this.createdAt
+      }
+    }
+  })
+
+  const rt = createAcpRuntime({ storePath, createSession: fake })
+  const s1 = await rt.create({ profile: { id: 'p1' }, profileId: 'p1', agent: 'claude', mirrorCwd: tmp, cwd: tmp, remotePath: '/tmp', dshSessionId: 'dsh-1' })
+  check(s1.dshSessionId === 'dsh-1' && s1.state().dshSessionId === 'dsh-1', 'AcpSession.state 带 dshSessionId')
+  check(s1.state().lifecycle === 'active' && s1.state().detached === false, 'active 会话 lifecycle=active / detached=false')
+  check(rt.list({ dshSessionId: 'dsh-1' }).length === 1 && rt.list({ dshSessionId: 'dsh-2' }).length === 0, 'acpList 按 dshSessionId 过滤')
+  check(JSON.parse(readFileSync(storePath, 'utf8')).sessions[0].dshSessionId === 'dsh-1', 'dshSessionId 持久化到 sessions.json')
+
+  const again = await rt.create({ profile: { id: 'p1' }, profileId: 'p1', agent: 'claude', mirrorCwd: tmp, cwd: tmp, remotePath: '/tmp', dshSessionId: 'dsh-1' })
+  check(again.id === s1.id && again.reused === true && again.started === 1, '同 dshSessionId 重复 start 复用已有 active 会话')
+  check(rt.list({ dshSessionId: 'dsh-1' }).length === 1, '重复 start 不产生第二个 active')
+
+  const replacement = await rt.create({ profile: { id: 'p1' }, profileId: 'p1', agent: 'codex', mirrorCwd: tmp, cwd: tmp, remotePath: '/tmp', dshSessionId: 'dsh-1' })
+  check(replacement.id !== s1.id && replacement.replacedId === s1.id && replacement.reused === false, '配置变化时明确替换旧会话（replaced）')
+  check(rt.get(s1.id) === null && rt.list({ dshSessionId: 'dsh-1' }).length === 1, '替换后旧 active 与旧记录被清理')
+  check(replacement.state().dshSessionId === 'dsh-1', '替换后的新会话保留绑定')
+
+  const rt2 = createAcpRuntime({ storePath, createSession: fake })
+  const detached = rt2.list({ dshSessionId: 'dsh-1' })[0]
+  check(detached && detached.detached === true && detached.resumable === true && detached.lifecycle === 'detached' && detached.dshSessionId === 'dsh-1', '重启后 detached 与 resumable 可区分且保留绑定')
+  const resumed = await rt2.resume(detached.id, { profile: { id: 'p1' } })
+  check(resumed.dshSessionId === 'dsh-1' && resumed.sessionId === detached.sessionId, 'resume 保留 dshSessionId 与远端 ACP sessionId')
+  check(rt2.list({ dshSessionId: 'dsh-1' }).length === 1 && JSON.parse(readFileSync(storePath, 'utf8')).sessions[0].dshSessionId === 'dsh-1', 'resume 后绑定与持久化一致')
+
+  const stopped = await rt2.stop(resumed.id)
+  check(stopped.ok === true && stopped.stopped === true && stopped.closed === false && stopped.dshSessionId === 'dsh-1', 'stop 只停 turn（stopped=true/closed=false）')
+  check(rt2.get(resumed.id) === resumed && rt2.list({ dshSessionId: 'dsh-1' }).length === 1, 'stop 不移除会话')
+  check(JSON.parse(readFileSync(storePath, 'utf8')).sessions[0].dshSessionId === 'dsh-1', 'stop 不清空持久化绑定')
+
+  const closed = await rt2.close(resumed.id)
+  check(closed.closed === true && closed.dshSessionId === 'dsh-1', 'close 返回被清理的绑定')
+  check(rt2.get(resumed.id) === null && rt2.list({ dshSessionId: 'dsh-1' }).length === 0, 'close 才移除会话与 active 绑定')
+  check(JSON.parse(readFileSync(storePath, 'utf8')).sessions.length === 0, 'close 清理 sessions.json 记录')
+
+  const real = new AcpSession(sessionOpts({ dshSessionId: 'dsh-real' }))
+  await real.start()
+  check(real.state().dshSessionId === 'dsh-real' && real.state().lifecycle === 'active' && real.state().detached === false, '真实 AcpSession 启动后 state 带绑定/生命周期')
+  check(real.bufferedEvents().every((e) => e.dshSessionId === 'dsh-real'), '事件元数据带 dshSessionId')
+  await real.stop()
+  check(real.dshSessionId === 'dsh-real' && real.alive === true && real.state().status === 'ready', '真实 AcpSession stop 只停 turn、绑定仍在')
+  await real.close()
+  check(real.state().dshSessionId === 'dsh-real' && real.state().lifecycle === 'closed' && real.state().detached === false, 'close 后 state 标记 closed（不伪造 detached）')
+}
+
+console.log('J · 常驻 View：断流 / attach / 事件缓冲')
+{
+  const s = new AcpSession(sessionOpts())
+  await s.start()
+  s.controller.prompt = async () => ({ stopReason: 'end_turn', response: { stopReason: 'end_turn', usage: { totalTokens: 3 } } })
+  const baseSeq = s.bufferedEvents().slice(-1)[0]?.seq || 0
+  const result = await s.prompt('hello')
+  check(result.stopReason === 'end_turn', 'prompt 返回 stopReason')
+  const stops = s.bufferedEvents(baseSeq).filter((e) => e.type === 'stop')
+  check(stops.length === 1 && stops[0].stopReason === 'end_turn', 'turn 完成 stop 只入缓冲一次')
+  check(stops[0].agent === 'claude' && stops[0].seq > baseSeq, 'stop 事件带元数据与 seq')
+
+  const seen = []
+  const unsub = s.subscribe((e) => seen.push(e), { replay: true, sinceSeq: baseSeq })
+  check(seen.some((e) => e.type === 'stop' && e.stopReason === 'end_turn'), 'attach replay 能补到已完成的 stop')
+  check(seen.every((e) => e.seq > baseSeq), 'attach sinceSeq 只回放增量')
+  s._emit({ type: 'text', text: 'live-after-attach' })
+  check(seen.some((e) => e.type === 'text' && e.text === 'live-after-attach'), 'attach 订阅后续 live 事件')
+  unsub()
+  s._emit({ type: 'text', text: 'after-unsubscribe' })
+  check(!seen.some((e) => e.text === 'after-unsubscribe'), 'attach 断开后退订，不再收到事件')
+
+  const attached = []
+  const unsub2 = s.subscribe((e) => attached.push(e), { replay: true })
+  const beforeStops = attached.filter((e) => e.type === 'stop').length
+  await s.prompt('again')
+  check(attached.filter((e) => e.type === 'stop').length === beforeStops + 1, 'attach 与 prompt 并存，各自收到 stop')
+  unsub2()
+
+  const s2 = new AcpSession(sessionOpts())
+  await s2.start()
+  const release = s2.beginStream()
+  const pending = s2.prompt('long running turn')
+  await tick()
+  release()
+  await tick()
+  check(s2.controller.cancelled === false && s2.pendingTurns === 1, '释放 acpPrompt 流不 cancel 正在跑的 turn')
+  let busyCode = ''
+  try { s2.beginStream() } catch (e) { busyCode = e.code }
+  check(busyCode === 'turn_busy', 'turn 进行中再次 acpPrompt 返回明确 turn_busy')
+  await s2.cancel()
+  await pending
+  check(s2.bufferedEvents().some((e) => e.type === 'stop' && e.stopReason === 'cancelled'), 'cancel 后 stop 仍进缓冲')
+
+  const storePath = join(tmp, 'store', 'attach-resume.json')
+  const rt = createAcpRuntime({
+    storePath,
+    wrapperDir: join(tmp, 'wrappers'),
+    createSession: (args) => new AcpSession(Object.assign({}, args, { connectImpl: () => fakeConnectFactory() }))
+  })
+  const rs = await rt.create({ profile: { id: 'p1', host: 'h', user: 'u', authMethod: 'kerberos' }, agent: 'claude', mirrorCwd: tmp, cwd: tmp, remotePath: '/tmp', dshSessionId: 'dsh-E' })
+  rs.controller.prompt = async () => ({ stopReason: 'end_turn', response: { stopReason: 'end_turn' } })
+  await rs.prompt('persist me')
+  const beforeResume = rs.bufferedEvents().length
+  const resumed = await rt.resume(rs.id)
+  check(resumed === rs && resumed.bufferedEvents().length === beforeResume, '切换后 resume 活动会话保留事件缓冲')
+  check(resumed.bufferedEvents().some((e) => e.type === 'stop'), 'resume 后仍可补到 stop')
+  await rt.close(rs.id)
+}
+
 console.log('G · Host 接线与文档')
 {
   check(src.includes('import { createAcpRuntime, ACP_AGENTS as ACP_AGENT_DEFS } from "./acp.js"'), 'lib/index.js 相对 import lib/acp.js')
-  for (const m of ['acpAgents', 'acpStart', 'acpResume', 'acpState', 'acpList', 'acpSetConfig', 'acpSetMode', 'acpSteer', 'acpPermission', 'acpCancel', 'acpClose', 'acpPrompt']) {
+  for (const m of ['acpAgents', 'acpStart', 'acpResume', 'acpState', 'acpList', 'acpSetConfig', 'acpSetMode', 'acpSteer', 'acpPermission', 'acpCancel', 'acpStop', 'acpClose', 'acpPrompt']) {
     check(src.includes(m + ': async') || src.includes(m + ': async ()'), '注册 api.' + m)
   }
   check(src.includes('method === "acpPrompt"') && src.includes('handleAcpPromptStream'), 'acpPrompt 走 NDJSON 专用路由')
   check(src.includes('application/x-ndjson') && src.includes("type: \"error\""), 'NDJSON content-type + 错误事件')
-  check(src.includes('beginStream()') && src.includes('session.subscribe(write, { replay: true })'), '先回放缓冲事件再订阅更新')
-  check(src.includes('res.on("close", onClose)') && src.includes('session.cancel()'), '客户端断开时 abort 并 cancel')
+  check(src.includes('session.subscribe(write, { replay: true, sinceSeq: args.sinceSeq })'), '先回放缓冲事件再订阅更新（支持 sinceSeq）')
+  check(src.includes('handleAcpAttachStream') && src.includes('method === "acpAttach"'), '注册 acpAttach NDJSON 常驻流')
+  check(src.includes('acpEvents: async') && src.includes('events: s.bufferedEvents(args && args.sinceSeq)'), '注册 acpEvents（含 sinceSeq）')
+  check(!/onClose[\s\S]{0,600}session\.cancel\(/.test(src), 'acpPrompt/acpAttach 断流都不 cancel turn')
+  check(src.includes('res.on("close", onClose)') && src.includes('只退订'), '客户端断开只退订，不 cancel turn')
   check(src.includes('agentProbe(p)') && src.includes('mirrorCwd'), 'acpStart 复用 agentProbe 并校验 mirrorCwd')
   check(src.includes('acpRuntime.store.get(id)') && src.includes('acpRuntime.resume(id'), 'acpResume 从持久化记录恢复')
+  check(/type:\s*"stop"[\s\S]{0,120}stopReason/.test(acpSrc), 'stop 事件在 AcpSession 缓冲层发出')
+  check(!/write\(session\.decorate\(\{\s*type:\s*"stop"/.test(src), 'HTTP 层不重复写 stop')
+  check(src.includes('acpStop: async') && src.includes('acpList: async (args)'), '注册 acpStop，acpList 接受 dshSessionId 过滤')
+  check(src.includes('dshSessionId: String(a.dshSessionId') && src.includes('replace: a.replace === true'), 'acpStart 传 dshSessionId/replace')
+  check(!/\bopencode\b/i.test(src) && !/\bopencode\b/i.test(acpSrc), 'lib/index.js / lib/acp.js 不再探测 opencode')
+  check(src.includes("'for c in codex claude; do'"), '探测脚本只探测 codex / claude')
+  check(src.includes('AGENT_DEFS[s.agent]') && src.includes('s.mode === "shell"'), '旧 agent 会话加载时按当前 AGENT_DEFS 过滤（不再返回已下线 agent）')
   check(pkg.dependencies['@agentclientprotocol/sdk'] === '^2.9.1', '依赖 @agentclientprotocol/sdk')
   check(pkg.dependencies['@agentclientprotocol/claude-agent-acp'] === '^0.109.1', '依赖 claude-agent-acp')
   check(pkg.dependencies['@agentclientprotocol/codex-acp'] === '^2.9.0', '依赖 codex-acp')
   check(pkg.files.includes('lib/acp.js'), 'files 包含 lib/acp.js')
-  check(pkg.version === '2.8.2', '版本 2.8.2')
+  check(pkg.version === '2.9.0', '版本 2.9.0')
   check(/ACP/.test(readme) && /acpPrompt/.test(readme), 'README 有 ACP Chat 说明')
   check(/## \[2\.8\.0\]/.test(changelog) && /ACP/.test(changelog), 'CHANGELOG 有 2.8.0 ACP 说明')
 }

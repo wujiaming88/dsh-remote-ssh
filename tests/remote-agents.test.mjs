@@ -83,31 +83,38 @@ console.log('D · 探测输出解析')
 {
   const script = [
     ['A', 'claude', '/usr/bin/claude', '2.1.307 (Claude Code)'].join('\t'),
-    ['A', 'pi', '/usr/bin/pi', ''].join('\t'),
+    ['A', 'codex', '/usr/bin/codex', '0.171.0'].join('\t'),
     ['T', 'tmux 3.3a'].join('\t'),
     ['G', 'git version 2.39.5'].join('\t'),
   ].join('\n')
   const run = async () => ({ ok: true, stdout: script })
-  const defs = { claude: { label: 'Claude Code' }, pi: { label: 'Pi' }, codex: { label: 'Codex' } }
+  const defs = { claude: { label: 'Claude Code' }, codex: { label: 'Codex' } }
   const fn = new Function('runPooled', 'AGENT_DEFS', 'profileKey',
     'const agentProbeCache = new Map();\n' + grab(src, 'async function agentProbe') + '\nreturn agentProbe;')(run, defs, (p) => String(p.id))
   const r = await fn({ id: 'p' })
-  check(r.ok && r.agents.length === 2, '识别到 claude 与 pi 两个 agent')
+  check(r.ok && r.agents.length === 2, '识别到 claude 与 codex 两个 agent')
   check(r.agents[0].id === 'claude' && r.agents[0].name === 'Claude Code' && /2\.1\.307/.test(r.agents[0].version), 'agent 版本被带上')
+  check(r.agents[1].id === 'codex' && r.agents[1].name === 'Codex' && /0\.171\.0/.test(r.agents[1].version), 'codex 也被识别')
   check(r.tmux === 'tmux 3.3a' && r.git === 'git version 2.39.5', 'tmux / git 版本被带上')
 }
 
-console.log('E · 「新建会话」入口（conversation.hero.options）')
+console.log('E · 会话内常驻 Agent View（conversation.view）')
 {
-  check(client.includes('slots.inject("conversation.hero.options"'), '在 conversation.hero.options 软注入入口')
-  check(client.includes('name: "conversation.hero.options"') && client.includes('id: "remote-acp"'), '注册名/id 正确')
-  check(client.includes('order: 50'), 'order = 50（排在原生选项之后）')
-  check(client.includes('locale: NS'), '注册声明 locale（t 由槽位提供）')
-  check(client.includes('function AcpHeroButton') && client.includes('function AcpChatModal'), 'hero 按钮 + Chat Modal 组件存在')
-  check(client.includes('slots.inject("conversation.session.header.actions"') && client.includes('function AcpHeaderButton'), '会话头部入口可重新打开 ACP Chat')
+  check(client.includes('slots.inject("conversation.view"'), '注册 conversation.view')
+  check(client.includes('name: "conversation.view"') && client.includes('id: "remote-acp"'), 'View name/id = remote-acp')
+  check(client.includes('order: 15'), 'View order = 15（Chat 之后）')
+  check(client.includes('label: function () { return i18n.t("acp.hero"); }'), 'View 标签「远端 Agent」')
+  check(client.includes('}, AcpChatView)'), 'View 组件 AcpChatView')
+  check(client.includes('function AcpChatView') && client.includes('var dshSessionId = String((props && props.sessionId) || "")'), 'View 绑定 props.sessionId')
+  check(!client.includes('conversation.hero.options'), '不再注册 hero.options Modal 入口')
+  check(!client.includes('conversation.session.header.actions'), '不再注册 header Modal 入口')
+  check(!client.includes('function AcpHeroButton') && !client.includes('function AcpHeaderButton') && !client.includes('AcpChatModal'), 'hero/header/Modal 入口组件已删除')
+  check(!client.includes('ra-acp-dialog'), '不再有 Chat Modal 尺寸类')
+  check(client.includes('className: "ra-acp-view"'), 'View 全区域容器')
   check(!client.includes('ctx.inject(["sidebarRightTabs", "sidebarRight"]'), '不再注册右侧栏 Agent 页签')
   check(!client.includes('sidebarRightTabs.register'), '没有 sidebarRightTabs.register')
   check(!client.includes('sidebar.right.pane.tab'), '没有 sidebar.right.pane.tab body')
+  check(client.includes('workspace.picker.directoryFlow') && client.includes('RemoteWorkspaceFlow'), '新会话/⌘N 工作区选择器注册本地/SSH 流程')
   check(!client.includes('openAgentPanel'), 'openAgentPanel 变量/入口已删除')
   check(!client.includes('t("agents.open")'), '设置页「打开 Agent 面板」按钮已移除')
 }
@@ -122,7 +129,7 @@ console.log('F · UI 复用 DSH 共享原子与主题 token')
     check(client.includes(atom), '复用 ' + atom)
   }
   check(client.includes('className: "ra-panel"') && client.includes('className: "rssh-ui-danger"'), '面板布局/危险动作沿用既有类与 token')
-  check(client.includes('className: "ra-acp-dialog"'), 'Chat 使用大尺寸 Modal 类')
+  check(client.includes('className: "ra-acp-view"'), 'Chat 使用全区域 View 类')
   const acpCss = (client.match(/\.ra-acp-[a-z-]+\{[^}]*\}/g) || []).join('\n')
   check(acpCss.length > 800, '存在 ACP Chat 样式')
   check(!/#[0-9a-f]{3,8}\b/i.test(acpCss), 'ra-acp-* 样式不使用硬编码颜色（只走 --dsw-* token）')
@@ -191,11 +198,11 @@ console.log('H · ACP Chat 功能与端点')
   check(acp.includes('api("acpCancel"') && acp.includes('function stopTurn'), 'acpCancel 停止当前 turn')
   check(acp.includes('api("acpList"') && acp.includes('api("acpResume"'), 'acpList + acpResume 会话列表')
   check(acp.includes('api("acpClose"') && acp.includes('function endSession'), 'acpClose 结束会话')
-  check(acp.includes('closeConfirm') && acp.includes('acp.confirmCloseDesc'), '运行中关闭需确认')
-  check(acp.includes('function attemptClose') && acp.includes('onClose: attemptClose'), 'Esc/关闭走 attemptClose')
+  check(acp.includes('endConfirm') && acp.includes('acp.endSessionDesc'), '结束会话需确认')
+  check(!acp.includes('attemptClose') && !acp.includes('closeConfirm'), '没有 Modal 关闭/确认路径（View 常驻）')
 
   // 命令插入 / 文件
-  check(acp.includes('function insertCommand') && acp.includes('onClick: function () { insertCommand'), 'commands 可点击插入 composer')
+  check(acp.includes('function insertCommand') && acp.includes('function chooseCommand'), 'commands 可点击插入 composer')
   check(acp.includes('h(AgentFilesModal'), 'Chat 内复用远端文件浏览')
 
   // 状态与错误
@@ -262,15 +269,113 @@ console.log('I · 子 Agent / 嵌套工具 / 原生事件')
   check(acp.includes('function AcpNestedChildren') && acp.includes('ancestors'), '嵌套递归带环路保护')
 }
 
+console.log('J · 常驻 View / dshSessionId / 文件 / 命令面板 / 生命周期')
+{
+  const start = client.indexOf('// ==== ACP Chat UI (start) ====')
+  const end = client.indexOf('// ==== ACP Chat UI (end) ====')
+  const acp = client.slice(start, end)
+
+  // 绑定 + 自动恢复
+  check(acp.includes('var dshSessionId = String((props && props.sessionId) || "")'), 'View 使用 props.sessionId 作为 dshSessionId')
+  check(acp.includes('api("acpList", { dshSessionId: dshSessionId })'), '挂载 acpList({dshSessionId})')
+  check(acp.includes('api("acpResume", { id: target.id, dshSessionId: dshSessionId })'), 'acpResume 带 dshSessionId')
+  check(acp.includes('dshSessionId: dshSessionId') && acp.includes('api("acpStart"'), 'acpStart 带 dshSessionId')
+  check(acp.includes('acpViewCache') && acp.includes('function resume(target, auto)'), 'acpViewCache + 自动 resume')
+  check(acp.includes('api("acpList", { dshSessionId: dshSessionId })') && acp.includes('for (var i = 0; i < list.length; i++)'), '按 dshSessionId 选择可恢复会话')
+  check(acp.includes('delete acpViewCache[dshSessionId]'), '结束/重置时清理缓存')
+
+  // 无 Modal 壳 & 生命周期
+  check(acp.includes('return h("section", { className: "ra-acp-view"'), '返回 section 常驻 View')
+  check(!acp.includes('onClose: attemptClose') && !acp.includes('props.onClose()'), 'View 没有 Modal onClose')
+  const stop = grab(acp, 'function stopTurn')
+  check(stop.includes('api("acpCancel"') && !stop.includes('api("acpClose"'), '停止只停 turn，不结束会话')
+  const reset = grab(acp, 'function resetToSetup')
+  check(!reset.includes('api("acpClose"'), '新会话/重置不调用 acpClose')
+  check(acp.includes('function endSession') && acp.includes('setEndConfirm(true)'), '结束会话需确认')
+  check(acp.includes('acp.closeFailed') && acp.includes('acp.error'), '结束/错误状态可见')
+  check(acp.includes('setBooting(false)') && acp.includes('acp.resumingSession'), '挂载恢复中状态')
+  check(acp.includes('acp.stopped') && acp.includes('acp.waiting') && acp.includes('acp.running'), '生命周期状态：运行/等待权限/已停止')
+  check(acp.includes('ra-acp-empty-state') && acp.includes('acp.emptyHint'), '消息空状态')
+  check(acp.includes('ra-acp-errorbar'), '错误条')
+
+  // 当前会话远端工作区
+  check(acp.includes('workspaceSnapshot.items') && acp.includes('wsv.sessionIds.indexOf(dshSessionId)'), '用 useWorkspaces.sessionIds 推断当前工作区')
+  check(acp.includes('samePath(workspaces[i].mirrorPath, currentWorkspacePath)'), '按 mirrorPath 匹配 Host 远程工作区')
+  check(acp.includes('setMirrorCwd(String(hit.mirrorPath') && acp.includes('setRemotePath(String(hit.remotePath'), '自动填 mirrorCwd/remotePath')
+
+  // 文件
+  check(acp.includes('t("acp.files")') && acp.includes('setFilesOpen(true)'), '顶部文件按钮')
+  check(acp.includes('h(AgentFilesModal') && acp.includes('initialDir: session.remotePath'), '文件面板默认会话 remotePath')
+  check(acp.includes('listDir') || src.includes('"listDir"'), '文件面板列出目录（listDir）')
+  check(acp.includes('api("readFile"'), '文件面板读取文本')
+  check(src.includes('/remote-ssh/agents-upload') && src.includes('/remote-ssh/agents-download'), '文件面板上传/下载路由')
+  check(acp.includes('outputPreview') && acp.includes('acp.binaryOutput'), '图片/二进制预览提示')
+
+  // 命令 / skill 面板
+  check(acp.includes('function renderCommandPanel') && acp.includes('acp.commandsPanel'), '命令面板')
+  check(acp.includes('acpCommandGroups') && acp.includes('function acpCommandGroup'), '命令分组')
+  check(acp.includes('acp.commandSearch') && acp.includes('setCommandQuery'), '命令搜索')
+  check(acp.includes('acp.skillGroup') && acp.includes('name === "skills"'), 'Codex /skills 归到技能组')
+  check(acp.includes('command.input && command.input.hint'), '显示 input hint')
+  check(acp.includes('function chooseCommand') && acp.includes('insertCommand(acpCommandName(command))'), '点击命令插入 composer')
+  check(acp.includes('acp.commandsEmpty'), '命令面板空状态')
+  check(acp.includes('acp.commandOpen'), '命令按钮')
+
+  // 窄屏 & 无 emoji 仍成立
+  check(/@media \(max-width:767px\)/.test(client), '窄屏样式')
+  const acpLines = client.split('\n').filter((line) => line.includes('"acp.'))
+  const emoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u
+  check(!emoji.test(acp) && !acpLines.some((line) => emoji.test(line)), 'ACP UI 与 acp.* 无 emoji')
+}
+
+console.log('K · attach/events 回放与生命周期')
+{
+  const start = client.indexOf('// ==== ACP Chat UI (start) ====')
+  const end = client.indexOf('// ==== ACP Chat UI (end) ====')
+  const acp = client.slice(start, end)
+
+  check(acp.includes('api("acpEvents", { id: id })'), '挂载/resume 后调用 acpEvents 回放')
+  check(acp.includes('fetch("/remote-ssh/api/acpAttach"'), 'acpAttach NDJSON 接收 live')
+  check(acp.includes('sinceSeq: seqRef.current'), 'acpAttach 传 sinceSeq（只补未见事件）')
+  check(acp.includes('function attachSession') && acp.includes('function openAttach'), 'attachSession/openAttach')
+  check(acp.includes('events.sort') && acp.includes('applyEvent(events[i])'), 'acpEvents 按 seq 排序回放')
+  check(acp.includes('ev.seq <= seqRef.current'), '主 prompt/attach/events 共用 seq 去重')
+  check(acp.includes('attachSession(next.id)'), 'acpResume/acpStart 完成后自动 attach')
+  check(acp.includes('scheduleAttach(id)') && acp.includes('attachUnsupportedRef'), 'attach 断开自动重连，旧 Host 静默降级')
+  check(acp.includes('isCurrentSession(sid)') && acp.includes('isCurrentSession(id)'), '旧会话事件不串到新 View')
+  check(acp.includes('result.session.busy') || acp.includes('sessionBusy'), 'resume 后按 Host busy 恢复 running')
+  check(acp.includes('var nativeState = acpNativeState(ev.state)') && acp.includes('setRunning(true)'), 'state 事件更新 running')
+  check(acp.includes('function sessionLooksBusy') && acp.includes('mergeSessionState(r.session)'), '回放后按 Host busy 对齐 running，历史 stop 不覆盖')
+  check(acp.includes('if (!(replayingRef.current && sessionLooksBusy()))'), 'replay 中的历史 stop/idle 不误停当前 turn')
+  check(acp.includes('sinceSeq: seqRef.current') && acp.includes('pendingPermissions'), 'acpPrompt/acpAttach 带 sinceSeq，恢复权限等待')
+  check(acp.includes('state.pendingPermissions') && acp.includes('setPending(state.pendingPermissions'), 'acpEvents 恢复待处理权限')
+  check(acp.includes('attachState = r.session || {') && acp.includes('mergeSessionState(attachState)'), 'acpEvents 扁平状态（busy/status）也合并')
+
+  const cleanupStart = acp.indexOf('mountedRef.current = false;')
+  const cleanup = cleanupStart >= 0 ? acp.slice(cleanupStart, cleanupStart + 520) : ''
+  check(cleanup.includes('stopAttach()'), 'View 卸载只断 attach')
+  check(!/api\("acp(Cancel|Close)"/.test(cleanup), 'View 卸载不调用 acpCancel/acpClose')
+  check(/abortRef\.current\.abort/.test(cleanup) && /stopAttach\(\)/.test(cleanup), 'View 卸载只 abort 本地流（prompt/attach）')
+
+  check(acp.includes('api("acpPrompt"') || acp.includes('/remote-ssh/api/acpPrompt'), '发送仍走 acpPrompt')
+  check(acp.includes('api("acpSteer"'), '运行中仍走 acpSteer')
+  check(!acp.includes('AcpChatModal') && !acp.includes('conversation.hero.options'), '仍无 Modal 入口')
+}
+
 console.log('G · 版本与文档')
 {
   check(/^\d+\.\d+\.\d+/.test(pkg.version), 'package.json 版本格式正确')
   check(/## \[2\.8\.0\]/.test(changelog) && /ACP Chat/.test(changelog), 'CHANGELOG 有 ACP Chat 2.8.0 段')
-  check(/conversation\.hero\.options/.test(changelog), 'CHANGELOG 记录 hero.options 入口')
+  check(/conversation\.view/.test(changelog), 'CHANGELOG 记录 conversation.view 常驻 View')
   check(/## \[2\.7\.0\]/.test(changelog) && /远程 Agent/.test(changelog), 'CHANGELOG 保留 2.7.0 历史')
   const readme = readFileSync(join(root, 'README.md'), 'utf8')
+  const readmeEn = readFileSync(join(root, 'README_EN.md'), 'utf8')
   check(/远端 Agent/.test(readme) && /ACP Chat/.test(readme), 'README 描述 ACP Chat 与入口')
   check(!/右侧栏新增「\*\*远程 Agent\*\*」页签/.test(readme), 'README 不再宣称右侧栏入口')
+  check(!/conversation\.hero\.options/.test(readme), 'README 不再宣称 hero.options 入口')
+  check(/新会话/.test(readme) && /SSH/.test(readme), 'README 描述新会话/⌘N → SSH 入口')
+  check(!/\bpi\b/i.test(readme) && !/\bpi\b/i.test(readmeEn) && !/\bpi\b/i.test(changelog), 'README/CHANGELOG 不再提 pi')
+  check(!/codex \/ claude \/ pi/i.test(client), '客户端文案不再提 pi')
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`)
