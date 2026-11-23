@@ -251,7 +251,7 @@ console.log('F. 清单：peer 范围覆盖运行时 0.2.2-rc.5')
   for (const peer of ['@deepseek-ai/dsh-tools', '@deepseek-ai/dsh-client-locale', '@deepseek-ai/dsh-client-ui-primitives']) {
     check(String(pkg.peerDependencies?.[peer] || '').includes('^0.2.2-rc.5'), `F 清单 ${peer} 显式覆盖 ^0.2.2-rc.5`)
   }
-  check(pkg.version === '2.13.1', 'F2 版本号 2.13.1')
+  check(pkg.version === '2.13.2', 'F2 版本号 2.13.2')
 }
 
 // ---------------------------------------------------------------------------
