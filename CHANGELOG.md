@@ -2,6 +2,14 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.14.3] — 2026-11-23
+
+### 调：Chat UI 使用 DSH 原生控件
+
+- 工具卡展开头、命令面板行、配置下拉触发器改用 DSH `UiButton`，不再手写 `<button>`
+- 图标继续使用 primitives：Gauge / Send / Plus / Chevron / Folder / FileTypeIcon
+- 保留原有布局与交互，仅替换控件实现
+
 ## [2.14.2] — 2026-11-23
 
 ### 调：composer 只保留三项配置
