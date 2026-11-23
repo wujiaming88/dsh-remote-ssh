@@ -46,7 +46,7 @@ The chat renders Markdown text, tool cards (DiffBlock / TerminalBlock / ReadBloc
 (adapter options returned verbatim as optionId; never auto-approved except Host-side Bypass), session list/resume (`acpList` / `acpResume`),
 and End session (`acpClose`). Esc closes the Modal; while a turn is running it asks first.
 
-Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrapper drives the remote agent and streams NDJSON events.
+Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrapper drives the remote agent and streams NDJSON events. Native/subagent events are surfaced too: Claude `_meta.claudeCode.parentToolUseId` becomes `parentToolCallId`; `Agent`/`Task` tools and `<task-notification>` messages become subagent cards; Codex `subagent_update`, `state_update`, `session_message`, terminal and usage events pass through; each card can expand its truncated native `_meta` JSON.
 
 ### Model tools
 
@@ -56,7 +56,7 @@ Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrappe
 
 ```bash
 # npm (once published)
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.1
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.2
 
 # or GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh

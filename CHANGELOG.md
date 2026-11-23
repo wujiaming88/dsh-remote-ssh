@@ -2,6 +2,17 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.8.2] — 2026-11-23
+
+### 新：原生事件与子 Agent
+
+- Host：`mapToolCall` 透传 `parentToolCallId` / `nativeMeta` / `native`；识别 Claude `Agent`/`Task` 工具为子 Agent（agentId/description/background/outputFile）
+- Host：解析 Claude `<task-notification>` → `subagent_update`；新增 Codex `subagent_update`、`state_update`、`session_message(_chunk)`、`terminal_update`/`terminal_output_chunk`、`agent_message`/`agent_thought` 全文、`prompt_suggestions_update`
+- Host：所有协议事件附 `native` 与截断后的 `nativeMeta`；子会话保留自己的 `sessionId` 并附 `rootSessionId`
+- Client：子 Agent 卡片、按 `parentToolCallId` 嵌套工具调用、折叠展开；state/session_message/terminal/suggestions 原生事件卡片；每个事件可展开「原生事件」JSON 详情
+- Client：Claude task notification 不再作为普通用户消息平铺；subagent summary/outputFile 可展开/预览
+- 测试：Host 131、Client 163、全量 2562 通过（20 基线失败）
+
 ## [2.8.1] — 2026-11-23
 
 ### 修：ACP Chat 的常驻入口

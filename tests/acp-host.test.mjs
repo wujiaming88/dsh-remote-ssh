@@ -21,6 +21,7 @@ import {
   ensureWrapper,
   mapPermissionRequest,
   mapSessionUpdate,
+  mapToolCall,
   mergeConfigOptions,
   normalizeSessionConfig,
   pickAutoPermissionOption,
@@ -333,6 +334,92 @@ console.log('F · cancel / steer / setConfig / setMode / close')
   check(s.status === 'closed' && s.controller.closed === true, 'close 后状态 closed 且 adapter 关闭')
 }
 
+console.log('H · 原生事件与子 Agent')
+{
+  const parent = mapSessionUpdate({
+    sessionUpdate: 'tool_call', toolCallId: 'toolu_agent', title: 'Agent', name: 'Task', status: 'in_progress',
+    rawInput: { description: 'Explore the repo', prompt: 'look around <output-file>/tmp/agent-out.txt</output-file>', run_in_background: true, subagent_type: 'Explore' },
+    _meta: { claudeCode: { toolName: 'Agent' } }
+  })
+  check(parent.type === 'tool_call' && parent.sessionUpdate === 'tool_call' && parent.native === 'tool_call', 'tool_call 保留 sessionUpdate/native 原始类型')
+  check(parent.parentToolCallId === null, '父 Agent 调用没有 parentToolCallId')
+  check(parent.subagent && parent.subagent.agentId === 'Explore' && parent.subagent.background === true, 'Agent 工具输出 subagent（agentId/background）')
+  check(parent.subagent.description === 'Explore the repo', 'subagent.description 取自 rawInput.description')
+  check(parent.subagent.outputFile === '/tmp/agent-out.txt', 'subagent.outputFile 可从文本标签解析')
+  check(parent.nativeMeta && parent.nativeMeta.claudeCode.toolName === 'Agent', 'tool_call 保留截断后的 nativeMeta')
+
+  const child = mapSessionUpdate({
+    sessionUpdate: 'tool_call_update', toolCallId: 'toolu_child', status: 'completed',
+    _meta: { claudeCode: { parentToolUseId: 'toolu_agent', toolName: 'Read' } }
+  })
+  check(child.parentToolCallId === 'toolu_agent' && child.nativeMeta.claudeCode.parentToolUseId === 'toolu_agent', 'Claude 子调用 parentToolCallId 指向父 Agent')
+  check(child.native === 'tool_call_update' && child.sessionUpdate === 'tool_call_update', 'tool_call_update 保留原始类型')
+
+  const titleAgent = mapToolCall({ toolCallId: 't-title', title: 'Agent', rawInput: { run_in_background: false } })
+  check(titleAgent.subagent && titleAgent.subagent.background === false, '没有 claude meta 时按标题 Agent 识别')
+
+  const notification = '<task-notification>\n<task-id>task-1</task-id>\n<tool-use-id>toolu_agent</tool-use-id>\n<status>completed</status>\n<summary>All done</summary>\n<output-file>/tmp/out.txt</output-file>\n<result>model context only</result>\n</task-notification>'
+  const task = mapSessionUpdate({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text: notification }, _meta: { claudeCode: { parentToolUseId: 'toolu_agent' } } })
+  check(task.type === 'subagent_update' && task.taskId === 'task-1' && task.toolUseId === 'toolu_agent', 'task-notification 解析 taskId/toolUseId')
+  check(task.parentToolCallId === 'toolu_agent' && task.status === 'completed', 'task-notification 关联父 toolCallId 并带 status')
+  check(task.summary === 'All done' && task.outputFile === '/tmp/out.txt', 'task-notification 解析 summary/outputFile')
+  check(task.native === 'user_message_chunk' && task.nativeMeta.claudeCode.parentToolUseId === 'toolu_agent', 'task-notification 保留 native/nativeMeta')
+
+  const partial = mapSessionUpdate({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text: '<task-notification><task-id>x</task-id>' } })
+  check(partial.type === 'user_message', '不完整 task-notification 不误判（仍按 user_message）')
+
+  const sub = mapSessionUpdate({
+    sessionUpdate: 'subagent_update', sessionId: 'child-1', title: 'Explore', description: 'child agent',
+    state: { state: 'running' }, capabilities: { tools: true }, cwd: '/tmp/child',
+    _meta: { claudeCode: { parentToolUseId: 'toolu_parent' } }
+  })
+  check(sub.type === 'subagent_update' && sub.sessionId === 'child-1' && sub.title === 'Explore' && sub.description === 'child agent', 'Codex subagent_update 基本字段')
+  check(sub.state.state === 'running' && sub.capabilities.tools === true && sub.cwd === '/tmp/child', 'subagent_update state/capabilities/cwd')
+  check(sub.parentToolCallId === 'toolu_parent' && sub.native === 'subagent_update', 'subagent_update parentToolCallId/native')
+
+  const state = mapSessionUpdate({ sessionUpdate: 'state_update', state: 'idle', stopReason: 'end_turn', error: { message: 'boom' } })
+  check(state.type === 'state' && state.state === 'idle' && state.stopReason === 'end_turn' && state.error.message === 'boom', 'state_update → state（stopReason/error）')
+
+  const msg = mapSessionUpdate({
+    sessionUpdate: 'session_message', messageId: 'm1', senderSessionId: 'a', recipientSessionId: 'b',
+    content: [{ type: 'text', text: 'hi' }]
+  }, { sessionId: 'b' })
+  check(msg.type === 'session_message' && msg.messageId === 'm1' && msg.sender === 'a' && msg.recipient === 'b' && msg.text === 'hi', 'session_message 保留 sender/recipient/messageId/content')
+  check(msg.sessionId === 'b' && msg.native === 'session_message', 'session_message 使用外层子会话 sessionId')
+  const msgChunk = mapSessionUpdate({ sessionUpdate: 'session_message_chunk', messageId: 'm2', content: { type: 'text', text: 'chunk' } })
+  check(msgChunk.type === 'session_message' && msgChunk.chunk === true && msgChunk.text === 'chunk', 'session_message_chunk 保留 chunk 语义')
+  const subType = mapSessionUpdate({ sessionUpdate: 'subagent', sessionId: 'child-2', title: 'Child' })
+  check(subType.type === 'subagent' && subType.sessionId === 'child-2', 'subagent 事件类型')
+
+  const b64 = Buffer.from('hello\n').toString('base64')
+  const term = mapSessionUpdate({ sessionUpdate: 'terminal_update', terminalId: 'term1', command: 'ls', cwd: '/tmp', output: { data: b64 }, exitStatus: { exitCode: 0, signal: null } })
+  check(term.type === 'terminal' && term.terminalId === 'term1' && term.output === 'hello\n', 'terminal_update 解码 output 并保留 terminalId')
+  check(term.exitStatus.exitCode === 0 && term.cwd === '/tmp' && term.command === 'ls', 'terminal_update 保留 exitStatus/cwd/command')
+  const chunk = mapSessionUpdate({ sessionUpdate: 'terminal_output_chunk', terminalId: 'term1', data: Buffer.from('tail').toString('base64') })
+  check(chunk.type === 'terminal' && chunk.output === 'tail' && chunk.chunk === true, 'terminal_output_chunk 增量文本')
+
+  const full = mapSessionUpdate({ sessionUpdate: 'agent_message', messageId: 'm2', content: [{ type: 'text', text: 'full answer' }] })
+  check(full.type === 'text' && full.text === 'full answer' && full.full === true && full.messageId === 'm2', 'agent_message 全文 → text')
+  const fullThought = mapSessionUpdate({ sessionUpdate: 'agent_thought', content: [{ type: 'text', text: 'thinking' }] })
+  check(fullThought.type === 'thought' && fullThought.text === 'thinking' && fullThought.full === true, 'agent_thought 全文 → thought')
+
+  const suggestions = mapSessionUpdate({ sessionUpdate: 'prompt_suggestions_update', suggestions: [{ prompt: [{ type: 'text', text: 'try this' }] }] })
+  check(suggestions.type === 'suggestions' && suggestions.suggestions[0].text === 'try this', 'prompt_suggestions_update → suggestions')
+
+  const huge = mapSessionUpdate({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text: 'hi' }, _meta: { blob: 'x'.repeat(20000) } })
+  check(huge.nativeMeta && huge.nativeMeta.truncated === true && String(huge.nativeMeta.preview).length === 8000, 'nativeMeta 截断（8KB）')
+
+  const perm = mapPermissionRequest({ toolCall: { toolCallId: 'c1', title: 'Read', _meta: { claudeCode: { parentToolUseId: 'p1', toolName: 'Read' } } }, options: [] }, 3)
+  check(perm.tool.parentToolCallId === 'p1' && perm.tool.nativeMeta.claudeCode.parentToolUseId === 'p1', '权限事件的 tool 也带 parentToolCallId/nativeMeta')
+  check(perm.native === 'session/request_permission', '权限事件 native 类型')
+
+  const s = new AcpSession(sessionOpts({ sessionId: 'root-1' }))
+  s._emitUpdate({ sessionUpdate: 'subagent_update', sessionId: 'child-1', title: 'X' }, { sessionId: 'parent-root' })
+  const emitted = s.bufferedEvents().find((e) => e.type === 'subagent_update')
+  check(emitted.sessionId === 'child-1' && emitted.rootSessionId === 'root-1', '子 Agent 事件保留子 sessionId 并附 rootSessionId')
+  check(emitted.agent === 'claude' && emitted.native === 'subagent_update', '子 Agent 事件仍带 agent/native 元数据')
+}
+
 console.log('G · Host 接线与文档')
 {
   check(src.includes('import { createAcpRuntime, ACP_AGENTS as ACP_AGENT_DEFS } from "./acp.js"'), 'lib/index.js 相对 import lib/acp.js')
@@ -349,7 +436,7 @@ console.log('G · Host 接线与文档')
   check(pkg.dependencies['@agentclientprotocol/claude-agent-acp'] === '^0.109.1', '依赖 claude-agent-acp')
   check(pkg.dependencies['@agentclientprotocol/codex-acp'] === '^2.9.0', '依赖 codex-acp')
   check(pkg.files.includes('lib/acp.js'), 'files 包含 lib/acp.js')
-  check(pkg.version === '2.8.1', '版本 2.8.1')
+  check(pkg.version === '2.8.2', '版本 2.8.2')
   check(/ACP/.test(readme) && /acpPrompt/.test(readme), 'README 有 ACP Chat 说明')
   check(/## \[2\.8\.0\]/.test(changelog) && /ACP/.test(changelog), 'CHANGELOG 有 2.8.0 ACP 说明')
 }

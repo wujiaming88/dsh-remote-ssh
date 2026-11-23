@@ -49,7 +49,8 @@ Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper �
 
 - **端点**：`acpAgents` / `acpStart` / `acpPrompt`（NDJSON）/ `acpSteer` / `acpSetConfig` / `acpSetMode` / `acpPermission` / `acpCancel` / `acpResume` / `acpClose` / `acpList` / `acpState`
 - **启动**：`acpStart({profileId, agent, mirrorCwd, remotePath?, permission?})`；`mirrorCwd` 必须是已存在的本地镜像目录，`remotePath` 可由其中的 `.remote-ssh.json` 提供
-- **事件**：`session` / `text` / `thought` / `tool_call` / `tool_call_update` / `plan` / `commands` / `config` / `mode` / `permission` / `permission_resolved` / `notice` / `usage` / `stop` / `error`；每条都带 `agent`、`sessionId`、`model`、`mode` 元数据
+- **事件**：`session` / `text` / `thought` / `tool_call` / `tool_call_update` / `plan` / `commands` / `config` / `mode` / `permission` / `permission_resolved` / `notice` / `usage` / `stop` / `error`，以及原生/子 Agent 事件：`subagent` / `subagent_update` / `state` / `session_message` / `terminal` / `suggestions`；每条都带 `agent`、`sessionId`、`model`、`mode` 与 `native`/`nativeMeta` 元数据
+- **原生事件与子 Agent**：Claude 的 `_meta.claudeCode.parentToolUseId` 归一化为 `parentToolCallId`，`Agent`/`Task` 工具与 `<task-notification>` 转成子 Agent 卡片；Codex 的 `subagent_update`、`state_update`、`session_message`、terminal 与 usage 原生事件直接透传；工具卡可展开查看截断后的原生 `_meta` JSON
 - **工具/文件**：`tool_call` 内提供 `content`、`diffs`、`terminals`、`locations`、`rawInput/rawOutput`，可直接喂给 DiffBlock / TerminalBlock
 - **配置**：`session/new` 的 `models` / `modes` / `reasoning` / `configOptions` 归一化后返回；`acpSetConfig({id, configId, value})` 调 `session/set_config_option`，`acpSetMode({id, modeId})` 调 `session/set_mode`
 - **权限**：`session/request_permission` 挂起为 `permission` 事件（含 requestId/tool/options），`acpPermission({id, requestId, optionId})` 原样回传 adapter 的 allow once/always/reject optionId
@@ -65,7 +66,7 @@ Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper �
 
 ```bash
 # npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.1
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.2
 
 # 或 GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh

@@ -8,6 +8,7 @@
 //   E. 客户端入口：conversation.hero.options；右侧栏/设置页入口已移除
 //   F. UI 复用 DSH 共享原子、只用主题 token
 //   H. ACP Chat：端到端事件、HITL 权限、steer、模型/思考级别/模式、停止/恢复/关闭
+//   I. 子 Agent / parentToolCallId 嵌套 / native&nativeMeta / state、terminal、session_message
 //   G. 版本 / 文档
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -206,6 +207,59 @@ console.log('H · ACP Chat 功能与端点')
   const acpLines = client.split('\n').filter((line) => line.includes('"acp.'))
   const emoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u
   check(!emoji.test(acp) && !acpLines.some((line) => emoji.test(line)), 'ACP UI 与 acp.* 文案不含 emoji')
+}
+
+console.log('I · 子 Agent / 嵌套工具 / 原生事件')
+{
+  const start = client.indexOf('// ==== ACP Chat UI (start) ====')
+  const end = client.indexOf('// ==== ACP Chat UI (end) ====')
+  const acp = client.slice(start, end)
+
+  // 子 Agent 卡片
+  check(acp.includes('function AcpSubagentCard') && acp.includes('function AcpSubagentMeta'), '子 Agent 卡片与头部组件存在')
+  check(acp.includes('"subagent"') && acp.includes('"subagent_update"'), '处理 subagent / subagent_update 事件')
+  check(acp.includes('acpIsSubagentTool') && acp.includes('acpSubagentFromTool'), 'Claude Agent / Task 工具卡识别为子 Agent')
+  check(acp.includes('raw.subagent_type') && acp.includes('run_in_background'), '从 Claude Agent 参数提取 agentId/description/background')
+  check(acp.includes('outputFile') && acp.includes('acp.subagentOpenOutput'), '子 Agent 输出文件可展开/打开')
+  check(acp.includes('function openOutput') && acp.includes('api("readFile"'), 'outputFile 走现有 readFile 预览')
+  check(acp.includes('subagent.summary') || acp.includes('sub.summary'), 'Claude task-notification summary 可展开')
+  check(acp.includes('acpLooksLikeTaskNotification'), 'task-notification 不会当普通 user 消息平铺')
+
+  // 嵌套工具
+  check(acp.includes('parentToolCallId'), '处理 parentToolCallId')
+  check(acp.includes('function acpBuildChildMap') && acp.includes('function acpChildrenFor'), '按父 toolCallId 构建嵌套树')
+  check(acp.includes('function renderConversation') && acp.includes('built.known[parent]'), '子调用不渲染为顶层消息')
+  check(acp.includes('function AcpNestedChildren') && acp.includes('className: "ra-acp-children"'), '嵌套调用有缩进容器')
+  const nested = grab(acp, 'function AcpNestedChildren')
+  check(nested.includes('h(UiButton'), '折叠/展开按钮使用 DSH Button（UiButton 包装 primitives.Button）')
+  check(acp.includes('nestedCalls'), '嵌套调用显示数量')
+
+  // 原生事件
+  check(acp.includes('function AcpNativeDetails') && acp.includes('acp.nativeEvent'), '原生事件折叠详情组件')
+  check(acp.includes('nativeMeta') && acp.includes('acpJsonText'), 'nativeMeta JSON 截断展示')
+  check(acp.includes('native: tool.native') && acp.includes('native: sub.native'), '工具/子 Agent 卡片带原生事件详情')
+  check(!/ra-acp-native[^}]*#[0-9a-f]{3,8}/i.test(acp), '原生事件样式只用主题 token')
+  check(acp.includes('"state"') && acp.includes('function AcpStateCard'), 'state 事件渲染状态卡')
+  check(acp.includes('acp.stateRequiresAction'), 'state 支持 requires_action / running / idle')
+  check(acp.includes('"session_message"') && acp.includes('function AcpSessionMessageCard'), 'session_message 渲染 sender→recipient')
+  check(acp.includes('acpContentText') && acp.includes('sender') && acp.includes('recipient'), 'session_message 内容归一化与 sender/recipient')
+  check(acp.includes('"terminal"') && acp.includes('function AcpTerminalEventCard'), 'terminal 原生事件卡片')
+  check(acp.includes('command: String(item.command') && acp.includes('exitStatus'), 'terminal 用 TerminalBlock + exitStatus')
+  check(acp.includes('"suggestions"') && acp.includes('ra-acp-suggestions'), 'suggestions 紧凑建议条')
+  check(acp.includes('insertText') && acp.includes('suggestion'), '建议可点击插入 composer')
+  check(acp.includes('"native"') && acp.includes('function AcpNativeEventCard'), '通用 native 事件卡片')
+  check(acp.includes('function acpNativeState') && acp.includes('requires-action'), '原生 state 映射兼容下划线/连字符')
+
+  // 与 Host 实际字段对齐（lib/acp.js 已实现）
+  check(acp.includes('ev.chunk === true'), 'terminal_output_chunk 按 chunk 追加输出')
+  check(acp.includes('merged.exitStatus = prev[i].exitStatus'), 'terminal chunk 不覆盖已有 exitStatus')
+  check(acp.includes('item.text !== undefined') && acp.includes('acpContentText(item.content)'), 'session_message 优先用 Host 的 text，兼容 content blocks')
+  check(acp.includes('merged.text = chunk'), 'session_message_chunk 追加文本')
+  check(acp.includes('errorMessage'), 'state 事件展示 Host 的 errorMessage')
+  check(acp.includes('agentId || s.sessionId || s.taskId'), '子 Agent key 覆盖 agentId/sessionId/taskId/toolUseId')
+  check(acp.includes('sub.state !== undefined') && acp.includes('sub.status'), 'Claude task status 作为子 Agent 状态回退')
+  check(acp.includes('native: tool.native !== undefined ? tool.native : tool.sessionUpdate'), '工具原生事件名兼容 native/sessionUpdate')
+  check(acp.includes('function AcpNestedChildren') && acp.includes('ancestors'), '嵌套递归带环路保护')
 }
 
 console.log('G · 版本与文档')
