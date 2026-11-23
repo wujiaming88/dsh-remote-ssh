@@ -15,6 +15,7 @@ A **DSH** plugin like **VSCode Remote-SSH**: connect to remote HPC / servers via
 | 💻 Remote Terminal | Built-in **Terminal** tab auto-detects remote workspaces, opens an SSH interactive shell **in the workspace's remote directory** (like VSCode Remote-SSH) |
 | 🌐 Remote Workspace | Select a remote directory to create a native workspace, one-click enter |
 | 🤖 Model Tools | 13 `remote_ssh_*` tools, session-aware with auto-filled connection params; command-level timeout + `remote_ssh_kill` recovery |
+| 🧑‍💻 Remote Agents | Detects `codex` / `claude` / `pi` on the host and opens **Chat / Shell** sessions from the right-sidebar Remote Agent tab (persistent tmux, survives reloads); browse/preview files, upload/download, and start from a Git worktree |
 | 🗂️ `@` Completion | In a remote-workspace session, `@` completion lists **remote** files (git repos via `git ls-files`, measured 0.1s; bounded `find` otherwise; cached index + 900ms query budget so the caret never stalls) |
 | ⚡ Faster Opens | Single-roundtrip merged reads + raw text fast path + result cache (LRU + 5s TTL): first open ≈**1.31×**, repeat opens within TTL **0 round-trips**, expired revalidation **≈5×** (measured on a real HPC); `remote_ssh_exec` connection reuse **≈15×** |
 
@@ -46,7 +47,7 @@ A **DSH** plugin like **VSCode Remote-SSH**: connect to remote HPC / servers via
 **One command** (no token, API key or extra configuration needed):
 
 ```bash
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.6.2
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.7.0
 ```
 
 **Restart DSH** after installation. `@wujiaming88/dsh-remote-ssh` must come **after** `dsh-better-sidebar` in the bundles list.

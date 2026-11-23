@@ -167,7 +167,7 @@ console.log('B2 · 信任源本身：0.2.1-rc.1 的 webStartup 优先、旧 webR
 console.log('C · 接线')
 {
   const callSites = (src.match(/= requestTrust\(req,/g) || []).length
-  check(callSites === 7, `7 处调用点全部改用 requestTrust（实际 ${callSites}；2.4.18 open.external、2.4.45 /remote-ssh/write）`)
+  check(callSites === 9, `9 处调用点全部改用 requestTrust（实际 ${callSites}；新增 /remote-ssh/agents-upload 与 /agents-download）`)
   check(!/!isTrusted\(req/.test(src), '不再有旧 isTrusted(req) 布尔调用')
   check(/ctx\.inject\(\["webRuntime"\]/.test(src), '软注入 webRuntime（缺失时退回 loopback-only，插件仍可挂载）')
   check(/function trustedHostsNow\(\)[\s\S]{0,220}webRuntimeFace/.test(src), '按请求读取 webRuntime.trustedHosts')

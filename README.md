@@ -15,6 +15,7 @@
 | 💻 远程终端 | 内置「终端」页签自动检测远程工作区，SSH 交互式终端，**落在工作区对应的远程目录**（与 VSCode Remote-SSH 一致） |
 | 🌐 远程工作区 | 选择远程目录创建原生工作区，一键进入远程环境 |
 | 🤖 模型工具 | 13 个 `remote_ssh_*` 工具，会话感知免填连接参数；命令级超时 + `remote_ssh_kill` 兜底恢复 |
+| 🧑‍💻 远程 Agent | 识别远端 `codex` / `claude` / `pi`，右侧栏「远程 Agent」页签创建 **Chat / Shell** 会话（远端 tmux 持久，断线可续）；面板内浏览/预览文件、上传下载、从 Git worktree 新建 |
 | 🗂️ `@` 引用补全 | 远程工作区会话里 `@` 补全列**远端**文件（git 仓库走 `git ls-files`，实测 0.1s；非 git 用有界 `find`；索引缓存 + 900ms 查询预算，超时降级不卡输入框） |
 | ⚡ 打开提速 | 单往返合并读 + raw 文本快路径 + 结果缓存（LRU + 5s TTL）：首开 ≈**1.31×**，TTL 内重复打开 **0 往返**，过期复验 **≈5×**（真实超算实测）；`remote_ssh_exec` 连接复用 **≈15×** |
 
@@ -46,7 +47,7 @@
 **一条命令安装**（无需 token、API Key 或额外配置）：
 
 ```bash
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.6.2
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.7.0
 ```
 
 安装后**重启 DSH**。`@wujiaming88/dsh-remote-ssh` 必须在 bundles 列表中排在 `dsh-better-sidebar` **之后**。

@@ -9,7 +9,7 @@
 | 项目 | 值 |
 | --- | --- |
 | 包名 / Host 导出 `name` / Client loader `id` | `@wujiaming88/dsh-remote-ssh` |
-| 版本 | `2.6.2` |
+| 版本 | `2.7.0` |
 | settings 命名空间 | `dsh-remote-ssh`（**故意不带作用域**：改包名不丢已保存的连接与工作区） |
 | 仓库 | https://github.com/wujiaming88/dsh-remote-ssh |
 | 依赖 DSH 线 | `^0.1.0-rc.6 || ^0.1.5-rc.1 || ^0.1.7-rc.2 || ^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-rc.5` |
