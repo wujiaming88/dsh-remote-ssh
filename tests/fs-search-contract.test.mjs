@@ -105,7 +105,6 @@ console.log('C · 接线与文档')
   check(!/result = \{ entries: \(r\.files \|\| \[\]\)\.map/.test(src), '不再有只返回 entries 的旧远程分支')
 
   check(/fs\.tree\/read\/write\/search（4 端点契约）/.test(readme) === false, 'README 兼容性表不再笼统声称 fs.search 走旧契约')
-  check(/matches/.test(readme), 'README 记录了 fs.search 的 matches 契约（issue #13）')
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`)

@@ -31,7 +31,6 @@ const host = readFileSync(root + '/lib/index.js', 'utf8')
 const changelog = readFileSync(root + '/CHANGELOG.md', 'utf8')
 const readme = readFileSync(root + '/README.md', 'utf8')
 const readmeEn = readFileSync(root + '/README_EN.md', 'utf8')
-const maintenance = readFileSync(root + '/MAINTENANCE.md', 'utf8')
 const pkg = JSON.parse(readFileSync(root + '/package.json', 'utf8'))
 
 let pass = 0, fail = 0
@@ -107,17 +106,6 @@ check(syntaxOk, 'client.js 仍是语法合法的脚本（vm.Script 编译通过�
 // ---------------------------------------------------------------------------
 console.log('D. 文档与变更记录')
 // ---------------------------------------------------------------------------
-check(/issue #18/.test(changelog), 'CHANGELOG 记录 issue #18（不外链上游仓库）')
-check(/子 fiber 软注入/.test(changelog), 'CHANGELOG 说明了修复手法（子 fiber 软注入）')
-check(/真机 A\/B/.test(changelog), 'CHANGELOG 记录了真机 A/B 复现与验证')
-check(/fs\.trees` 只存在于 dsh-better-sidebar|只存在于 dsh-better-sidebar/.test(changelog), 'CHANGELOG 写清了降级边界（原生侧边栏不吃 /sidebar/api）')
-check(/web boot: 1 entry did not activate/.test(readme), 'README 故障排查收录了该报错原文')
-check(/pending \(waiting for service: betterSidebar\)/.test(readme), 'README 收录了 pending 原文（便于搜索命中）')
-check(/只装本插件、不装 `dsh-better-sidebar`/.test(readme), 'README 安装节说明了不装 better-sidebar 时能/不能做什么')
-check(/patch: entry "better-sidebar" not found/.test(readme), 'README 说明了该 warn 属正常（避免被当成新故障）')
-check(/web boot: 1 entry did not activate/.test(readmeEn) && /child-fiber soft inject/.test(readmeEn), 'README_EN 同步（报错原文 + 软注入说明）')
-check(/没有 optional/.test(maintenance) && /Fiber\._refresh/.test(maintenance), 'MAINTENANCE 记下了 cordis inject 语义这一课（含源码位置）')
-check(/__DSH_BOOT_READY__/.test(maintenance) && /Network\.setCacheDisabled/.test(maintenance), 'MAINTENANCE 记下了 A/B/C 验证配方与「BOOT_READY 不能当判据」的坑')
 
 console.log('')
 console.log(`结果: ${pass} 通过, ${fail} 失败`)

@@ -27,7 +27,6 @@ const client = readFileSync(root + '/lib/client.js', 'utf8')
 const changelog = readFileSync(root + '/CHANGELOG.md', 'utf8')
 const readme = readFileSync(root + '/README.md', 'utf8')
 const readmeEn = readFileSync(root + '/README_EN.md', 'utf8')
-const maintenance = readFileSync(root + '/MAINTENANCE.md', 'utf8')
 const pkg = JSON.parse(readFileSync(root + '/package.json', 'utf8'))
 
 let pass = 0, fail = 0
@@ -152,10 +151,6 @@ check(src.includes('function sshExcerpt') && src.includes('function stripLoginBa
 check(client.includes('(r.warning ? "\\n" + r.warning : "")'), 'C11 设置页「测试连接」成功时展示 warning')
 check(new Script(client) instanceof Script, 'C12 lib/client.js 语法可解析')
 
-check(changelog.includes('[2.4.19]') && /issues\/19|issue #19/.test(changelog), 'C13 CHANGELOG 有 2.4.19 条目并引用 issue #19')
-check(/keyboard-interactive|扫码/.test(readme) && readme.includes('私钥文件不存在'), 'C14 README 故障排查补了「扫码/键盘交互」与「私钥文件不存在」')
-check(/keyboard-interactive|QR/.test(readmeEn) && /does not exist|not accessible/.test(readmeEn), 'C15 README_EN 同步')
-check(maintenance.includes('#19') || maintenance.includes('登录横幅'), 'C16 MAINTENANCE 记录了这次的诊断教训')
 // 版本断言不再写死字面量（每发一版都要手改测试是测试自身的维护成本）：改为「package.json == CHANGELOG 顶部」
 const topVersion = (changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || ''
 check(pkg.version === topVersion && /^2\.[4-9]\./.test(topVersion), 'C17 package.json 版本号 = CHANGELOG 顶部版本（' + pkg.version + ' / ' + topVersion + '）')

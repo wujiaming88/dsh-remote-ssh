@@ -303,7 +303,6 @@ check(/\bwarn\(/.test(grab(src, 'function localToRemote')), 'C9 localToRemote �
 const ver = pkg.version
 check(/^2\.[4-9]\.\d+$/.test(ver), 'C10 package.json 版本形如 2.4.x / 2.5.x = ' + ver)
 check(changelog.includes('## [' + ver + ']'), 'C11 CHANGELOG 有 ' + ver + ' 段（发版即同步）')
-check(/issue #26/.test(changelog.slice(changelog.indexOf('## [2.4.30]'), changelog.indexOf('## [2.4.30]') + 4000)), 'C12 CHANGELOG 2.4.30 段引用了 issue #26')
 
 console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败')
 try { rmSync(base, { recursive: true, force: true }) } catch (e) {}

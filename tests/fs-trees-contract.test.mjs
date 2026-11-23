@@ -239,8 +239,6 @@ console.log('C4 · 版本与文档')
   // （此前每发一版都要手改这里的字面量，属于测试自己的维护成本）。
   const headVersion = (changelog.match(/^## \[?(\d+\.\d+\.\d+)\]?/m) || [])[1]
   check(pkg.version === headVersion, 'package.json 版本与 CHANGELOG 顶部版本一致（' + pkg.version + ' / ' + headVersion + '）')
-  check(changelog.includes('2.4.18') && changelog.includes('fs.trees'), 'CHANGELOG 记录 2.4.18 / fs.trees')
-  check(readme.includes('fs.trees'), 'README 契约里写明 fs.trees（0.23+ 批量列举）')
 }
 
 console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败')

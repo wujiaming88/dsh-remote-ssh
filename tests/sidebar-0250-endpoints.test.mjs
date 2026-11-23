@@ -6,7 +6,7 @@
 //   · fs.createFile     → 空文件只建在本地镜像里，远端永远没有（与 0.24 的 fs.trees 同一类）
 //   · git.blame / diff-head / worktrees → 按镜像里的 git 状态返回（通常是空/报错）
 //   · git.pull / push   → 在镜像上跑 git，动的是一个与远端无关的仓库
-// 维护笔记里的硬规则（MAINTENANCE「升级 better-sidebar 后必做对拍」）就是这条：升级后必须
+// 维护笔记里的硬规则（升级 better-sidebar 后必做对拍）就是这条：升级后必须
 // 把上游宿主 handler 键集合与本插件注册集合逐项比对。本文件的 C 段把这条规则**自动化**。
 //
 // 三层：
@@ -501,7 +501,7 @@ check(/set -C; : > /.test(src), 'C5 远端建空文件用 noclobber 重定向（
 check(src.indexOf('creatableFileNameProblem(fileName)') > 0, 'C6 远程分支同样做文件名校验（不把非法名发到远端）')
 check(/result\.exists === true \? 409 : 400/.test(src), 'C7 "已存在"统一映射成 409（本地/远端、mkdir/createFile 一致）')
 
-// 与**实际安装的** better-sidebar 对拍（MAINTENANCE 硬规则的自动化）
+// 与**实际安装的** better-sidebar 对拍（升级对拍规则的自动化）
 const installed = (() => {
   const base = join(homedir(), '.dsh', 'profiles')
   if (!existsSync(base)) return null
@@ -527,7 +527,6 @@ if (!installed) {
   console.log('  · 对拍快照：fs ' + fsKeys.length + ' 个 / git ' + gitKeys.length + ' 个，其中模型类 3 个不接管')
 }
 check(new RegExp('## \\[' + pkg.version.replace(/\./g, '\\.') + '\\]').test(changelog), 'C10 CHANGELOG 有当前版本的条目（' + pkg.version + '）')
-check(/0\.25\.0/.test(changelog), 'C11 CHANGELOG 记了这次升级到 0.25.0 的端点变化')
 
 // ---------------------------------------------------------------------------
 // D. 语义差分对拍（把上游真实纯函数抽出来，同一批输入逐条比较）

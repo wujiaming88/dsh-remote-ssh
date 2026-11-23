@@ -515,7 +515,7 @@ function GIT_METHODS_REGISTERED() {
   return /GIT_METHODS\.forEach\(function \(m\) \{[\s\S]{0,200}?path: "\/sidebar\/api\/git\." \+ m/.test(src)
 }
 
-// 与**实际安装的** better-sidebar 对拍（MAINTENANCE 硬规则的自动化）。
+// 与**实际安装的** better-sidebar 对拍（升级对拍规则的自动化）。
 // 关键口径：判据是「上游有而本插件没接管」，**不是**「本插件必须接管 history」——
 // tests.yml 钉的版本可能比 upstream-drift 的 @latest 旧（2026-11-02 首跑就是这么红的：
 // 钉 0.26.1 没有 git.history，硬断言「上游确实有 history」就把流水线判死）。

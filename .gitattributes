@@ -1,4 +1,4 @@
-# 行尾纪律（背景见 MAINTENANCE「两个容易踩的坑」第 1 条）
+# 行尾纪律：把文本文件统一钉成 LF，避免工作树 CRLF 让按 \n 切片的测试整文件抛错
 #
 # 本仓 core.autocrlf=true：git stash / checkout / show> 都可能把工作树里的文件写成 CRLF，
 # 而多个测试用**含 \n 的标记**去切片源码（如 lib/index.js 的 helper 块、客户端注入块）。

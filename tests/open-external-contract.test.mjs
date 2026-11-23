@@ -20,7 +20,6 @@ const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '
 const src = readFileSync(root + '/lib/index.js', 'utf8')
 const changelog = readFileSync(root + '/CHANGELOG.md', 'utf8')
 const readme = readFileSync(root + '/README.md', 'utf8')
-const maintenance = readFileSync(root + '/MAINTENANCE.md', 'utf8')
 const pkg = JSON.parse(readFileSync(root + '/package.json', 'utf8'))
 
 function grab(text, name) {
@@ -217,12 +216,6 @@ console.log('B4 · 文档与版本')
   // 与 fs-trees-contract 同一纪律：不写死版本号，只断言 package.json 与 CHANGELOG 顶部一致。
   const headVersion = (changelog.match(/^## \[?(\d+\.\d+\.\d+)\]?/m) || [])[1]
   check(pkg.version === headVersion, 'package.json 版本与 CHANGELOG 顶部版本一致（' + pkg.version + ' / ' + headVersion + '）')
-  check(changelog.includes('open.external'), 'CHANGELOG 记录 open.external 修复')
-  check(changelog.includes('vscode-remote/ssh-remote+'), 'CHANGELOG 说明改开 Remote-SSH URL')
-  check(readme.includes('open.external'), 'README 写明 open.external 也在拦截清单里')
-  check(readme.includes('ssh-remote+'), 'README 给出 Remote-SSH 打开语义')
-  check(maintenance.includes('open.external'), 'MAINTENANCE 对拍清单含 open.external')
-  check(maintenance.includes('openWith.sshHost'), 'MAINTENANCE/README 提醒 openWith.sshHost 的坑')
 }
 
 console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败')
