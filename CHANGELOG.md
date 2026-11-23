@@ -12,16 +12,20 @@
 从右侧栏的引导页进入；设置页「远程连接」顶部也有入口。
 
 - **识别**：探测远端 `codex` / `claude` / `pi`、版本、`tmux` 与 `git`；没有 tmux 时明确禁用会话能力。
-- **会话**：每个会话是远端 tmux 会话（`dsh-rs-*`），支持 Chat（直接跑 agent TUI）与 Shell 两种模式；
-  刷新页面 / 重启 DSH / SSH 断线都不会杀掉远端 agent，用户仍可在 SSH 终端里 `tmux attach` 接管。
-- **交互**：输出通过 `capture-pane` 轮询回看，输入经 `paste-buffer + Enter` 转发；支持 Ctrl-C 与结束会话。
+- **三种会话**：**Chat**（无头流式：Claude `-p --output-format json`、pi `-p --mode json`、codex `exec --json`，
+  按 `--resume` / `--session` 续聊，消息落盘可回看）、**TUI**（agent 交互界面跑在远端 tmux 里，`capture-pane`
+  轮询回看、`paste-buffer + Enter` 转发输入）、**Shell**（登录 shell）。TUI/Shell 会话在刷新页面 / 重启 DSH /
+  SSH 断线后仍活着，可在 SSH 终端里 `tmux attach` 接管。
+- **权限**：Chat 会话按会话选择 `plan`（只读规划）、`acceptEdits`（默认）、`bypass`（全自动，危险）；
+  Claude 映射 `--permission-mode`，pi 的 plan 映射 `--no-tools`，codex 映射 sandbox 三档。
+- **交互**：Chat 消息以 DSH 语义气泡渲染并立即显示运行状态；TUI 支持方向键 / Esc / Ctrl-C 菜单与结束会话。
 - **文件**：面板内浏览远端目录、预览文本 / 图片、上传（流式）与下载；不要求该目录先注册成 DSH 工作区。
 - **Worktree**：列出仓库的 `git worktree`，或按分支创建新 worktree 并作为会话工作目录。
 - **UI**：全部复用 `@deepseek-ai/dsh-client-ui-primitives`（Button / Input / Menu / Pill / StateDot / Modal）
   与设置页的 `rssh-ui-*` 行风格，不引入独立视觉体系。
 
-已知边界：会话依赖远端 tmux；agent 首次登录需先在 SSH 终端完成；Chat 是 TUI 级转发而非结构化协议，
-agent 的富交互（弹窗、审批）需在会话里直接操作。
+已知边界：TUI/Shell 会话依赖远端 tmux；agent 首次登录需先在 SSH 终端完成；Chat 的权限档位由各 CLI 自身语义决定
+（pi 在非 plan 模式下会直接执行工具，UI 已标注危险档），富交互（弹窗、审批）仍需在 TUI 会话里直接操作。
 
 ## [2.6.2] — 2026-11-23
 

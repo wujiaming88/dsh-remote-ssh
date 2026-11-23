@@ -117,6 +117,18 @@ console.log('F · UI 复用 DSH 共享原子与主题 token')
   check(client.includes('aria-label') && client.includes('role: "alert"'), '输入/错误有可访问名称与 alert 角色')
 }
 
+console.log('H · 无头 Chat（结构化）')
+{
+  check(/agents\.chat/.test(src) && /agentChatSend/.test(src), '宿主提供 agents.chat 端点')
+  check(/_PROMPT/.test(src) && /toUpperCase\(\) \+ "_PROMPT"/.test(src) && /--output-format json/.test(src), 'Claude Chat 走 -p --output-format json')
+  check(/pi -p --mode json/.test(src), 'pi Chat 走 -p --mode json')
+  check(/< \/dev\/null/.test(src), 'Chat 命令关闭 stdin，避免吃掉池化会话的哨兵')
+  check(/--permission-mode/.test(src) && /--no-tools/.test(src), '权限档位映射到 CLI 参数')
+  check(/agentParseChat/.test(src) && /session_id/.test(src), '解析 CLI session id 以支持续聊')
+  check(client.includes('ra-messages') && client.includes('agents.chat'), '客户端有 Chat 消息视图并调用 agents.chat')
+  check(client.includes('agents.permAccept') && client.includes('agents.permBypass'), 'UI 提供权限选择')
+}
+
 console.log('G · 版本与文档')
 {
   check(pkg.version === '2.7.0', '版本 2.7.0')
