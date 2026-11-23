@@ -323,7 +323,7 @@ console.log('J · 常驻 View / dshSessionId / 文件 / 命令面板 / 生命周
   check(acp.includes('command.input && command.input.hint'), '显示 input hint')
   check(acp.includes('function chooseCommand') && acp.includes('insertCommand(acpCommandName(command))'), '点击命令插入 composer')
   check(acp.includes('acp.commandsEmpty'), '命令面板空状态')
-  check(acp.includes('acp.commandOpen'), '命令按钮')
+  check(!acp.includes('t("acp.commandOpen") + (commands.length'), '不再提供 / 命令入口')
 
   // 窄屏 & 无 emoji 仍成立
   check(/@media \(max-width:767px\)/.test(client), '窄屏样式')
