@@ -2,6 +2,23 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.7.2] — 2026-11-23
+
+### 修：Agent 探测与执行环境（codex / pi / claude）
+
+- **探测增强**：探测脚本先增强 PATH（`~/.local/bin`、`~/.npm-global/bin`、`~/.bun/bin`、`~/.cargo/bin`、
+  `~/.volta`、`~/.asdf`、nvm 的 node bin 等），再用登录 shell 回退，最后按常见安装目录逐个检查。
+  此前非登录 SSH 的 PATH 只有 `/usr/bin:/bin`，devbox2 / devbox_sg 上装在 `~/.local/bin`、`~/.npm-global/bin`
+  的 codex / claude / pi 全部漏检；现在三台机器都能识别 codex 0.171.0、claude 2.1.3x、pi 0.74/1.5。
+- **绝对路径执行**：会话记录探测到的绝对路径，TUI 与 Chat 都直接执行该路径，不再依赖远端默认 PATH。
+- **交互环境**：agent 的模型 key / 代理常写在 `~/.bashrc`（非交互 shell 会提前 return），Chat 与 TUI
+  改为经 `bash -ic` 启动并关闭 stdin，codex 因此能读到 `LOCAL_API_KEY`。
+- **codex 适配**：`codex exec --json --skip-git-repo-check`，权限映射 `-s read-only` / `-s workspace-write` /
+  `--dangerously-bypass-approvals-and-sandbox`；解析 `thread.started` / `agent_message` / `turn.failed` 并续聊。
+
+实测：devbox / devbox2 / devbox_sg 均探测到 codex、claude、pi；Codex Chat 首轮 `CODEX_OK` 与续聊、
+Claude/pi Chat 续聊、TUI 启动均通过。
+
 ## [2.7.1] — 2026-11-23
 
 ### 文档与仓库清理

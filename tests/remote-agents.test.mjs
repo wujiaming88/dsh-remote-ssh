@@ -87,8 +87,8 @@ console.log('D · 探测输出解析')
   ].join('\n')
   const run = async () => ({ ok: true, stdout: script })
   const defs = { claude: { label: 'Claude Code' }, pi: { label: 'Pi' }, codex: { label: 'Codex' } }
-  const fn = new Function('runPooled', 'AGENT_DEFS',
-    grab(src, 'async function agentProbe') + '\nreturn agentProbe;')(run, defs)
+  const fn = new Function('runPooled', 'AGENT_DEFS', 'profileKey',
+    'const agentProbeCache = new Map();\n' + grab(src, 'async function agentProbe') + '\nreturn agentProbe;')(run, defs, (p) => String(p.id))
   const r = await fn({ id: 'p' })
   check(r.ok && r.agents.length === 2, '识别到 claude 与 pi 两个 agent')
   check(r.agents[0].id === 'claude' && r.agents[0].name === 'Claude Code' && /2\.1\.307/.test(r.agents[0].version), 'agent 版本被带上')
@@ -121,7 +121,7 @@ console.log('H · 无头 Chat（结构化）')
 {
   check(/agents\.chat/.test(src) && /agentChatSend/.test(src), '宿主提供 agents.chat 端点')
   check(/_PROMPT/.test(src) && /toUpperCase\(\) \+ "_PROMPT"/.test(src) && /--output-format json/.test(src), 'Claude Chat 走 -p --output-format json')
-  check(/pi -p --mode json/.test(src), 'pi Chat 走 -p --mode json')
+  check(/-p --mode json/.test(src) && /AGENT_DEFS\[s\.agent\]/.test(src), 'pi Chat 走 -p --mode json')
   check(/< \/dev\/null/.test(src), 'Chat 命令关闭 stdin，避免吃掉池化会话的哨兵')
   check(/--permission-mode/.test(src) && /--no-tools/.test(src), '权限档位映射到 CLI 参数')
   check(/agentParseChat/.test(src) && /session_id/.test(src), '解析 CLI session id 以支持续聊')
@@ -131,7 +131,7 @@ console.log('H · 无头 Chat（结构化）')
 
 console.log('G · 版本与文档')
 {
-  check(pkg.version === '2.7.1', '版本 2.7.1')
+  check(pkg.version === '2.7.2', '版本 2.7.2')
   check(/## \[2\.7\.0\]/.test(changelog) && /远程 Agent/.test(changelog), 'CHANGELOG 有 2.7.0 段并描述功能')
 }
 

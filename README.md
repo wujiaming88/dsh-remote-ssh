@@ -39,7 +39,7 @@ Agent 首次使用需先在远端完成登录（例如 `claude` / `pi` 的首次
 
 ```bash
 # npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.7.1
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.7.2
 
 # 或 GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh
