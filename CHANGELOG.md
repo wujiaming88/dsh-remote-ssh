@@ -2,6 +2,14 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.10.0] — 2026-11-23
+
+### 新：建区时选择 Agent，后续会话自动预选
+
+- 「添加工作区」的 SSH 远程模式增加「会话 Agent」：DSH 默认 / Claude Code / Codex
+- 选择结果按 profileId + remotePath 记住；新建会话打开「远端 Agent」View 时自动预选 agent 与权限
+- 在 Agent View 内开始会话时会回写偏好，之后新会话保持一致
+
 ## [2.9.5] — 2026-11-23
 
 ### 修：ACP 会话只保留一个对话 Tab

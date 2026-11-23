@@ -22,6 +22,8 @@
 
 1. setup 会优先使用当前 DSH 会话所属的**远端工作区**（`useWorkspaces.sessionIds` + `mirrorPath` 推断），也可改选连接/工作区
 2. 选 agent（Claude Code / Codex）与权限（Accept edits / Plan / Bypass）→「开始会话」（`acpStart` 带 `dshSessionId`）
+
+> 建区时也可在「添加工作区 → SSH 远程」里直接选「会话 Agent」（DSH 默认 / Claude Code / Codex）；之后新会话打开「远端 Agent」View 会自动预选，不用每次重选。
 3. 之后切走再切回、或刷新页面，View 会自动恢复会话；**切换 View 不会结束会话**
 
 View 内提供：Markdown 正文、工具卡片（DiffBlock / TerminalBlock / ReadBlock）、原生事件/子 Agent 卡片、模型 / 思考级别 / 模式切换（`acpSetConfig` / `acpSetMode`）、
@@ -48,7 +50,7 @@ Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper �
 
 ```bash
 # npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.9.5
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.10.0
 
 # 或 GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh

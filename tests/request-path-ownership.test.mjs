@@ -301,7 +301,7 @@ check(/\bwarn\(/.test(grab(src, 'function localToRemote')), 'C9 localToRemote �
 // C10–C12 不写死版本号：写死的话每次发版都要手改测试，忘改就是一条必红断言
 //（2.4.31 发版时实际踩到，一次红了 3 个文件）。改成「package.json 的版本必须在 CHANGELOG 里有对应段落」。
 const ver = pkg.version
-check(/^2\.[4-9]\.\d+$/.test(ver), 'C10 package.json 版本形如 2.4.x / 2.5.x = ' + ver)
+check(/^2\.(?:[4-9]|1[0-9])\.\d+$/.test(ver), 'C10 package.json 版本形如 2.4.x / 2.5.x = ' + ver)
 check(changelog.includes('## [' + ver + ']'), 'C11 CHANGELOG 有 ' + ver + ' 段（发版即同步）')
 
 console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败')

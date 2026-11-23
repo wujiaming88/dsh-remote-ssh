@@ -22,6 +22,8 @@ on mount it calls `acpList({dshSessionId})` and `acpResume` when a record exists
 
 1. Setup defaults to the current session's **remote workspace** (`useWorkspaces.sessionIds` + `mirrorPath`); you can still change connection/workspace
 2. Pick an agent (Claude Code / Codex) and permission level (Accept edits / Plan / Bypass) → **Start session** (`acpStart` with `dshSessionId`)
+
+> The Add Workspace → SSH remote dialog also offers **Session agent** (DSH default / Claude Code / Codex); later sessions preselect it in the Remote Agent view.
 3. Switching views or refreshing restores the session; **switching views never ends it**
 
 The View renders Markdown text, tool/native/subagent cards, model / reasoning / mode selectors (`acpSetConfig` / `acpSetMode`),
@@ -42,7 +44,7 @@ Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrappe
 
 ```bash
 # npm (once published)
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.9.5
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.10.0
 
 # or GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh

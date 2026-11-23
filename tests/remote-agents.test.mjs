@@ -100,7 +100,10 @@ console.log('D · 探测输出解析')
 
 console.log('E · 会话内常驻 Agent View（conversation.view）')
 {
-  check(client.includes('slots.inject("conversation.view"'), '注册 conversation.view')
+  
+  check(client.includes('function acpWriteAgentPref') && client.includes('function acpReadAgentPref'), '建区 Agent 偏好有读写助手')
+  check(client.includes('flow.agent') && client.includes('acpWriteAgentPref(profileId, remotePath'), '建区时保存 Agent 偏好，start 时回写')
+check(client.includes('slots.inject("conversation.view"'), '注册 conversation.view')
   check(client.includes('name: "conversation.view"') && client.includes('id: "remote-acp"'), 'View name/id = remote-acp')
   check(client.includes('order: 15'), 'View order = 15（Chat 之后）')
   check(client.includes('label: function () { return i18n.t("acp.hero"); }'), 'View 标签「远端 Agent」')

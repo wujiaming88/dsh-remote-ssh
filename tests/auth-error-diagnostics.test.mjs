@@ -153,7 +153,7 @@ check(new Script(client) instanceof Script, 'C12 lib/client.js 语法可解析')
 
 // 版本断言不再写死字面量（每发一版都要手改测试是测试自身的维护成本）：改为「package.json == CHANGELOG 顶部」
 const topVersion = (changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || ''
-check(pkg.version === topVersion && /^2\.[4-9]\./.test(topVersion), 'C17 package.json 版本号 = CHANGELOG 顶部版本（' + pkg.version + ' / ' + topVersion + '）')
+check(pkg.version === topVersion && /^2\.(?:[4-9]|1[0-9])\./.test(topVersion), 'C17 package.json 版本号 = CHANGELOG 顶部版本（' + pkg.version + ' / ' + topVersion + '）')
 check(readme.includes('dsh-remote-ssh@' + pkg.version), 'C18 README 安装命令指向当前版本 ' + pkg.version)
 
 console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败')

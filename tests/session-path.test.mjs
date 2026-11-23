@@ -396,7 +396,7 @@ console.log('\nC. 接线与文档')
   check(fsHandler.includes('resolveSessionPath(raw, pathBase)'), 'C14 fs.trees 逐条归一')
   check(fsHandler.includes('unresolvedPathMessage(raw, pathBase, r.reason)'), 'C15 fs.trees 的失败条目带可读原因（回显原始路径）')
 
-  check(/^2\.(4\.(2[7-9]|[3-9]\d)|[5-9]\.\d+)$/.test(pkg.version), 'C16 版本号已升到 2.4.27 或更高（' + pkg.version + '）')
+  check(/^2\.(?:(?:4\.(?:2[7-9]|[3-9]\d))|(?:[5-9]\.\d+)|(?:1[0-9]\.\d+))$/.test(pkg.version), 'C16 版本号已升到 2.4.27 或更高（' + pkg.version + '）')
   check(readme.includes('dsh-remote-ssh@' + pkg.version), 'C20 README 的安装命令指向当前版本（' + pkg.version + '）')
 }
 
