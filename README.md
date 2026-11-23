@@ -35,7 +35,7 @@ Agent 首次使用需先在远端完成登录（例如 `claude` / `pi` 的首次
 
 ### ACP Chat
 
-在「**新建会话**」页的选项行点「**远端 Agent**」，打开一个大尺寸 DSH Modal：
+在「**新建会话**」页的选项行点「**远端 Agent**」，打开一个大尺寸 DSH Modal（会话头部也保留同名入口，hero 消失后可继续打开/恢复）：
 
 1. 选连接配置 →「探测」得到远端 Claude Code / Codex（版本来自 `acpAgents`）
 2. 选远端工作区（自动带出 `mirrorPath` / `remotePath`）或手填 `mirrorCwd`
@@ -65,7 +65,7 @@ Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper �
 
 ```bash
 # npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.0
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.8.1
 
 # 或 GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh

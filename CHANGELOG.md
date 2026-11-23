@@ -2,6 +2,13 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.8.1] — 2026-11-23
+
+### 修：ACP Chat 的常驻入口
+
+- 新增会话头部「远端 Agent」入口（`conversation.session.header.actions`），hero 消失后仍可打开同一个 ACP Chat Modal 并恢复已保存会话
+- 与「新建会话」hero 入口共用 `AcpChatModal`，不复制状态
+
 ## [2.8.0] — 2026-11-23
 
 ### 新：ACP Chat 客户端 UI（conversation.hero.options）
