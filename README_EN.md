@@ -42,7 +42,7 @@ Host side: a local ACP adapter (Claude Code / Codex) plus a generated SSH wrappe
 
 ```bash
 # npm (once published)
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.9.4
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.9.5
 
 # or GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh
