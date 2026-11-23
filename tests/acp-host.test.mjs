@@ -586,7 +586,7 @@ console.log('G · Host 接线与文档')
   check(pkg.dependencies['@agentclientprotocol/claude-agent-acp'] === '^0.109.1', '依赖 claude-agent-acp')
   check(pkg.dependencies['@agentclientprotocol/codex-acp'] === '^2.9.0', '依赖 codex-acp')
   check(pkg.files.includes('lib/acp.js'), 'files 包含 lib/acp.js')
-  check(pkg.version === '2.9.1', '版本 2.9.1')
+  check(pkg.version === '2.9.2', '版本 2.9.2')
   check(/ACP/.test(readme) && /acpPrompt/.test(readme), 'README 有 ACP Chat 说明')
   check(/## \[2\.8\.0\]/.test(changelog) && /ACP/.test(changelog), 'CHANGELOG 有 2.8.0 ACP 说明')
 }
