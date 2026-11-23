@@ -202,12 +202,12 @@ console.log('H · ACP Chat 功能与端点')
   check(acp.includes('api("acpCancel"') && acp.includes('function stopTurn'), 'acpCancel 停止当前 turn')
   check(acp.includes('api("acpList"') && acp.includes('api("acpResume"'), 'acpList + acpResume 会话列表')
   check(acp.includes('api("acpClose"') && acp.includes('function endSession'), 'acpClose 结束会话')
-  check(acp.includes('endConfirm') && acp.includes('acp.endSessionDesc'), '结束会话需确认')
+  check(!acp.includes('setEndConfirm(true)') && !acp.includes('onClick: endSession'), '不再提供结束会话按钮')
   check(!acp.includes('attemptClose') && !acp.includes('closeConfirm'), '没有 Modal 关闭/确认路径（View 常驻）')
 
   // 命令插入 / 文件
   check(acp.includes('function insertCommand') && acp.includes('function chooseCommand'), 'commands 可点击插入 composer')
-  check(acp.includes('h(AgentFilesModal'), 'Chat 内复用远端文件浏览')
+  check(!acp.includes('filesOpen && session ? h(AgentFilesModal'), 'ACP 不再内置文件弹窗（走侧边栏）')
 
   // 状态与错误
   for (const key of ['acp.running', 'acp.waiting', 'acp.ready', 'acp.stopped', 'acp.error', 'acp.closed', 'acp.disconnected']) {
@@ -295,7 +295,7 @@ console.log('J · 常驻 View / dshSessionId / 文件 / 命令面板 / 生命周
   check(stop.includes('api("acpCancel"') && !stop.includes('api("acpClose"'), '停止只停 turn，不结束会话')
   const reset = grab(acp, 'function resetToSetup')
   check(!reset.includes('api("acpClose"'), '新会话/重置不调用 acpClose')
-  check(acp.includes('function endSession') && acp.includes('setEndConfirm(true)'), '结束会话需确认')
+  check(!acp.includes('setEndConfirm(true)') && !acp.includes('onClick: endSession'), '不再提供结束会话按钮')
   check(acp.includes('acp.closeFailed') && acp.includes('acp.error'), '结束/错误状态可见')
   check(acp.includes('setBooting(false)') && acp.includes('acp.resumingSession'), '挂载恢复中状态')
   check(acp.includes('acp.stopped') && acp.includes('acp.waiting') && acp.includes('acp.running'), '生命周期状态：运行/等待权限/已停止')
@@ -308,8 +308,8 @@ console.log('J · 常驻 View / dshSessionId / 文件 / 命令面板 / 生命周
   check(acp.includes('setMirrorCwd(String(hit.mirrorPath') && acp.includes('setRemotePath(String(hit.remotePath'), '自动填 mirrorCwd/remotePath')
 
   // 文件
-  check(acp.includes('t("acp.files")') && acp.includes('setFilesOpen(true)'), '顶部文件按钮')
-  check(acp.includes('h(AgentFilesModal') && acp.includes('initialDir: session.remotePath'), '文件面板默认会话 remotePath')
+  check(!acp.includes('setFilesOpen(true)') && !acp.includes('className: "ra-acp-plus"'), '不再提供顶部文件/加号按钮')
+  check(!acp.includes('filesOpen && session ? h(AgentFilesModal'), 'ACP 不再内置文件面板')
   check(acp.includes('listDir') || src.includes('"listDir"'), '文件面板列出目录（listDir）')
   check(acp.includes('api("readFile"'), '文件面板读取文本')
   check(src.includes('/remote-ssh/agents-upload') && src.includes('/remote-ssh/agents-download'), '文件面板上传/下载路由')

@@ -28,9 +28,9 @@
 
 View 内提供：Markdown 正文、工具卡片（DiffBlock / TerminalBlock / ReadBlock）、原生事件/子 Agent 卡片、模型 / 思考级别 / 模式切换（`acpSetConfig` / `acpSetMode`）、
 运行中 Steer（`acpSteer`，立即上屏）、停止（`acpCancel`，只停当前 turn）、HITL 权限卡片（按 adapter 的 options 原样回传 optionId，不自动批准；Bypass 由 Host 自动）、
-会话列表与恢复（`acpList` / `acpResume`）、结束会话（`acpClose`，需确认）。
+会话列表与恢复（`acpList` / `acpResume`）。
 
-- **文件**：View 顶部「文件」打开现有远端文件面板（listDir / readFile / 上传 / 下载），文本与图片可预览，默认会话目录 `remotePath`
+- **文件**：直接用 DSH 侧边栏的「文件」页签浏览远端目录（文本/图片预览、上传下载）；ACP View 不再放文件按钮
 - **命令 / skill**：ACP `commands` 做搜索 + 分组 + 点击插入 composer；支持 `/name`、Codex `/skills`，显示 description 与 input hint；发送后就是普通消息
 - **退出**：没有 Modal 壳；切 View/刷新不调用 `acpClose`，只有「结束会话」会移除记录
 
@@ -50,7 +50,7 @@ Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper �
 
 ```bash
 # npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.13.3
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.14.0
 
 # 或 GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh
