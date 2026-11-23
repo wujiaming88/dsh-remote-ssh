@@ -2,6 +2,15 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.12.4] — 2026-11-23
+
+### 修：composer 回归与空状态 key
+
+- 空状态快捷提问补上 `acp.quickExplain/Test/Changes` 文案，不再显示原始 key
+- textarea 改回原生 textarea，去掉 primitives.Textarea 自带的第二层边框
+- composer 工具行改 grid，发送按钮固定在右侧，不再被配置项挤到下一行左侧
+- Fast mode / Ultracode 等高级配置默认收进「更多」，主行只留模型/思考级别/模式
+
 ## [2.12.3] — 2026-11-23
 
 ### 调：composer 布局收敛

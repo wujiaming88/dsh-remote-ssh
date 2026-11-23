@@ -50,7 +50,7 @@ Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper �
 
 ```bash
 # npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.12.3
+dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.12.4
 
 # 或 GitHub
 dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh
