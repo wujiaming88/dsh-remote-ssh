@@ -2,6 +2,13 @@
 
 本文件记录本仓库的版本。版本号与 `package.json` 一致。
 
+## [2.14.1] — 2026-11-23
+
+### 调：ACP 会话只保留 Agent Tab
+
+- ACP View 激活时隐藏除当前 Agent 外的所有 conversation.view Tab（对话/轨迹/上下文/编队）
+- 仅显示当前 `aria-selected` 的「远端 Agent」Tab，避免切到不支持的原生视图
+
 ## [2.14.0] — 2026-11-23
 
 ### 调：ACP View 顶部动作精简
