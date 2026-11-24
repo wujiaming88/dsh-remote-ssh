@@ -22,17 +22,17 @@ export function useT() {
 
 
 
-export function Select({ label, value, options, onChange, disabled }) {
+export function Select({ label, value, options, onChange, disabled, icon, className = '', align = 'end' }) {
   const [open, setOpen] = React.useState(false);
   const selected = options.find(option => option.id === value);
   return h(ui.Menu, {
-    open, items: options, selectedId: value, align: 'end',
+    open, items: options, selectedId: value, align,
     onClose: () => setOpen(false),
     onSelect: id => { setOpen(false); onChange(id); },
     anchor: h(ui.Button, { variant: 'ghost', size: 'sm', disabled,
-      className: 'rssh-selector', 'aria-label': `${label}: ${selected?.label || value || ''}`,
-      onClick: () => setOpen(current => !current) },
-    h('span', null, selected?.label || value || label), h(ui.IconChevronDownOutlineRegular, { size: 14 })),
+      className: `rssh-selector ${className}`.trim(), 'aria-label': `${label}: ${selected?.label || value || ''}`,
+      title: `${label}: ${selected?.label || value || ''}`, onClick: () => setOpen(current => !current) },
+    icon, h('span', {className:'rssh-selector-label'}, selected?.label || value || label), h(ui.IconChevronDownOutlineRegular, { size: 14 })),
   });
 }
 export function FileGlyph({ directory, name }) {

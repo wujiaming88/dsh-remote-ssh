@@ -32,6 +32,17 @@ export function usageDetails(state) {
 export function formatTokens(value) {
   return nonnegative(value) === null ? '—' : new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
 }
+export function formatCompactTokens(value) {
+  if (nonnegative(value) === null) return '—';
+  if (value < 1000) return formatTokens(value);
+  const divisor = value >= 1e9 ? 1e9 : value >= 1e6 ? 1e6 : 1e3;
+  const unit = divisor === 1e9 ? 'G' : divisor === 1e6 ? 'M' : 'K';
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value / divisor) + unit;
+}
+export function usageSummary(details) {
+  if (details.used !== null) return { kind: 'context', value: `${formatCompactTokens(details.used)} tok` };
+  return null;
+}
 export function formatPercentage(value) {
   return nonnegative(value) === null ? '—' : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)}%`;
 }

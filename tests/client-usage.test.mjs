@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {usageDetails,formatTokens,formatPercentage,formatCost,sessionStats,formatElapsed} from '../src/client/usage-model.js';
+import {parse} from 'acorn';
+import {usageDetails,formatTokens,formatPercentage,formatCost,sessionStats,formatElapsed,formatCompactTokens,usageSummary} from '../src/client/usage-model.js';
 import {initialState,reduceEvent} from '../src/client/events.js';
 import {mapSessionUpdate} from '../lib/acp-events.js';
 
@@ -64,7 +65,7 @@ test('context meter is a click-open ring below the composer, not a hover icon',(
   assert.match(usage,/onClick:\(\)=>setOpen\(value=>!value\)/);         // click-open, not hover
   assert.doesNotMatch(usage,/onMouseEnter|onMouseLeave|onFocusCapture|onBlurCapture/);
   assert.match(usage,/role:'dialog',align:'end'/);
-  assert.match(usage,/t\('usage.context'\)/);assert.match(usage,/'usage.cost'/);
+  assert.match(usage,/t\('usage.context'\)/);assert.doesNotMatch(usage,/'usage.cost'/);
   assert.match(usage,/~\$\{formatTokens\(details.used\)\} \/ \$\{formatTokens\(details.capacity\)\}/);
   assert.doesNotMatch(usage,/h\('details'|usage.details|usage.path|usage.sessionId/);
   assert.match(css,/\.rssh-meter-trigger\s*\{[^}]*border-radius: var\(--dsw-radius-sm\)/);
@@ -73,7 +74,7 @@ test('context meter is a click-open ring below the composer, not a hover icon',(
   assert.match(css,/\.rssh-meter-bar/);assert.match(css,/\.rssh-meter-segment/);
   assert.match(ui,/if \(current.current.role === 'dialog'\) return;/);
   const vars=[...css.matchAll(/var\((--[\w-]+)/g)].map(match=>match[1]);
-  assert.ok(vars.every(name=>['--dsw-alias-','--dsw-radius-','--ds-font-','--dsh-'].some(prefix=>name.startsWith(prefix))));
+  assert.ok(vars.every(name=>['--dsw-alias-','--dsw-radius-','--dsw-specific-input-major','--dsw-specific-selector','--dsw-elevation-soft','--ds-font-','--dsh-'].some(prefix=>name.startsWith(prefix))));
 });
 
 test('session statistics count settled turns, running work and elapsed age from ACP facts',()=>{
@@ -93,5 +94,40 @@ test('session statistics pill is a click-open dock entry beside the context mete
   assert.match(usage,/sessionStats\(state\)/);assert.match(usage,/formatElapsed\(elapsedMs\)/);
   assert.match(usage,/setInterval\(\(\)=>setNow\(Date.now\(\)\),30000\)/);
   assert.match(usage,/if \(stats.completed===0 && stats.running===0\) return null/);
-  assert.match(chat,/h\('div',\{className:'rssh-compose-dock'\},h\(UsageMeter,\{state\}\),h\(SessionStatsPill,\{state\}\)\)/);
+  assert.match(chat,/h\('div',\{className:'rssh-compose-dock'\},h\(SessionStatsPill,\{state\}\),h\(UsagePill,\{state\}\),h\(UsageMeter,\{state\}\)\)/);
+});
+
+
+test('compact context tokens remain visible but cost-only readings are hidden',()=>{
+  assert.equal(formatCompactTokens(null),'—');assert.equal(formatCompactTokens(0),'0');
+  assert.match(formatCompactTokens(28100),/^28[.,]1K$/);assert.equal(formatCompactTokens(1000000),'1M');
+  assert.equal(usageSummary(usageDetails({})),null);
+  assert.deepEqual(usageSummary(usageDetails({usage:{used:0}})),{kind:'context',value:'0 tok'});
+  assert.equal(usageSummary(usageDetails({usage:{used:28100}})).kind,'context');
+  for (const amount of [0,0.42]) assert.equal(usageSummary(usageDetails({usage:{cost:{amount,currency:'USD'}}})),null);
+  assert.deepEqual(usageSummary(usageDetails({usage:{used:0,cost:{amount:1,currency:'USD'}}})),{kind:'context',value:'0 tok'});
+});
+test('usage and activity use distinct icons, honest labels, and independent availability',()=>{
+  const source=readFileSync(new URL('../src/client/usage.js',import.meta.url),'utf8');
+  assert.match(source,/export function UsagePill/);assert.match(source,/if\(!summary\)return null/);
+  assert.match(source,/rx:5.5,ry:2/);assert.match(source,/h\(StatsIcon\)/);assert.match(source,/h\(UsageIcon\)/);
+  assert.match(source,/'usage.contextNote'/);assert.match(source,/'stats.elapsed':'Session age'/);
+  assert.doesNotMatch(source,/usage\.cost|formatCost|details\.cost|累计费用|最终账单|Cumulative cost|final invoice/);
+  assert.match(source,/row\('usage.model',details.model\)/);assert.match(source,/row\('usage.capacity'/);
+  assert.match(source,/const reading=stats.running>0/); // age stays in details, not masquerading as execution duration
+  assert.doesNotMatch(source,/tok\/s|cacheHit|decodeSpeed|stats.steps/);
+  assert.match(source,/if\(details.percent===null\)setOpen\(false\)/);
+});
+
+
+test('Escape closes every dock popover from its trigger without swallowing Tab or closed Escape',()=>{
+  const source=readFileSync(new URL('../src/client/usage.js',import.meta.url),'utf8');
+  const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
+  const node=ast.body.find(node=>node.type==='ExportNamedDeclaration'&&node.declaration?.id?.name==='dismissUsagePopover').declaration;
+  const dismiss=new Function(source.slice(node.start,node.end)+';return dismissUsagePopover;')();
+  const calls=[];
+  const event=key=>({key,preventDefault:()=>calls.push('prevent'),stopPropagation:()=>calls.push('stop')});
+  dismiss(event('Tab'),true,()=>calls.push('close'));dismiss(event('Escape'),false,()=>calls.push('close'));assert.deepEqual(calls,[]);
+  dismiss(event('Escape'),true,()=>calls.push('close'));assert.deepEqual(calls,['prevent','stop','close']);
+  assert.equal([...source.matchAll(/onKeyDown:event=>dismissUsagePopover/g)].length,3);
 });

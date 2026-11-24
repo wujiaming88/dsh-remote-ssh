@@ -1,0 +1,158 @@
+.rssh-session-files {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-base);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: 1.6;
+  container: rssh-files / inline-size;
+}
+.rssh-files-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  padding: 0 6px 0 12px;
+  border-bottom: .5px solid var(--dsw-alias-border-l3);
+}
+.rssh-files-location {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dsw-alias-label-secondary);
+}
+.rssh-files-root { flex: none; padding: 2px 4px; min-height: 28px; color: inherit; }
+.rssh-files-path { display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
+.rssh-files-path-parent { flex: 0 10 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-tertiary); }
+.rssh-files-path-leaf { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-primary); }
+.rssh-files-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.rssh-files-tool {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 6px;
+  flex: none;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  line-height: 1;
+}
+.rssh-files-tool svg { width: 15px; height: 15px; }
+.rssh-files-tool:focus-visible, .rssh-file-editor:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
+.rssh-files-list {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 8px 0 8px 8px;
+  margin-right: 2px;
+}
+.rssh-files-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.rssh-files-row > svg, .rssh-files-glyph { flex: none; display: inline-flex; color: var(--dsw-alias-label-tertiary); }
+.rssh-files-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rssh-files-size { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.rssh-files-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  min-height: 20px;
+  border-top: .5px solid var(--dsw-alias-border-l3);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+.rssh-files-feedback {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  max-height: 30%;
+  overflow: auto;
+  color: var(--dsw-alias-state-error-primary);
+}
+.rssh-files-feedback > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rssh-files-empty {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+  color: var(--dsw-alias-label-secondary);
+}
+.rssh-files-empty p { margin: 0; }
+.rssh-file-document { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; min-width: 0; overflow: hidden; }
+.rssh-files-document-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: .5px solid var(--dsw-alias-border-l3);
+}
+.rssh-files-document-meta { flex: 1 1 100px; min-width: 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; overflow-wrap: anywhere; }
+.rssh-files-document-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.rssh-files-dirty { color: var(--dsw-alias-state-warn-label, var(--dsw-alias-label-secondary)); }
+.rssh-file-editor {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 0;
+  padding: 12px;
+  font-family: var(--ds-font-family-code);
+  font-size: var(--dsh-code-font-size, 13px);
+  line-height: 1.6;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-base);
+  tab-size: 2;
+}
+.rssh-file-editor[readonly] { color: var(--dsw-alias-label-secondary); }
+.rssh-files-image-view { flex: 1 1 0; min-height: 0; min-width: 0; overflow: auto; padding: 16px; display: grid; place-items: safe center; }
+.rssh-files-image { display: block; max-width: 100%; height: auto; }
+@container rssh-files (max-width: 300px) {
+  .rssh-files-root-label, .rssh-files-size { display: none; }
+  .rssh-files-toolbar { padding-left: 6px; }
+}
+@media (hover: hover) {
+  .rssh-files-tool:hover:not(:disabled), .rssh-files-row:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+}

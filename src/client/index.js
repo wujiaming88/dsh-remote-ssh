@@ -5,7 +5,8 @@ import {REMOTE_SESSION_PROJECTION_KEY} from '../../lib/protocol.js';
 import { ChatPane } from './chat.js';
 import { SessionSetup, messages as setupMessages } from './session-setup.js';
 import { NewRemoteSession } from './new-session.js';
-import { RemoteFilesSidebar, assertFileCloseAllowed } from './files.js';
+import { RemoteFilesSidebar, assertFileCloseAllowed, messages as fileMessages } from './files.js';
+import filesCss from './files.css';
 import { SettingsSection, messages as settingsMessages } from './settings.js';
 import {installSessionActions, messages as sessionActionMessages} from './session-actions.js';
 import {messages as usageMessages} from './usage.js';
@@ -26,7 +27,6 @@ function RemoteConversation(props) {
   if (routing.sessionId !== props.sessionId) return null;
   return h('main', { className: 'rssh-conversation' },
     h('header', { className: 'rssh-conversation-header', 'data-window-drag': '' },
-      h(ui.Button, { size: 'sm', variant: 'ghost', 'aria-label': t('acp.navigation'), onClick: props.toggleNavigation }, h(ui.IconSidebarOutlineRegular, { size: 16 })),
       h('span', { className: 'rssh-conversation-title' }, title || t('acp.hero')),
       routing.value?.workspace?.shellWorkspaceId && routing.value.backend ? h(NewRemoteSession, { key: props.sessionId,
         workspaceId: routing.value.workspace.shellWorkspaceId, createSession: props.createRemoteSession, openSession: props.openSession, beginNavigation: props.beginNavigation }) : null,
@@ -42,15 +42,15 @@ function RemoteConversation(props) {
 export function apply(ctx) {
   const { slots } = ctx;
   ctx.effect(() => ctx.locale.register(NAMESPACE, {
-    zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...setupMessages.zh, ...sessionActionMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh },
-    en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...setupMessages.en, ...sessionActionMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en },
+    zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...setupMessages.zh, ...sessionActionMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh, ...fileMessages.zh },
+    en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...setupMessages.en, ...sessionActionMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en, ...fileMessages.en },
   }));
   locale.t = ctx.locale.bind(NAMESPACE);
   locale.subscribe = listener => ctx.locale.subscribe(listener);
   locale.getSnapshot = () => ctx.locale.getSnapshot();
   installSessionActions(ctx);
   ctx.effect(() => {
-    const style = document.createElement('style'); style.textContent = uiCss + "\n" + toolCss + "\n" + css; document.head.appendChild(style);
+    const style = document.createElement('style'); style.textContent = uiCss + "\n" + toolCss + "\n" + css + "\n" + filesCss; document.head.appendChild(style);
     return () => style.remove();
   });
 
@@ -95,7 +95,6 @@ export function apply(ctx) {
             beginNavigation: () => ctx.layout.beginNavigation(),
             createRemoteSession: options => ctx.sessions.create(options),
             openSession: id => ctx.uiWorkspace.openSession(id),
-            toggleNavigation: () => ctx.layout.toggleSidebar(),
             toggleFiles: () => ctx.sidebarRight.isExpanded() ? ctx.sidebarRight.toggleExpanded() : ctx.sidebarRight.openTab('remote-files'),
             openRemoteFile: path => ctx.sidebarRight.openTab('remote-files', { params: { path } }),
           }) }, RemoteConversation);

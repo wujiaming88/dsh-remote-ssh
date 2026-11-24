@@ -2,6 +2,16 @@ import React from 'react';
 import {h,ui,useT} from './shared.js';
 import {composerControls} from './composer-controls-model.js';
 
+export function PermissionIcon() {
+  return h('svg',{viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.3,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+    h('path',{d:'M8 1.5 13 3v4c0 3-2 5.5-5 7-3-1.5-5-4-5-7V3l5-1.5Z'}),h('path',{d:'m5.5 7.5 1.5 1.5 3.5-3.5'}));
+}
+export function AttachmentButton({disabled,onClick}) {
+  const t=useT();
+  return h(ui.Button,{variant:'ghost',className:'rssh-composer-add',disabled,onClick,title:t('acp.addAttachment'),'aria-label':t('acp.addAttachment')},
+    h('svg',{viewBox:'0 0 16 16',width:16,height:16,fill:'none',stroke:'currentColor',strokeWidth:1.4,strokeLinecap:'round','aria-hidden':true},h('path',{d:'M8 2.5v11M2.5 8h11'})));
+}
+
 function StopIcon() {
   return h('svg',{viewBox:'0 0 16 16',width:16,height:16,'aria-hidden':true},
     h('rect',{x:3,y:3,width:10,height:10,rx:3,fill:'currentColor'}));

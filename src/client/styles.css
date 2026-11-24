@@ -1,47 +1,3 @@
-.ra-file-list {
-  max-height: 220px;
-  overflow: auto;
-  border: .5px solid var(--dsw-alias-border-l1);
-  border-radius: 8px;
-  padding: 2px;
-  margin: 6px 0;
-}
-.ra-file-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.ra-file-row:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-.ra-file-image {
-  display: block;
-  max-width: 100%;
-  max-height: 320px;
-  border-radius: 8px;
-  margin-top: 6px;
-}
-.ra-file-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.ra-download {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 10px;
-  border: .5px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  color: var(--dsw-alias-label-primary);
-  text-decoration: none;
-  font-size: 12px;
-}
 .ra-acp {
   display: flex;
   flex-direction: column;
@@ -53,26 +9,13 @@
 .ra-acp-configs {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  padding: 2px 0;
-  min-width: max-content;
-}
-.ra-acp-config {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
   min-width: 0;
 }
-.ra-acp-config-label {
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--dsw-alias-label-tertiary);
-  white-space: nowrap;
-}
-.ra-acp-command-selected {
-  background: var(--dsw-alias-interactive-bg-hover) !important;
-}
+.ra-acp-config { display: flex; align-items: center; min-width: 0; }
+.ra-acp-command-selected { background: var(--dsw-alias-interactive-bg-hover) !important; }
 .ra-acp-attachments {
   display: flex;
   flex-wrap: wrap;
@@ -183,19 +126,40 @@
 .ra-acp-composer {
   flex: none;
   width: calc(100% - 32px);
-  max-width: calc(var(--dsh-chat-content-width, 748px) + 16px);
+  max-width: calc(var(--dsh-chat-content-width, 748px) + 32px);
   box-sizing: border-box;
   margin: 12px auto 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 16px;
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: none;
+  gap: 12px;
+  padding-top: 8px;
+  border: 0;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-specific-input-major);
+  box-shadow: var(--dsw-elevation-soft);
+  font-size: var(--dsh-content-font-size, 14px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+.ra-acp-composer > .ra-acp-attachments { padding: 4px 14px 0; }
+.rssh-composer-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dsw-specific-selector);
+  color: var(--dsw-alias-label-primary);
 }
 .ra-acp-send {
+  transform: translateY(-2px);
   background: var(--dsw-alias-button-info-fill);
   color: var(--dsw-alias-label-on-color);
   border: none;
@@ -224,13 +188,15 @@
 .rssh-compose-dock {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0 12px;
   flex: none;
   width: calc(100% - 32px);
-  max-width: calc(var(--dsh-chat-content-width, 748px) + 16px);
-  box-sizing: border-box;
-  margin: 4px auto 0;
-  padding: 0 6px;
+  max-width: calc(var(--dsh-chat-content-width, 748px) + 32px);
+  min-height: calc(22px + var(--dsh-content-font-delta-secondary, 0px));
+  margin: 0 auto;
+  padding-top: 4px;
 }
 .rssh-composer-spinner {
   animation: rssh-composer-spin .8s linear infinite;
@@ -245,72 +211,67 @@
     animation: none;
   }
 }
-.ra-acp-compose-bar .rssh-selector {
-  height: 26px;
-  padding: 0 4px;
-  font-size: 12px;
-  background: transparent;
-  border-color: transparent;
-}
-.ra-acp-compose-bar .rssh-selector:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
 .ra-acp-compose-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+  gap: 12px;
+  padding: 2px 8px 6px;
+  min-width: 0;
+  container-type: inline-size;
 }
-.ra-acp-compose-left {
+.ra-acp-compose-left, .ra-acp-compose-right {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
+  gap: 12px;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  max-width: 100%;
 }
-.ra-acp-compose-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  justify-self: end;
-  white-space: nowrap;
-}
-.ra-acp-compose-bar .ra-acp-config {
-  min-width: 0;
-  flex-shrink: 1;
-}
+.ra-acp-compose-right { margin-left: auto; flex: 0 1 auto; }
 .ra-acp-compose-bar .rssh-selector {
-  max-width: 170px;
+  height: 28px;
+  min-height: 28px;
+  max-width: 220px;
   min-width: 0;
+  padding: 0 4px 0 8px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
 }
-.ra-acp-compose-bar .rssh-selector > span:first-child {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
+.ra-acp-compose-bar .rssh-selector-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ra-acp-compose-bar .rssh-selector > svg { flex: none; }
 .ra-acp-textarea {
   width: 100%;
   box-sizing: border-box;
-  min-height: 44px;
-  max-height: 180px;
+  min-height: calc(36px + var(--dsh-content-font-delta, 0px));
+  max-height: min(336px, 40dvh);
+  field-sizing: content;
+  overflow-y: auto;
   resize: none;
   background: transparent;
   color: var(--dsw-alias-label-primary);
   border: none;
-  border-radius: 6px;
-  padding: 2px 2px;
+  border-radius: 0;
+  padding: 4px 8px 0 14px;
   font: inherit;
-  font-size: 14px;
-  line-height: 20px;
   outline: none;
 }
-.ra-acp-composer:focus-within {
-  border-color: var(--dsw-alias-label-tertiary);
+.ra-acp-textarea::placeholder { color: var(--dsw-alias-label-caption); opacity: 1; }
+.ra-acp-composer[data-empty] .ra-acp-textarea { min-height: calc(52px + var(--dsh-content-font-delta, 0px)); }
+@container (max-width: 560px) {
+  .ra-acp-compose-left, .ra-acp-compose-right { gap: 8px; }
+}
+@container (max-width: 460px) {
+  /* ACP modes share a glyph: retain their text instead of hiding permission identity. */
+  .rssh-permission-select .rssh-selector-label { max-width: 96px; }
+  .ra-acp-compose-bar .rssh-selector { max-width: 150px; }
+}
+@media (hover: hover) {
+  .rssh-composer-add:hover:not(:disabled), .ra-acp-compose-bar .rssh-selector:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
 }
 
 .ra-acp-view {
@@ -346,33 +307,6 @@
   gap: 10px;
   padding: 28px 16px;
   text-align: center;
-}
-.rssh-session-files {
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
-  padding: 12px;
-  box-sizing: border-box;
-}
-.rssh-file-document {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 240px;
-}
-.rssh-file-editor {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 360px;
-  flex: 1;
-  resize: vertical;
-  font-family: monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  background: var(--dsw-alias-bg-base);
-  color: var(--dsw-alias-label-primary);
-  border: 1px solid var(--dsw-alias-border-l1);
-  padding: 12px;
 }
 .rssh-conversation {
   display: flex;
@@ -686,6 +620,8 @@
 .rssh-meter-trigger[data-tone=error] .rssh-meter-fill {
   stroke: var(--dsw-alias-state-error-primary);
 }
+.rssh-stats-trigger, .rssh-usage-trigger { font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px); }
+.rssh-meter-trigger > svg { flex: none; }
 .rssh-meter-reading {
   font-variant-numeric: tabular-nums;
 }
@@ -1055,9 +991,4 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-.ra-file-row > button {
-  flex: 1;
-  min-width: 0;
-  justify-content: flex-start;
 }

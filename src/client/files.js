@@ -2,6 +2,24 @@ import {HTTP_BASE} from '../../lib/protocol.js';
 import React from "react";
 import {h,ui,api,useT,formatError,FileGlyph} from "./shared.js";
 import {fileParentTarget} from './ui-pure.js';
+import {formatFileSize,fileEntryPath,fileDirectory,fileViewState} from './files-model.js';
+export const messages = {
+  zh: { 'files.root': '工作区', 'files.location': '当前位置', 'files.empty': '此目录为空', 'files.failed': '无法读取远端文件',
+    'files.retry': '重试读取', 'files.modified': '未保存', 'files.saved': '已保存', 'files.items': '{count} 项',
+    'files.truncated': '仅显示前 2000 项，请进入子目录继续浏览。', 'files.imageFailed': '图片预览加载失败，可尝试刷新或下载。' },
+  en: { 'files.root': 'Workspace', 'files.location': 'Current location', 'files.empty': 'This directory is empty', 'files.failed': 'Could not read remote files',
+    'files.retry': 'Retry loading', 'files.modified': 'Unsaved', 'files.saved': 'Saved', 'files.items': '{count} items',
+    'files.truncated': 'Showing the first 2,000 entries. Open a subdirectory to browse further.', 'files.imageFailed': 'Image preview could not load. Try refreshing or downloading.' },
+};
+function FileActionIcon({kind}) {
+  const paths = {
+    refresh: 'M13 5.5A5.5 5.5 0 1 0 13.5 10M13 2v3.5H9.5',
+    up: 'M8 13V3M3.5 7.5 8 3l4.5 4.5',
+    upload: 'M8 10V2M4.5 5.5 8 2l3.5 3.5M2 10v4h12v-4',
+    download: 'M8 2v8M4.5 6.5 8 10l3.5-3.5M2 10v4h12v-4',
+  };
+  return h('svg', {width:15,height:15,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.4,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[kind]}));
+}
 const remoteFileEditors = new Map();
 export function assertFileCloseAllowed(sessionId, tab) {
   const editor = remoteFileEditors.get(`${sessionId}:${tab.id}`);
@@ -20,6 +38,10 @@ export function RemoteFilesSidebar(props) {
   var navigation = tabInfo && tabInfo.tab && tabInfo.tab.navigation;
   var [dir, setDir] = React.useState(".");
   var [entries, setEntries] = React.useState([]);
+  var [loaded, setLoaded] = React.useState(false);
+  var [truncated, setTruncated] = React.useState(false);
+  var [remotePath, setRemotePath] = React.useState("");
+  var lastRequest = React.useRef({path:".",read:false});
   var [preview, setPreview] = React.useState(null);
   var [content, setContent] = React.useState("");
   var [busy, setBusy] = React.useState(false);
@@ -44,21 +66,23 @@ export function RemoteFilesSidebar(props) {
   function load(path, read) {
     if (operationRef.current === "write" || operationRef.current === "upload") { setError(t("acp.fileSaving")); return; }
     if (dirty) { setError(t("acp.unsavedFile")); return; }
+    lastRequest.current = {path:path || ".",read:!!read};
     var version = ++generation.current;
     setBusy(true); setError("");
     api("sessionFiles", { sessionId: sid, action: read ? "read" : "list", path: path || "." }).then(function (r) {
       if (version !== generation.current) return;
       setBusy(false);
       if (!r || !r.ok) {
-        if (read && r?.code === 'file_too_large') { setPreview({ path, binary: true, tooLarge: true }); setContent(''); return; }
+        if (read && r?.code === 'file_too_large') { setDir(fileDirectory(path)); setRemotePath(''); setPreview({ path, binary: true, tooLarge: true }); setContent(''); return; }
         setError(formatError(r, t("agents.detectFailed"))); return;
       }
+      setRemotePath(r.remotePath || "");
       if (read) {
-        var file = Object.assign({}, r, { path: path, content: String(r.content || "") });
-        setDir(path.includes('/') ? path.slice(0, path.lastIndexOf('/')) || '.' : '.');
+        var file = Object.assign({}, r, { path: path, content: String(r.content || ""), viewRevision:version });
+        setDir(fileDirectory(path));
         setPreview(file); setContent(file.content);
       } else {
-        setDir(path || "."); setEntries(r.entries || []); setPreview(null); setContent("");
+        setDir(path || "."); setEntries(r.entries || []); setLoaded(true); setTruncated(!!r.truncated); setPreview(null); setContent("");
       }
     });
   }
@@ -81,14 +105,14 @@ export function RemoteFilesSidebar(props) {
     });
   }
   function upload(file, overwrite) {
-    if (!file) return;
+    if (!file || busy || dirty) return;
     if (!overwrite && entries.some(function (entry) { return entry.name === file.name; })) {
       setUploadPending(file); return;
     }
     if (operationRef.current) return;
     operationRef.current = "upload";
     setUploadPending(null);
-    var path = (dir === "." ? "" : dir.replace(/\/$/, "") + "/") + file.name;
+    var path = fileEntryPath(dir, file.name);
     var version = ++generation.current;
     setBusy(true); setError("");
     fetch(HTTP_BASE + "/session-upload?sessionId=" + encodeURIComponent(sid) + "&path=" + encodeURIComponent(path) +
@@ -104,39 +128,59 @@ export function RemoteFilesSidebar(props) {
       operationRef.current = ""; setBusy(false); setError(String(err.message || err));
     });
   }
-  return h("section", { className: "rssh-session-files", "aria-label": t("agents.filesTitle") },
-    h("div", { className: "ra-file-actions" },
-      h("span", { className: "ra-acp-role" }, preview ? preview.path : dir),
-      h(ui.Button, { variant: "ghost", size: "sm", disabled: busy || dirty, onClick: function () { load(preview ? preview.path : dir, !!preview); } }, t("agents.refresh")),
-      h(ui.Button, { variant: "ghost", size: "sm", disabled: busy || dirty || fileParentTarget(dir, preview?.path) === null, onClick: function () {
-        load(fileParentTarget(dir, preview?.path), false);
-      } }, t("agents.parent")),
-      h(ui.Button, { variant: "outline", size: "sm", disabled: busy || dirty, onClick: function () { fileRef.current.click(); } }, t("agents.upload"))
-    ),
+  const view = fileViewState({busy,loaded,preview,entries,error});
+  const location = preview ? preview.path : dir;
+  const displayPath = (remotePath || location).replace(/^\.\//, '');
+  const leafStart = displayPath.lastIndexOf('/') + 1;
+  const parent = fileParentTarget(dir, preview?.path);
+  const action = (kind, label, onClick, disabled = busy || dirty) => h(ui.Button, {
+    variant:'ghost', size:'sm', className:'rssh-files-tool', title:label, 'aria-label':label, disabled, onClick,
+  }, h(FileActionIcon,{kind}));
+  const empty = label => h('div',{className:'rssh-files-empty'},
+    busy ? h(ui.StateDot,{state:'ongoing'}) : h(FileGlyph,{directory:!preview,name:preview?.path||dir}), h('p',null,label));
+  return h("section", { className: "rssh-session-files", "aria-label": t("agents.filesTitle"), 'aria-busy':busy },
+    h('div',{className:'rssh-files-toolbar'},
+      h('nav',{className:'rssh-files-location','aria-label':t('files.location')},
+        h(ui.Button,{variant:'ghost',size:'sm',className:'rssh-files-root',title:t('files.root'),'aria-label':t('files.root'),disabled:busy||dirty||location==='.',onClick:()=>load('.',false)},
+          h(FileGlyph,{directory:true,name:''}),h('span',{className:'rssh-files-root-label'},t('files.root'))),
+        location!=='.' ? h('span',{'aria-hidden':true},'/') : null,
+        location!=='.' ? h('span',{className:'rssh-files-path',title:displayPath,'aria-current':'page'},
+          h('span',{className:'rssh-files-path-parent'},displayPath.slice(0,leafStart)),h('span',{className:'rssh-files-path-leaf'},displayPath.slice(leafStart))) : null),
+      h('div',{className:'rssh-files-tools'},
+        action('refresh',t('agents.refresh'),()=>load(preview?preview.path:dir,!!preview)),
+        action('up',t('agents.parent'),()=>load(parent,false),busy||dirty||parent===null),
+        action('upload',t('agents.upload'),()=>fileRef.current.click()))),
     h("input", { ref: fileRef, type: "file", hidden: true, onChange: function (e) {
       var file = e.target.files && e.target.files[0]; e.target.value = ""; upload(file, false);
     } }),
-    error ? h("p", { role: "alert", className: "ra-acp-error" }, error) : null,
-    busy ? h("div", { role: "status" }, t("agents.loading")) : null,
-    preview ? h("div", { className: "rssh-file-document" },
-      h("div", { className: "ra-file-actions" },
-        h("a", { className: "ra-download", href: remoteFileUrl(sid, preview.path, false), download: "" }, t("agents.download")),
-        !preview.binary ? h(ui.Button, { variant: "primary", size: "sm", disabled: busy || !dirty, onClick: save }, t("acp.saveFile")) : null,
-        dirty ? h(ui.Button, { variant: "ghost", size: "sm", onClick: function () { setContent(preview.content); } }, t("acp.discardFile")) : null
-      ),
-      preview.tooLarge ? h("p", { role: "status" }, t("acp.previewTooLarge")) : null,
+    error ? h('div',{role:'alert',className:'rssh-files-feedback'},h('span',null,error),
+      !dirty ? h(ui.Button,{size:'sm',variant:'ghost',disabled:busy,onClick:()=>load(lastRequest.current.path,lastRequest.current.read)},t('files.retry')) : null) : null,
+    view==='preview' ? h('div',{className:'rssh-file-document'},
+      h('div',{className:'rssh-files-document-bar'},
+        h('span',{className:'rssh-files-document-meta'},
+          dirty ? h('span',{className:'rssh-files-dirty'},t('files.modified')) : formatFileSize(preview.size)),
+        h('div',{className:'rssh-files-document-actions'},
+          !preview.binary ? h(ui.Button,{variant:dirty?'primary':'ghost',size:'sm',disabled:busy||!dirty,onClick:save},t('acp.saveFile')) : null,
+          dirty ? h(ui.Button,{variant:'ghost',size:'sm',disabled:busy,onClick:()=>setContent(preview.content)},t('acp.discardFile')) : null,
+          h('a',{className:'rsui-button rssh-files-tool','data-variant':'ghost',href:remoteFileUrl(sid,preview.path,false),download:'',title:t('agents.download'),'aria-label':t('agents.download')},h(FileActionIcon,{kind:'download'})))),
       preview.binary
         ? (!preview.tooLarge && /\.(png|jpe?g|gif|webp)$/i.test(preview.path)
-          ? h("img", { className: "ra-file-image", src: remoteFileUrl(sid, preview.path, true), alt: preview.path })
-          : h("p", null, t("agents.binary")))
-        : h("textarea", { className: "rssh-file-editor", value: content,
-            "aria-label": preview.path, spellCheck: false, onChange: function (e) { setContent(e.target.value); } })
-    ) : h("div", { className: "ra-file-list" }, entries.map(function (entry) {
-      var path = (dir === "." ? "" : dir + "/") + entry.name;
-      return h(ui.Button, { key: entry.name, variant: "ghost", className: "ra-file-row", disabled: busy,
-        onClick: function () { load(path, entry.type !== "directory"); } },
-        h(FileGlyph, { directory: entry.type === "directory", name: entry.name }), h("span", null, entry.name));
-    })),
+          ? h('div',{className:'rssh-files-image-view'},h('img',{key:preview.viewRevision,className:'rssh-files-image',src:remoteFileUrl(sid,preview.path,true),alt:preview.path,onError:()=>setError(t('files.imageFailed'))}))
+          : empty(t(preview.tooLarge?'acp.previewTooLarge':'agents.binary')))
+        : h('textarea',{className:'rssh-file-editor',value:content,readOnly:busy,'aria-label':preview.path,spellCheck:false,wrap:'off',onChange:event=>setContent(event.target.value)}))
+      : view==='loading' ? empty(t('agents.loading'))
+      : view==='error' ? empty(t('files.failed'))
+      : view==='empty' ? empty(t('files.empty'))
+      : h('div',{className:'rssh-files-list','aria-label':t('agents.filesTitle')},entries.map(entry=>{
+        const path=fileEntryPath(dir,entry.name);
+        return h(ui.Button,{key:entry.name,variant:'ghost',className:'rssh-files-row',title:entry.name,disabled:busy,onClick:()=>load(path,entry.type!=='directory')},
+          h('span',{className:'rssh-files-glyph'},h(FileGlyph,{directory:entry.type==='directory',name:entry.name})),
+          h('span',{className:'rssh-files-name'},entry.name),entry.type==='file'?h('span',{className:'rssh-files-size'},formatFileSize(entry.size)):null);
+      })),
+    h('div',{className:'rssh-files-footer',role:'status'},
+      busy ? h(React.Fragment,null,h(ui.StateDot,{state:'ongoing'}),t(operationRef.current?'acp.fileSaving':'agents.loading'))
+        : preview ? (dirty?t('files.modified'):preview.binary?'':t('files.saved'))
+        : loaded ? (truncated?t('files.truncated'):t('files.items',{count:entries.length})) : ''),
     uploadPending ? h(ui.Modal, { open: true, title: t("acp.overwriteFile"), closeLabel: t("acp.close"),
       onClose: function () { setUploadPending(null); }, footer: h(React.Fragment, null,
         h(ui.Button, { variant: "outline", onClick: function () { setUploadPending(null); } }, t("acp.close")),

@@ -2,9 +2,11 @@
 
 [English](./README_EN.md)
 
-在 DSH 中通过 SSH 使用远端 Claude Code / Codex。当前版本为 **3.0.0-rc.5**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
+在 DSH 中通过 SSH 使用远端 Claude Code / Codex。当前版本为 **3.0.0-rc.6**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
 
 > 源码与离线测试通过不代表已完成真实 GUI 验收；明暗主题、焦点与像素级观感仍需在浏览器中人工确认。
+
+**rc.6 更新**：修复「会话操作」依赖声明导致的必现报错；文件侧栏使用完整可用高度；输入区及居中的统计 / 上下文栏贴近原生 DSH；移除标题左侧导航按钮、费用展示和账单说明。
 
 ## 设计约束
 
@@ -121,7 +123,7 @@ HTTP 接口统一位于 `/remote-ssh/v3/`，仅使用单层 JSON 信封。它使
 - 长历史 journal 目前顺序扫描，无自动永久删除策略。
 - 网络/主机故障后的远端进程存活取决于 SSH 和 CLI，不保证任务不中断。
 - 不支持密码认证、音频附件、任意 URI 附件、旧版数据迁移或自动为每个会话分配 worktree。
-- ACP 只上报 `used/size/cost`，没有原生的 system/tools/messages 上下文细分，也没有每轮 input/output/cache token、token/s 或 LLM/tool 耗时；因此上下文进度条用单段，会话统计只展示「回合数 + 已用时」，不伪造这些指标。
+- ACP 只上报 `used/size/cost`，没有原生的 system/tools/messages 上下文细分，也没有每轮 input/output/cache token、token/s 或 LLM/tool 耗时。界面展示当前上下文 token、单段占用比例、回合数与运行状态；会话时长位于统计详情，不冒充执行耗时。费用数据不在界面展示，不伪造缺失指标。
 - 没有公开的通用 Markdown Factory，正文使用插件自有安全 Markdown 子集（不执行 HTML、不内联可执行文档），不承诺完整 CommonMark。
 - DSH 当前没有可安全叠加的早期原生 prompt 拒绝接口。正常插件 UI 不切回 DSH 执行，但不能宣称 Host 能阻止 owner 绕过 UI 直接调用原生 `session/prompt`；未使用私有补丁或晚期假 guard。
 - 真实 GUI 的明暗主题、焦点、键盘与像素级观感尚未经浏览器人工验收。

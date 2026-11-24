@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.0-rc.6 — native-style composer, files and session actions
+
+- Align the remote composer with native DSH surfaces, 28px panel radius, typography, attachment/permission controls on the left and model/reasoning/send controls on the right. The draft grows within a bounded scroll area; narrow layouts wrap rather than hiding controls.
+- Center the activity, usage and context-ring dock in native order. The usage pill explicitly reports current-context tokens, never fabricated cumulative billing, cache-hit rates, steps or decode speed. Cost rows, billing disclaimers and cost-only fallback readings are omitted from the UI; protocol cost data remains unchanged. Session age remains in the statistics details.
+- Add nine composer/usage regressions, preserve keyboard picker highlights, and support Escape from all dock triggers. Source-level UX review completed; live GUI visual acceptance remains unverified.
+- Declare the Host `sessionTitle`, `sessionQuery` and `agents` dependencies required by session actions. This fixes deterministic menu-read failures for live/cold Sessions, title synchronization failures and native child creation failures during remote forks.
+- Added four installed-runtime regressions using a real scoped Cordis plugin context and the exported production injection list, rather than a plain dependency object, covering menu reads, persisted cold titles, canonical rename/pin and native fork creation.
+- File lists, text editors and image previews fill the remaining pane height, with stationary controls and independent content scrolling instead of fixed-height cards.
+- A native-density toolbar, workspace return action, filename-preserving path, full-width rows, file sizes and narrow-pane rules improve remote browsing.
+- Loading, empty, failed and truncated listings are explicit; refresh retains existing content and failed image previews can be retried. Editors are read-only during pending reads/writes, with existing unsaved-change protections retained.
+- Added 13 sidebar presentation/controller regression tests. Source-level UX review completed; live GUI visual acceptance remains unverified.
+- Remove the navigation toggle to the left of the remote conversation title while retaining New session, session actions and remote files controls; add a header regression test.
+
 ## 3.0.0-rc.5 — per-session Agent selection and scroll visibility
 
 - Remote workspace creation now asks only for the SSH connection, directory and optional owned worktree. Agent and permissions are selected explicitly in each new conversation; existing Session bindings remain unchanged.

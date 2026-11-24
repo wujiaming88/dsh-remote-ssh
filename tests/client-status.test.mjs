@@ -43,5 +43,5 @@ test('status styles are calm, centered and theme-token only',async()=>{
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
   const vars=[...css.matchAll(/var\((--[\w-]+)/g)].map(match=>match[1]);
-  assert.ok(vars.every(name=>['--dsw-alias-','--dsw-radius-','--ds-font-','--dsh-'].some(prefix=>name.startsWith(prefix))));
+  assert.ok(vars.every(name=>['--dsw-alias-','--dsw-radius-','--dsw-specific-input-major','--dsw-specific-selector','--dsw-elevation-soft','--ds-font-','--dsh-'].some(prefix=>name.startsWith(prefix))));
 });

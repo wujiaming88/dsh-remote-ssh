@@ -3,7 +3,7 @@ export function fileParentTarget(directory, previewPath) {
   if (previewPath) return directory;
   if (!directory || directory === '.') return null;
   const parts = directory.split('/').filter(Boolean); parts.pop();
-  return parts.join('/') || '.';
+  return directory.startsWith('/') ? '/' + parts.join('/') : parts.join('/') || '.';
 }
 export function text(value) { return value == null ? '' : String(value); }
 

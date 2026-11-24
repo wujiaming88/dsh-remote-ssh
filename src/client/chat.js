@@ -2,8 +2,8 @@ import React from 'react';
 import { h, ui, api, useT, Select, FileGlyph, formatError } from './shared.js';
 import { SessionClient } from './session.js';
 import { pickerScrollTop } from './picker.js';
-import { UsageMeter, SessionStatsPill } from './usage.js';
-import { ComposerControls } from './composer-controls.js';
+import { UsageMeter, SessionStatsPill, UsagePill } from './usage.js';
+import { ComposerControls, AttachmentButton, PermissionIcon } from './composer-controls.js';
 import {prepareSubmission,acknowledgeSubmission} from './submission.js';
 import { initialState } from './events.js';
 import {acpBlockLabels,acpCommandGroups,acpCommandName} from './presentation.js';
@@ -44,6 +44,7 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
   const attachmentsRef=React.useRef(attachments);attachmentsRef.current=attachments;
   const setAttachments=value=>{const next=typeof value==='function'?value(attachmentsRef.current):value;attachmentsRef.current=next;setAttachmentState(next);};
   const [readingFiles,setReadingFiles]=React.useState(false);
+  const attachmentInput=React.useRef(null);
   const [sending, setSending] = React.useState(false);
   const [busy, setBusy] = React.useState('');
   const [error, setError] = React.useState('');
@@ -135,8 +136,8 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
     openRemoteFile(relative);
   }
   async function receiveFiles(files) {
-    if(sending||readingFiles)return;
-    setReadingFiles(true);
+    if(sending||readingFiles||!files.length)return;
+    setReadingFiles(true); setError('');
     try {
     const received = [];
     for (const file of files) {
@@ -164,16 +165,16 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
     const config = state.config[name];
     if (!config?.options?.length) return [];
     const label = t(name === 'models' ? 'acp.model' : 'acp.reasoning');
-    return [h('div', { key: name, className: 'ra-acp-config' }, h('span', { className: 'ra-acp-config-label' }, label),
-      h(Select, { label, value: String(config.currentValue ?? ''), disabled: !!busy,
+    return [h('div', { key: name, className: 'ra-acp-config' },
+      h(Select, { label, value: String(config.currentValue ?? ''), disabled: !!busy || sending,
         options: config.options.map(option => ({ id: String(option.value), label: option.name || String(option.value) })),
         onChange: value => action('acpSetConfig', { configId: config.configId, value }) }))];
   });
-  if (state.config.modes?.availableModes?.length) configs.push(h('div', { key: 'mode', className: 'ra-acp-config' },
-    h('span', { className: 'ra-acp-config-label' }, t('acp.mode')),
-    h(Select, { label: t('acp.mode'), value: state.config.modes.currentModeId, disabled: !!busy,
-      options: state.config.modes.availableModes.map(mode => ({ id: mode.id, label: mode.name })),
-      onChange: modeId => action('acpSetMode', { modeId }) })));
+  const permission = state.config.modes?.availableModes?.length ? h(Select, {
+    label: t('acp.mode'), value: state.config.modes.currentModeId, disabled: !!busy || sending,
+    className:'rssh-permission-select', align:'start', icon:h(PermissionIcon),
+    options: state.config.modes.availableModes.map(mode => ({ id: mode.id, label: mode.name || mode.id })),
+    onChange: modeId => action('acpSetMode', { modeId }) }) : null;
   const waiting = state.permissions.length || state.elicitations.length;
   const hasVisibleContent=state.items.some(visibleTranscriptItem);
   const agentLabel = backend.backend?.type === 'claude' ? 'Claude Code' : backend.backend?.type === 'codex' ? 'Codex' : '';
@@ -236,11 +237,13 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
           fileQuery !== null ? h(FileGlyph, { directory: value.type === 'directory', name: value.name }) : null,
           h('span', { className: 'ra-acp-cmd-label' }, fileQuery !== null ? value.path : `/${acpCommandName(value)}`)),
         value.description ? h('small', { className: 'ra-acp-cmd-description' }, value.description) : null))) : null,
-      h('div', { className: 'ra-acp-composer', onDragOver: event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); },
+      h('div', { className: 'ra-acp-composer', 'data-empty':!hasVisibleContent?'':undefined, onDragOver: event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); },
         onDrop: event => { if (event.dataTransfer.files.length) { event.preventDefault(); receiveFiles([...event.dataTransfer.files]); } } },
+        h('input',{ref:attachmentInput,type:'file',hidden:true,multiple:true,disabled:sending||readingFiles,
+          onChange:event=>{const files=[...event.target.files];event.target.value='';receiveFiles(files);}}),
         attachments.length ? h('div', { className: 'ra-acp-attachments' }, attachments.map((file, index) => h(ui.Button, { key: index, size: 'sm', disabled: sending,
           'aria-label': `${t('acp.removeAttachment')}: ${file.name}`, onClick: () => setAttachments(old => old.filter((_, position) => position !== index)) }, file.name, ' ×'))) : null,
-        h('textarea', { className: 'ra-acp-textarea', value: draft, rows: 2, readOnly: sending, 'aria-label': t('acp.composerPlaceholder'), placeholder: t('acp.composerPlaceholder'),
+        h('textarea', { className: 'ra-acp-textarea', value: draft, rows: 1, readOnly: sending, 'aria-label': t('acp.composerPlaceholder'), placeholder: t('acp.composerPlaceholder'),
           onChange: event => input(event.target.value), onPaste: event => { if (event.clipboardData.files.length) { event.preventDefault(); receiveFiles([...event.clipboardData.files]); } },
           onKeyDown: event => {
             if (event.isComposing || event.nativeEvent.isComposing) return;
@@ -257,9 +260,12 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
             }
             if (event.key === 'Enter' && !event.shiftKey && !event.altKey) { event.preventDefault(); send(); }
           } }),
-        h('div', { className: 'ra-acp-compose-bar' }, h('div', { className: 'ra-acp-compose-left' }, h('div', { className: 'ra-acp-configs' }, configs)),
+        h('div', { className: 'ra-acp-compose-bar' },
+          h('div', { className: 'ra-acp-compose-left' },
+            h(AttachmentButton,{disabled:sending||readingFiles,onClick:()=>attachmentInput.current?.click()}),permission),
           h('div', { className: 'ra-acp-compose-right' },
+            h('div', { className: 'ra-acp-configs' }, configs),
             h(ComposerControls, {running:state.running,draft,attachments,sending,readingFiles,busy,status:state.binding.status,
               onStop:()=>action('acpCancel'),onSend:send})))),
-        h('div',{className:'rssh-compose-dock'},h(UsageMeter,{state}),h(SessionStatsPill,{state}))));
+        h('div',{className:'rssh-compose-dock'},h(SessionStatsPill,{state}),h(UsagePill,{state}),h(UsageMeter,{state}))));
 }

@@ -311,6 +311,9 @@ test('actual RemoteAccess policy denies authenticated non-owner file/prompt/appr
     await nativeProjections(root);
     root.provide('attachments', { admitPromptContent: async parts => parts });
     root.provide('sessionController', { resolveAgent: async id => ({ agent: { session: root.sessions.get(id) } }) });
+    // Admission must reject before any session-action dependency is used.
+    const denied = () => { throw Error('Unauthorized request reached Session services'); };
+    for (const service of ['sessionTitle', 'sessionQuery', 'agents']) root.provide(service, { get: denied, rename: denied, inspectSession: denied, observeSession: denied, create: denied });
     root.provide('workspaceRegistry', { archivedSessionIds: [] });
     root.provide('configEditor', { edit: async () => { throw Error('Unauthorized write reached config editor'); } });
     root.provide('tools', { register: () => () => {} });

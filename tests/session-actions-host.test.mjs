@@ -23,6 +23,7 @@ if (!installed) {
   const [{ Context }, { SessionStore, buildForkSeed }, { SessionProjectionRegistry }, { SessionQueryEngine }, { SessionTitleService }, { AgentRegistry }, { AgentLoop }, storage, storageJson, storageDomain, persistence, { WorkspaceRegistry }, { RemoteTurnRecorder }, { AcpSession }, { BackendBindings }, { createSessionActions }] = await Promise.all([
     import('@deepseek-ai/cordis'), import('@deepseek-ai/dsh-session'), import('@deepseek-ai/dsh-session-projection'), import('@deepseek-ai/dsh-session-query'), import('@deepseek-ai/dsh-session-title'), import('@deepseek-ai/dsh-agent'), import('@deepseek-ai/dsh-agent-loop'), import('@deepseek-ai/dsh-storage'), import('@deepseek-ai/dsh-storage-json'), import('@deepseek-ai/dsh-storage-domain'), import('@deepseek-ai/dsh-session-persistence-jsonl'), import('@deepseek-ai/dsh-workspace'), import('../lib/remote-turn-recorder.js'), import('../lib/acp.js'), import('../lib/bindings.js'), import('../lib/session-actions.js')
   ]);
+  const { inject: hostInject } = await import('../lib/index.js');
   const deferred = () => Promise.withResolvers();
   function streamResponse({ backpressure = false } = {}) {
     return Object.assign(new EventEmitter(), { frames: [], headersSent: false, writableEnded: false,
@@ -30,7 +31,7 @@ if (!installed) {
       write(line) { this.frames.push(JSON.parse(line)); return !backpressure; },
       flushHeaders() { this.flushed = true; }, end() { this.writableEnded = true; } });
   }
-  async function fixture({ initialPermission = 'plan' } = {}) {
+  async function fixture({ initialPermission = 'plan', scopedContext = false } = {}) {
     const directory = await mkdtemp(join(tmpdir(), 'remote-host-actions-')); const cwd = join(directory, 'workspace'); await mkdir(cwd);
     const root = new Context();
     await root.plugin(SessionStore); await root.plugin(SessionProjectionRegistry);
@@ -108,13 +109,66 @@ if (!installed) {
         return { ...handle, dispose: async () => { calls.nativeDisposed++; await handle.dispose(); } };
       } } };
     const actionOptions = { ctx: actionCtx, stateDir: directory, runtime, bindings, configuration, workspaces: { assertAvailable() {} }, sessionBackend, recorder, attachRecorder };
-    actions = await createSessionActions(actionOptions);
+    if (scopedContext) {
+      // Real title/query/agent services are sibling plugins, not plain properties
+      // or ancestor provisions: Cordis must enforce the production inject list.
+      for (const service of hostInject) if (!root.get(service)) root.provide(service, {});
+      await root.plugin({ name: 'remote-actions-context-contract', inject: hostInject, async apply(ctx) {
+        actionOptions.ctx = ctx;
+        actions = await createSessionActions(actionOptions);
+      } });
+      assert.ok(actions, 'the plugin activates with its declared dependencies');
+    } else actions = await createSessionActions(actionOptions);
     return { directory, root, actionCtx, get actions() { return actions; }, bindings, native, source, runtime, calls, workspace, saved, live, operations, recorder, modelCalls: () => modelCalls,
+      async unloadNative() { await recorder.dispose(); await root.sessions.flush(native); await nativeHandle.dispose(); assert.equal(root.sessions.get(native.id), undefined); },
       async restartActions() { await actions.dispose(); actions = await createSessionActions({ ...actionOptions, bindings: new BackendBindings(join(directory, 'bindings.json')) }); },
       setTitle(fn) { titleImpl = fn; }, setForkHook(fn) { forkHook = fn; }, failNative(value) { nativeFailure = value; }, failFlush(value) { flushFailure = value; }, removeWorkspace() { configured = false; },
       async close() { await actions.stop(); await recorder.dispose(); await actions.dispose(); for (const s of live.values()) await s.dispose(); await nativeHandle.dispose(); await root.fiber.dispose(); }
     };
   }
+  test('scoped Cordis menu metadata uses declared services without remote or native execution', async () => {
+    const f = await fixture({ scopedContext: true });
+    try {
+      const before = f.native.snapshotEvents();
+      for (let count = 0; count < 2; count++) {
+        const result = await f.actions.api.sessionActions({ sessionId: f.native.id });
+        assert.equal(result.ok, true); assert.equal(result.title, 'Source title'); assert.equal(result.pinned, true); assert.equal(result.canFork, true);
+      }
+      assert.deepEqual(f.native.snapshotEvents(), before);
+      assert.equal(f.calls.resume, 0); assert.equal(f.calls.fork, 0); assert.equal(f.calls.title.length, 0); assert.equal(f.modelCalls(), 0);
+    } finally { await f.close(); }
+  });
+  test('scoped Cordis cold menu reads persisted titles without loading a native Agent', async () => {
+    const f = await fixture({ scopedContext: true });
+    try {
+      await f.unloadNative();
+      const result = await f.actions.api.sessionActions({ sessionId: f.native.id });
+      assert.equal(result.ok, true); assert.equal(result.title, 'Source title');
+      assert.equal(f.root.sessions.get(f.native.id), undefined); assert.equal(f.root.agents.get(f.native.id), undefined);
+      assert.equal(f.calls.resume, 0); assert.equal(f.calls.fork, 0); assert.equal(f.calls.title.length, 0); assert.equal(f.modelCalls(), 0);
+    } finally { await f.close(); }
+  });
+  test('scoped Cordis rename accepts the canonical title and pin remains native', async () => {
+    const f = await fixture({ scopedContext: true });
+    try {
+      f.setTitle(async (_id, title) => ({ ok: true, title: title.toUpperCase() }));
+      const result = await f.actions.api.sessionRename({ sessionId: f.native.id, title: 'normalized' });
+      assert.equal(result.titleSync.status, 'synced'); assert.equal(result.title, 'NORMALIZED'); assert.equal(f.root.sessionTitle.get(f.native).title, 'NORMALIZED');
+      await f.actions.api.sessionPin({ sessionId: f.native.id, pinned: false });
+      assert.equal((await f.actions.api.sessionActions({ sessionId: f.native.id })).pinned, false); assert.equal(f.modelCalls(), 0);
+    } finally { await f.close(); }
+  });
+  test('scoped Cordis fork can observe history and create its native child', async () => {
+    const f = await fixture({ scopedContext: true });
+    try {
+      const prefix = f.native.snapshotEvents();
+      const result = await f.actions.api.sessionFork({ sessionId: f.native.id, operationId: 'scoped-fork' });
+      assert.equal(result.ok, true); assert.equal(result.operation.phase, 'completed');
+      const child = f.root.sessions.get(result.sessionId); assert.ok(child);
+      assert.deepEqual(child.snapshotEvents(), buildForkSeed(prefix, prefix.length - 1));
+      assert.equal(f.calls.fork, 1); assert.equal(f.modelCalls(), 0);
+    } finally { await f.close(); }
+  });
   test('native title normalization, pin state, metadata-only status and real fork seed/container', async () => {
     const f = await fixture();
     try {
@@ -369,6 +423,9 @@ if (!installed) {
       await root.plugin(SessionStore); await root.plugin(SessionProjectionRegistry); await root.plugin(RemoteAccessService);
       root.provide('profileContext', { dir: directory }); root.provide('attachments', { admitPromptContent: async parts => parts });
       root.provide('sessionController', {}); root.provide('workspaceRegistry', { archivedSessionIds: [] });
+      // Auth-only fixture: satisfy activation but fail if denied requests reach a service.
+      const denied = () => { throw Error('Unauthorized request reached Session services'); };
+      for (const service of ['sessionTitle', 'sessionQuery', 'agents']) root.provide(service, { get: denied, rename: denied, inspectSession: denied, observeSession: denied, create: denied });
       root.provide('configEditor', { edit() { throw Error('Unauthorized mutation'); } });
       root.provide('tools', { register: tool => { tools.push(tool); return () => {}; } });
       root.provide('connection', { admit: () => ({ peer: { principal } }) });
@@ -387,7 +444,7 @@ if (!installed) {
       const request = Readable.from([Buffer.from('{}')]); request.method = 'POST'; request.url = HTTP_BASE + '/api/sessionActionEvents'; request.headers = { 'x-requested-with': 'XMLHttpRequest' };
       const response = streamResponse(); await route.handler(request, response);
       assert.equal(response.status, 200); assert.match(response.headers['content-type'], /application\/x-ndjson/); assert.equal(response.flushed, true); assert.deepEqual(response.frames, []);
-      // Actual Host teardown closes the metadata stream without any native Agent service.
+      // Actual Host teardown closes the metadata stream without native Agent execution.
       await root.fiber.dispose(); assert.equal(response.writableEnded, true); assert.equal(request.listenerCount('aborted'), 0);
     } finally { await root.fiber.dispose(); }
   });

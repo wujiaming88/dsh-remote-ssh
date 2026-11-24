@@ -2,9 +2,11 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.5** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.6** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
+
+**rc.6 highlights**: fixes deterministic session-menu failures caused by missing service declarations; uses full-height file browsing and native-style composer/centered statistics; removes the header's left navigation toggle, cost readings and billing disclaimer.
 
 ## Principles
 
@@ -109,7 +111,7 @@ HTTP routes live under `/remote-ssh/v3/` and use one JSON envelope, current DSH 
 - Journal pages currently use sequential disk scans, without automatic permanent-history deletion.
 - Remote process survival after network/host failure depends on SSH and the CLI.
 - No passwords, audio, arbitrary URI attachments, old-data migration or automatic per-session worktree allocation.
-- ACP reports only `used/size/cost`: no system/tools/messages context breakdown, and no per-turn input/output/cache tokens, tokens-per-second or LLM/tool timing. The context bar is a single segment and session statistics show only turn count and elapsed time; those native metrics are not fabricated.
+- ACP reports only `used/size/cost`: no system/tools/messages context breakdown, per-turn input/output/cache tokens, tokens-per-second or LLM/tool timing. The UI shows current-context tokens, a single occupancy segment, turn count and running state; session age appears in statistics details, not as execution time. Cost data is not displayed, and missing native metrics are not fabricated.
 - There is no public general-purpose Markdown factory, so body text uses the plugin's own safe Markdown subset (no HTML execution, no inline executable documents); full CommonMark is not claimed.
 - DSH has no verified composable early rejection hook for native prompts. Normal plugin UI keeps the remote backend, but Host-level prevention of an owner directly invoking native `session/prompt` is not claimed. No private patch or late fake guard is installed.
 - Real GUI dark/light theme, focus, keyboard and pixel-level appearance have not been manually verified.
