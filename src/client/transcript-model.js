@@ -1,6 +1,8 @@
+import {acpNormalizeExit} from './presentation.js';
 const PROCESS_TYPES = new Set(['thought','tool','plan','subagent','terminal_event']);
+const processValue = item => item?.type === 'tool' ? item.tool : item?.type === 'subagent' ? item.subagent : item;
 export function transcriptScope(item) {
-  const value = item?.type === 'tool' ? item.tool : item;
+  const value = processValue(item);
   return JSON.stringify([value?.sessionId || '',value?.turnId || item?.key || '']);
 }
 export function transcriptPolicy(preferences={},defaultMode='detailed') {
@@ -37,7 +39,7 @@ export function transcriptEntries(items,{turns={}}={}) {
     const run=[];let end=index;
     while(end<visible.length&&PROCESS_TYPES.has(visible[end].type)&&transcriptScope(visible[end])===scope)run.push(visible[end++]);
     const settled=turns[scope]?.status && turns[scope].status!=='running';
-    const source=item.type==='tool'?item.tool:item;
+    const source=processValue(item);
     entries.push({kind:'process',key:`process:${item.key}`,items:run,scope,settled:!!settled,
       laterInput:(latestUser.get(source?.sessionId||'')??-1)>index || Number.isFinite(turns[scope]?.endSeq)&&(latestStart.get(source?.sessionId||'')||0)>turns[scope].endSeq,
       interrupted:!!settled&&turns[scope].status!=='completed'});index=end;
@@ -48,6 +50,27 @@ export function transcriptEntries(items,{turns={}}={}) {
     entry.turn=turns[entry.scope]||null;
   }
   return entries;
+}
+// Facts for a group header, independent of text, React, or an inferred outcome.
+export function processGroupSummary(entry) {
+  const items=entry?.items || [];
+  let runningItem=null,latest=-Infinity,failedCount=0;
+  for(const item of items){
+    const value=processValue(item)||{};
+    const raw=value.state ?? value.status;
+    const status=String(typeof raw==='object' ? raw?.type || raw?.state || raw?.status || '' : raw || '').toLowerCase();
+    const terminals=[...(Array.isArray(value.terminals)?value.terminals:[]),...(Array.isArray(value.content)?value.content.filter(block=>block?.type==='terminal'):[])];
+    const exits=[value.exitStatus ?? value.exitCode,...terminals.map(terminal=>terminal.exitStatus ?? terminal.exitCode)]
+      .filter(exit=>exit!==undefined&&exit!==null&&exit!=='').map(acpNormalizeExit);
+    const failed=['failed','error'].includes(status)||exits.some(exit=>Number.isFinite(exit.exitCode)&&exit.exitCode!==0||!!exit.signal);
+    if(failed)failedCount++;
+    const active=item.type==='thought' ? item.streaming===true && item.inherited!==true && item===items.at(-1)
+      : item.type==='plan' ? item.settled!==true && !item.removed && (Array.isArray(item.entries)?item.entries:[]).some(step=>step.status==='in_progress')
+      : ['running','working','in_progress','pending'].includes(status)||exits.some(exit=>exit.running===true);
+    const seq=Number(value.lastSeq ?? item.lastSeq ?? value.seq ?? item.seq ?? 0);
+    if(!entry.settled&&!failed&&active&&seq>=latest){runningItem=item;latest=seq;}
+  }
+  return {runningItem,failedCount,count:items.length};
 }
 export function processGroupOpen(entry,policy,manual) {
   return manual ?? (!policy.foldCompleted||!entry.settled||entry.interrupted||policy.collapseTiming==='next-input'&&!entry.laterInput);
@@ -60,7 +83,9 @@ export function processBodyScrollTop({scrollHeight,clientHeight,scrollTop},{open
   return scrollTop;
 }
 export function responseHidden(entry,policy,foldedScopes) {
-  return entry.kind==='item'&&entry.item.type==='assistant'&&policy.foldedReplies==='final'&&foldedScopes.has(entry.scope)&&entry.responseTail===false;
+  // responseTail is positional, not an authoritative final-answer marker.
+  // Preserve every assistant segment until a reliable final-content contract exists.
+  return false;
 }
 export function followsTranscriptTail({scrollHeight,scrollTop,clientHeight}, threshold=32) {
   return scrollHeight-scrollTop-clientHeight <= threshold;

@@ -48,14 +48,15 @@ test('interrupted process remains visible and preference changes do not invent s
   const entries=transcriptEntries([item('thought','thought',{text:'thinking'})],{turns:{[scope]:{status:'cancelled',endSeq:3}}});
   assert.equal(entries[0].interrupted,true);assert.equal(processGroupOpen(entries[0],transcriptPolicy({transcriptView:'compact'})),true);
 });
-test('final-only presentation hides the entire earlier response wrapper while copy retains original turn text',()=>{
+test('positional final-only preference never hides prose without a reliable final marker',()=>{
   const items=[item('assistant','before',{text:'First response'}),item('thought','thought',{text:'reasoning'}),item('assistant','after',{text:'Final response'})];
   const entries=transcriptEntries(items,{turns:closed}),policy=transcriptPolicy({transcriptView:'standard',foldedReplies:'final'});
   const folds=new Set(entries.filter(entry=>entry.kind==='process'&&!processGroupOpen(entry,policy)).map(entry=>entry.scope));
-  assert.equal(responseHidden(entries[0],policy,folds),true);assert.equal(responseHidden(entries.at(-1),policy,folds),false);
+  assert.equal(responseHidden(entries[0],policy,folds),false);assert.equal(responseHidden(entries.at(-1),policy,folds),false);
   assert.equal(entries.at(-1).responseText,'First response\n\nFinal response');
   const source=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
-  assert.match(source,/className:'rssh-transcript-item'[^\n]*[\s\S]*hidden:responseHidden\(entry,policy,foldedScopes\)/);
+  assert.doesNotMatch(source,/hidden:responseHidden/);
+  assert.match(source,/text:copy\.part/);assert.match(source,/copyTurn/);
 });
 test('root copying and order never absorb child replies or same-name tool calls',()=>{
   const items=[item('tool','parent',{tool:{toolCallId:'call',sessionId:'root',turnId:'turn'}}),

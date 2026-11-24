@@ -144,7 +144,7 @@ test('owned disclosure bodies are lazy, keys stable, native details unified and 
   const disclosure=readFileSync(new URL('../src/client/disclosure.js',import.meta.url),'utf8');
   const css=readFileSync(new URL('../src/client/tool-stream.css',import.meta.url),'utf8');
   for(const source of [cards,disclosure])parse(source,{ecmaVersion:'latest',sourceType:'module'});
-  assert.match(disclosure,/open\?\(typeof children==='function'\?children\(\):children\):null/);
+  assert.match(disclosure,/open\|\|mounted\?\(typeof children==='function'\?children\(\):children\):null/);
   assert.match(disclosure,/'aria-expanded':open,'aria-controls':id/);
   assert.match(disclosure,/const open=controlledOpen===undefined\?localOpen:controlledOpen/);
   assert.match(disclosure,/if\(controlledOpen===undefined\)setOpen\(next\)/);

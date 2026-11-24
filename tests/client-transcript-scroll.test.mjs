@@ -2,18 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parse } from 'acorn';
-import { followsTranscriptTail } from '../src/client/transcript-model.js';
+import { followsTranscriptTail,anchoredScrollTop,mayRestoreTranscriptAnchor } from '../src/client/transcript-model.js';
 
 const source = readFileSync(new URL('../src/client/transcript-scroll.js', import.meta.url), 'utf8');
 const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
 const hook = ast.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'useTranscriptScroll').declaration;
 // Exercise the actual numeric scroll callbacks with a deterministic frame queue.
 // This does not mount React or emulate/render a DOM or browser.
-const names = ['setFollow', 'measureTail', 'writeScroll', 'schedule', 'onScroll', 'onWheel', 'onPointerDown', 'latest', 'onTouchStart', 'onTouchMove', 'onTouchEnd'];
-const declarations = hook.body.body.filter(node => node.type === 'VariableDeclaration' && node.declarations.some(value => names.includes(value.id.name)));
+const names = ['setFollow', 'measureTail', 'writeScroll', 'schedule', 'onScroll', 'onWheel', 'onKeyDown', 'onPointerDown', 'latest', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'captureReading', 'restoreReadingAnchor', 'onReadingIntent', 'onReadingClick'];
+const declarations = hook.body.body.filter(node =>
+  node.type === 'VariableDeclaration' && node.declarations.some(value => names.includes(value.id.name)) ||
+  node.type === 'FunctionDeclaration' && names.includes(node.id.name));
 assert.equal(declarations.length, names.length);
+const restoreNode=ast.body.find(node=>node.type==='ExportNamedDeclaration'&&node.declaration?.id?.name==='readingAnchorScrollTop').declaration;
+const readingAnchorScrollTop=new Function('anchoredScrollTop','mayRestoreTranscriptAnchor',`${source.slice(restoreNode.start,restoreNode.end)};return readingAnchorScrollTop;`)(anchoredScrollTop,mayRestoreTranscriptAnchor);
 const callbacks = new Function('environment', `
-  const { follow, frame, live, viewportRef, interaction, expectedScroll, setFollowing, setShowLatest, requestAnimationFrame, followsTranscriptTail, lastScrollTop, requestHistory, pagerRef, isNestedScroll, scrollIntent, touchPoint } = environment;
+  const { follow, frame, live, viewportRef, contentRef, lifetime, readingAnchor, interaction, expectedScroll, setFollowing, setShowLatest, requestAnimationFrame, followsTranscriptTail, anchoredScrollTop, mayRestoreTranscriptAnchor, readingAnchorScrollTop, lastScrollTop, requestHistory, pagerRef, isNestedScroll, scrollIntent, touchPoint } = environment;
   ${declarations.map(node => source.slice(node.start, node.end)).join('\n')}
   return { ${names.join(',')} };
 `);
@@ -23,10 +27,11 @@ function fixture(metrics = { scrollHeight: 1000, scrollTop: 600, clientHeight: 4
     touchPoint: { current: null }, scrollIntent: { current: false }, lastScrollTop: { current: metrics.scrollTop }, requestHistory: options => state.historyRequests.push(options),
     pagerRef: { current: { pause: () => state.paused++ } }, isNestedScroll: () => false,
     follow: { current: true }, frame: { current: null }, live: { current: true },
-    viewportRef: { current: { ...metrics } }, interaction: { current: 0 }, expectedScroll: { current: null },
+    viewportRef: { current: { ...metrics } }, contentRef: { current: Symbol('content') }, lifetime: { current: 1 }, readingAnchor: { current: null },
+    interaction: { current: 0 }, expectedScroll: { current: null },
     setFollowing: value => { state.following = value; },
     setShowLatest: value => { state.showLatest = value; state.measurements++; },
-    requestAnimationFrame: callback => { frames.push(callback); return frames.length; }, followsTranscriptTail,
+    requestAnimationFrame: callback => { frames.push(callback); return frames.length; }, followsTranscriptTail,anchoredScrollTop,mayRestoreTranscriptAnchor,readingAnchorScrollTop,
   };
   return { ...callbacks(environment), state, environment, viewport: environment.viewportRef.current,
     flush() { for (const callback of frames.splice(0)) callback(); }, pendingFrames: () => frames.length };
@@ -123,4 +128,84 @@ test('touch can request history without an overflow scroll event and ignores tap
   f.onTouchEnd();assert.equal(f.environment.touchPoint.current,null);
   const count=f.state.historyRequests.length;f.onTouchStart({touches:[{},{}]});
   f.onTouchMove(touch(150,200));assert.equal(f.state.historyRequests.length,count);
+});
+
+
+function readingSnapshot(f,offset=80) {
+  return {viewport:f.viewport,content:f.environment.contentRef.current,lifetime:f.environment.lifetime.current,
+    interaction:f.environment.interaction.current,offset};
+}
+function readingMeasurements(f,patch={}) {
+  return {viewport:f.viewport,content:f.environment.contentRef.current,lifetime:f.environment.lifetime.current,
+    interaction:f.environment.interaction.current,live:true,following:false,visible:true,
+    scrollTop:f.viewport.scrollTop,offset:80,...patch};
+}
+test('actual pure reading restore preserves the trigger offset and applies bounded scroll writes',()=>{
+  const f=fixture({scrollTop:200,scrollHeight:1400,clientHeight:400}),saved=readingSnapshot(f,80);
+  const before={...saved};
+  const top=readingAnchorScrollTop(saved,readingMeasurements(f,{offset:230}));
+  assert.equal(top,350);f.writeScroll(f.viewport,top);
+  assert.equal(f.viewport.scrollTop,350);assert.equal(f.state.showLatest,true);assert.deepEqual(saved,before);
+  // A post-restore measurement at the original offset must not compensate twice.
+  assert.equal(readingAnchorScrollTop(saved,readingMeasurements(f,{offset:80})),350);
+  assert.equal(readingAnchorScrollTop(saved,readingMeasurements(f,{scrollTop:20,offset:-80})),0);
+  f.writeScroll(f.viewport,readingAnchorScrollTop(saved,readingMeasurements(f,{offset:5000})));
+  assert.equal(f.viewport.scrollTop,1000);
+});
+test('actual pure reading restore rejects stale lifetime, new intent, wrong identity and invisible targets',()=>{
+  const f=fixture(),saved=readingSnapshot(f);
+  assert.equal(readingAnchorScrollTop(saved,readingMeasurements(f)),600);
+  for(const patch of [{lifetime:2},{interaction:1},{viewport:Symbol('other viewport')},{content:Symbol('other content')},
+    {live:false},{following:true},{visible:false},{offset:NaN},{scrollTop:Infinity}]){
+    assert.equal(readingAnchorScrollTop(saved,readingMeasurements(f,patch)),null);
+  }
+  assert.equal(readingAnchorScrollTop({...saved,offset:Infinity},readingMeasurements(f)),null);
+  assert.equal(readingAnchorScrollTop(null,readingMeasurements(f)),null);
+});
+test('real restore callback consumes invalid anchors before attempting geometry access',()=>{
+  for(const change of ['lifetime','interaction','viewport','content','disposed','following']){
+    const f=fixture();f.setFollow(false);
+    f.environment.readingAnchor.current={...readingSnapshot(f),anchor:Symbol('opaque retired anchor')};
+    if(change==='lifetime')f.environment.lifetime.current++;
+    if(change==='interaction')f.environment.interaction.current++;
+    if(change==='viewport')f.environment.viewportRef.current={...f.viewport};
+    if(change==='content')f.environment.contentRef.current=Symbol('replacement content');
+    if(change==='disposed')f.environment.live.current=false;
+    if(change==='following')f.setFollow(true);
+    assert.doesNotThrow(()=>f.restoreReadingAnchor(),change);
+    assert.equal(f.environment.readingAnchor.current,null);assert.equal(f.viewport.scrollTop,600);
+  }
+});
+test('expansion layout scroll cannot restore follow or trigger history; a new key gesture cancels its anchor',()=>{
+  const f=fixture();f.setFollow(false);
+  f.environment.readingAnchor.current=readingSnapshot(f);
+  f.viewport.scrollTop=590;f.onScroll();
+  assert.equal(f.state.following,false);assert.equal(f.state.historyRequests.length,0);
+  f.onKeyDown({key:'PageDown'});
+  assert.equal(f.environment.readingAnchor.current,null);assert.equal(f.environment.interaction.current,1);
+  f.viewport.scrollTop=595;f.onScroll();assert.equal(f.state.following,true);
+});
+test('return to latest cancels a pending reading restore instead of snapping back on the next frame',()=>{
+  const f=fixture();f.setFollow(false);f.viewport.scrollTop=200;
+  f.environment.readingAnchor.current={...readingSnapshot(f),anchor:Symbol('reading target')};
+  f.latest();assert.equal(f.environment.readingAnchor.current,null);f.flush();
+  assert.equal(f.viewport.scrollTop,600);assert.equal(f.state.following,true);
+  assert.doesNotThrow(()=>f.restoreReadingAnchor());assert.equal(f.viewport.scrollTop,600);
+});
+test('only the matching after-layout event may consume a captured anchor',()=>{
+  const f=fixture();f.setFollow(false);
+  const anchor=Symbol('trigger'),saved={...readingSnapshot(f),anchor};f.environment.readingAnchor.current=saved;
+  f.onReadingIntent({detail:{afterLayout:true,anchor:Symbol('another trigger')}});
+  assert.equal(f.environment.readingAnchor.current,saved);
+  // The original target no longer belongs to this lifetime: matching event consumes
+  // the snapshot but cannot read its opaque geometry or mutate the retired viewport.
+  f.environment.lifetime.current++;
+  f.onReadingIntent({detail:{afterLayout:true,anchor}});
+  assert.equal(f.environment.readingAnchor.current,null);assert.equal(f.viewport.scrollTop,600);
+});
+test('unrecognized reading candidates do not fabricate intent or require a DOM renderer',()=>{
+  const f=fixture();
+  for(const candidate of [null,undefined,Symbol('not an element'),{nodeType:3}])f.captureReading(candidate);
+  assert.equal(f.environment.readingAnchor.current,null);assert.equal(f.environment.interaction.current,0);
+  assert.equal(f.state.following,true);assert.equal(f.pendingFrames(),0);
 });

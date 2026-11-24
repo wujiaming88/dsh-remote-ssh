@@ -162,7 +162,9 @@ test('pool belongs to plugin lifetime and UI detachment releases only its lease'
   assert.match(index,/ctx.effect\(\(\)=>\(\)=>clients.dispose\(\)\)/);
   assert.match(chat,/return \(\)=>lease.release\(\)/);assert.doesNotMatch(chat,/new SessionClient\(|next.dispose\(|onAcknowledged/);
   assert.match(chat,/useSyncExternalStore\(composer.subscribe,composer.getSnapshot/);
-  assert.match(tail,/state.everConnected\?'flow.connection':'flow.connecting'/);
+  assert.match(tail,/conversationActivity\(state\)/);
+  assert.match(tail,/connecting:'flow.connecting',reconnecting:'flow.connection'/);
+  assert.match(source('stream-view-model.js'),/state.everConnected\?'reconnecting':'connecting'/);
 });
 
 

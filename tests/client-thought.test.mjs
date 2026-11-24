@@ -22,7 +22,7 @@ test('blank separators and CRLF advance to the latest completed paragraph',()=>{
   assert.equal(thoughtSummary('First\n \nSecond\n\t\nThird',true),'Second');
   assert.equal(thoughtSummary('A\n \n \nB\n',true),'B');
 });
-test('only the live reasoning tail animates; history, forks and a following answer do not',()=>{
+test('only the live reasoning tail is active; history, forks and a following answer are not',()=>{
   const thought={type:'thought',key:'g:1',text:'reasoning'};
   assert.equal(thoughtIsStreaming(thought,[thought],true),true);
   assert.equal(thoughtIsStreaming(thought,[thought],false),false);
@@ -30,7 +30,7 @@ test('only the live reasoning tail animates; history, forks and a following answ
   const inherited={...thought,inherited:true};assert.equal(thoughtIsStreaming(inherited,[inherited],true),false);
   assert.equal(thoughtIsStreaming(undefined,[],true),false);
 });
-test('child completion stops its own thought shimmer without idling the root or another turn',()=>{
+test('child completion settles its own thought without idling the root or another turn',()=>{
   let state={...initialState(),running:true};
   state=reduceEvent(state,{type:'thought',seq:1,generation:'g',sessionId:'child',rootSessionId:'root',turnId:'child-turn',text:'child reasoning'});
   state=reduceEvent(state,{type:'stop',seq:2,generation:'g',sessionId:'child',rootSessionId:'root',turnId:'child-turn',stopReason:'end_turn',busy:false});
@@ -52,7 +52,7 @@ test('reasoning uses a lightweight disclosure rather than a framed UI button',()
   const cards=readFileSync(new URL('../src/client/cards.js',import.meta.url),'utf8');
   const chat=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
   parse(source,{ecmaVersion:'latest',sourceType:'module'});
-  assert.match(source,/h\('button',\{type:'button',className:'rssh-thought-toggle'/);
+  assert.match(source,/h\('button',\{[^}\n]*type:'button',className:'rssh-thought-toggle'/);
   assert.match(source,/'aria-expanded':open,'aria-controls':id/);
   assert.match(source,/id,hidden:!open,className:'rssh-thought-body'/);
   assert.match(source,/React.useState\(false\)/);assert.match(source,/setOpen\(value=>!value\)/);
@@ -68,6 +68,8 @@ test('secondary typography, non-shrinking rows and reduced-motion are explicitly
   assert.match(css,/\.rssh-thought-toggle\s*\{[^}]*border: none;[^}]*background: transparent;/);
   assert.match(css,/\.rssh-thought-summary[^}]*text-overflow: ellipsis;\s*white-space: nowrap/);
   assert.match(css,/\.rssh-thought-body .rsui-markdown[^}]*color: var\(--dsw-alias-label-secondary\)/);
-  assert.match(css,/animation: rssh-thought-shimmer/);assert.match(css,/prefers-reduced-motion: reduce/);
+  const processCss=readFileSync(new URL('../src/client/tool-stream.css',import.meta.url),'utf8');
+  assert.doesNotMatch(css,/animation:[^;]*rssh-thought-shimmer/);assert.match(processCss,/prefers-reduced-motion: reduce/);
+  assert.match(processCss,/\.rssh-flow-status\[data-active\]/);
   assert.match(css,/\.rssh-thought-toggle:focus-visible/);
 });

@@ -7,51 +7,42 @@
 .rssh-flow[data-summary] > .rssh-flow-toggle .rssh-flow-title { max-width: 60%; }
 .rssh-flow-summary { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); }
 .rssh-flow-separator { flex: none; width: 2px; height: 2px; margin: 0 8px; border-radius: 1px; background: var(--dsw-alias-label-caption); }
-/* Share the native leading-icon replacement across tools, groups and reasoning. */
-.rssh-disclosure-leading { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: calc(16px + var(--dsh-content-font-delta, 0px)); height: calc(16px + var(--dsh-content-font-delta, 0px)); margin-right: 6px; }
-.rssh-disclosure-leading svg { width: calc(14px + var(--dsh-content-font-delta, 0px)); height: calc(14px + var(--dsh-content-font-delta, 0px)); margin: 0; }
-.rssh-disclosure-icon { display: inline-flex; opacity: 1; transition: opacity 100ms ease; }
-.rssh-disclosure-leading .rssh-disclosure-chevron { position: absolute; inset: 0; margin: auto; opacity: 0; transition: opacity 100ms ease; }
-:is(.rssh-flow-toggle,.rssh-thought-toggle)[aria-expanded=true] > .rssh-disclosure-leading .rssh-disclosure-icon,
-:is(.rssh-flow-toggle,.rssh-thought-toggle):focus-visible > .rssh-disclosure-leading .rssh-disclosure-icon { opacity: 0; }
-:is(.rssh-flow-toggle,.rssh-thought-toggle)[aria-expanded=true] > .rssh-disclosure-leading .rssh-disclosure-chevron,
-:is(.rssh-flow-toggle,.rssh-thought-toggle):focus-visible > .rssh-disclosure-leading .rssh-disclosure-chevron { opacity: 1; }
-:is(.rssh-flow-toggle,.rssh-thought-toggle)[aria-expanded=true] > .rssh-disclosure-leading .rssh-disclosure-chevron { transform: rotate(180deg); }
-@media (hover: hover) {
-  :is(.rssh-flow-toggle,.rssh-thought-toggle):hover > .rssh-disclosure-leading .rssh-disclosure-icon { opacity: 0; }
-  :is(.rssh-flow-toggle,.rssh-thought-toggle):hover > .rssh-disclosure-leading .rssh-disclosure-chevron { opacity: 1; }
-}
+/* Both the disclosure affordance and category remain legible without hover. */
+.rssh-disclosure-leading { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: calc(32px + var(--dsh-content-font-delta, 0px)); margin-right: 8px; }
+.rssh-disclosure-leading svg { flex: none; width: 14px; height: 14px; margin: 0; }
+.rssh-disclosure-icon { display: inline-flex; order: 1; }
+.rssh-disclosure-chevron { color: var(--dsw-alias-label-tertiary); transform: rotate(-90deg); transition: transform 100ms ease; }
+:is(.rssh-flow-toggle,.rssh-thought-toggle)[aria-expanded=true] > .rssh-disclosure-leading .rssh-disclosure-chevron { transform: rotate(0deg); }
+.rssh-flow-status { flex: none; margin-left: 8px; font-size: var(--dsh-content-font-size-secondary, 13px); color: var(--dsw-alias-label-tertiary); }
+.rssh-flow-status[data-active] { color: var(--dsw-alias-state-info-primary); }
+.rssh-flow-active-mark { flex: none; width: 6px; height: 6px; margin-left: 8px; border-radius: 50%; background: var(--dsw-alias-state-info-primary); }
 .rssh-flow-failure { flex: none; margin-left: 8px; font-size: var(--dsh-content-font-size-secondary, 13px); color: var(--dsw-alias-state-error-primary); }
 .rssh-flow[data-failed] > .rssh-flow-toggle .rssh-flow-summary { color: var(--dsw-alias-state-error-primary); }
-.rssh-flow-body { min-width: 0; margin: 4px 0; color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size, 14px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); overflow-wrap: anywhere; }
+.rssh-flow-body { min-width: 0; margin: 8px 0; padding-inline-start: calc(40px + var(--dsh-content-font-delta, 0px)); color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size, 14px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); overflow-wrap: anywhere; }
 .rssh-flow-body[hidden] { display: none; }
 .rssh-process-disclosure > .rssh-flow-toggle { font-size: var(--dsh-content-font-size, 14px); }
 .rssh-process-disclosure[data-open] > .rssh-flow-toggle { padding-bottom: 8px; }
-.rssh-process-disclosure > .rssh-flow-body { margin: 0; max-height: min(400px, 50vh); overflow-y: auto; overscroll-behavior-y: auto; scrollbar-gutter: stable; }
-.rssh-process-disclosure > .rssh-flow-body:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: -2px; }
+.rssh-process-disclosure > .rssh-flow-body { margin: 0 0 8px; padding-inline-start: 0; }
 .rssh-process-disclosure > .rssh-flow-body > :not([hidden]):not(:empty) ~ :not([hidden]):not(:empty),
 .rssh-process-rows > :not([hidden]):not(:empty) ~ :not([hidden]):not(:empty) { margin-top: 4px; }
 .rssh-flow[data-secondary] > .rssh-flow-toggle { font-size: var(--dsh-content-font-size-secondary, 13px); }
-.rssh-flow-children { min-width: 0; margin-top: 4px; padding-left: 12px; }
+.rssh-flow-children { min-width: 0; margin-top: 8px; padding-inline-start: 16px; }
 .rssh-flow-text { min-width: 0; margin: 4px 0; }
 .rssh-flow-plan-row { display: flex; align-items: baseline; gap: 8px; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); }
 .rssh-flow-agent-meta { font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); margin-bottom: 4px; }
 .rssh-flow-source { min-width: 0; margin: 2px 0; color: var(--dsw-alias-label-tertiary); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); overflow-wrap: anywhere; }
 .rssh-flow-locations { display: flex; flex-wrap: wrap; gap: 4px; }
-.rssh-flow-raw { min-width: 0; margin-top: 4px; color: var(--dsw-alias-label-tertiary); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); }
+.rssh-flow-raw { min-width: 0; margin-top: 8px; color: var(--dsw-alias-label-tertiary); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); }
 .rssh-flow-raw > summary { width: fit-content; cursor: pointer; }
 .rssh-flow-raw > summary:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; }
 .rssh-flow-raw-label { margin-top: 6px; color: var(--dsw-alias-label-tertiary); }
 .rssh-flow-raw-text { margin: 2px 0 6px; padding: 8px 12px; border: .5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-lg, 8px); background: var(--dsw-alias-markdown-code-block); color: var(--dsw-alias-label-secondary); font-family: var(--ds-font-family-code, monospace); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
 .rssh-flow-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-.rssh-flow[data-running] > .rssh-flow-toggle .rssh-flow-title,
-.rssh-flow[data-running] > .rssh-flow-toggle .rssh-flow-summary { background: linear-gradient(110deg, currentColor 0%, currentColor 35%, var(--dsw-alias-label-primary) 50%, currentColor 65%, currentColor 100%); background-size: 240% 100%; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rssh-flow-shimmer 1.8s linear infinite; }
-@keyframes rssh-flow-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+/* Activity is static text/mark, never a competing whole-title shimmer. */
 @media (hover: hover) { .rssh-flow-toggle:hover { color: var(--dsw-alias-label-secondary); } }
+@media (pointer: coarse) { .rssh-flow-toggle, .rssh-thought-toggle { min-height: 40px; } }
 @media (prefers-reduced-motion: reduce) {
-  .rssh-flow-toggle, .rssh-thought-toggle, .rssh-disclosure-icon, .rssh-disclosure-leading .rssh-disclosure-chevron { transition: none; }
-  .rssh-flow[data-running] > .rssh-flow-toggle .rssh-flow-title,
-  .rssh-flow[data-running] > .rssh-flow-toggle .rssh-flow-summary { animation: none; background: none; -webkit-text-fill-color: currentColor; }
+  .rssh-flow-toggle, .rssh-thought-toggle, .rssh-disclosure-chevron { transition: none; }
 }
 
 .rssh-flow-notice {

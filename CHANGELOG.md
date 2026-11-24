@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-rc.10 — coherent stream reading and process presentation
+
+- Release verification: 459 automated tests pass (49 new regressions); independent source-level UI/UX review completed, including fixes found during integration. Real-browser focus, scroll anchoring, narrow-screen typography and dark/light visual acceptance remain unverified.
+- Preserve all assistant prose in order: a positional last segment is not an authoritative final-answer marker. Default copy copies that segment; copying the entire turn is a separately labelled action. Existing final-only preferences no longer hide unclassified prose.
+- Keep one stable process disclosure through streaming and completion. Summaries show supplied actions and historical failure counts (including descendants), not just record totals. User reading pins the group open; opened child bodies remain mounted when hidden to retain local state.
+- Treat expansion and explicit reading as a pause in tail following. Restore the trigger offset with viewport/content/lifetime/interaction guards; preserve existing history pagination guards. Remove the process-group inner scrollport and use explicit 20-line previews for long tool outputs; raw diagnostics remain a last-level bounded exception.
+- Use persistent chevrons, visible static activity status, consistent content axes and coarse-pointer targets. Remove competing full-title/thought shimmer. Reasoning summaries do not jump back to the first paragraph on completion.
+- Update plan snapshots in place by actual scope/identity; ending or removing a plan stops its activity display without inventing successful steps. Fix subagent scope and reuse top-level filtering, roles and copy rules in nested conversations.
+- Retain concise permission/question receipts from explicit resolution events, with allowlisted decisions and no answer/schema/option-label payloads. Distinguish connection state, structured user waits, active root-turn tools and unknown progress; never infer external authorization from prose or URL clicks.
+- Render all supplied diff, terminal and distinct text result sections, retaining first-terminal tool-level exit fallback without applying it to unrelated terminals. Keep IDs and source metadata in diagnostic disclosures.
+- Scope boundaries: no Host lifecycle, SSH configuration, ACP authorization or conversation records are rewritten; no new preferences are introduced. The legacy presentation-mode fields remain accepted, but container identity is now consistent across modes. Already-open hidden content can still incur rendering cost and requires real-browser performance acceptance.
+
 ## 3.0.0-rc.9 — automatic HTTP links in message text
 
 - Release verification: build and 410 automated tests pass; source-level link interaction review completed. Includes the rc.8 browser timer receiver hotfix.

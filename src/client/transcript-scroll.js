@@ -3,6 +3,16 @@ import {followsTranscriptTail,anchoredScrollTop,mayRestoreTranscriptAnchor} from
 import {HistoryPager,scrollBoxConsumesUpward} from './history-pager.js';
 import {historyAnchorAdjustment} from './history-anchor.js';
 
+// Pure restore decision: opaque viewport/content identities and measured numbers,
+// not DOM nodes or React state. null means leave the reader's position untouched.
+export function readingAnchorScrollTop(saved,current) {
+  if(!saved||!current||current.following||!current.visible||
+    !mayRestoreTranscriptAnchor({startedAtGeneration:saved.interaction,currentGeneration:current.interaction,
+      sameViewport:saved.viewport===current.viewport&&saved.content===current.content&&saved.lifetime===current.lifetime,live:current.live}))return null;
+  if(![saved.offset,current.offset,current.scrollTop].every(Number.isFinite))return null;
+  return anchoredScrollTop({currentTop:current.scrollTop,previousOffset:saved.offset,nextOffset:current.offset});
+}
+
 // One owned scrollport. History loads on reader intent near its top, never on a timer.
 export function useTranscriptScroll(identity,items,ready=true,history) {
   const viewportRef=React.useRef(null),contentRef=React.useRef(null);
@@ -10,6 +20,7 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
   const interaction=React.useRef(0),expectedScroll=React.useRef(null),pendingPrepend=React.useRef(null);
   const scrollIntent=React.useRef(false),touchPoint=React.useRef(null);
   const lastScrollTop=React.useRef(0),pendingRestore=React.useRef(null),lifetime=React.useRef(0);
+  const readingAnchor=React.useRef(null);
   const historyRef=React.useRef(history);historyRef.current=history;
   const [following,setFollowing]=React.useState(true),[prepending,setPrepending]=React.useState(false);
   const [showLatest,setShowLatest]=React.useState(false),[historyStatus,setHistoryStatus]=React.useState({loading:false,error:null});
@@ -31,6 +42,35 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     viewport.scrollTop=expectedScroll.current;lastScrollTop.current=viewport.scrollTop;
     measureTail(viewport);
   };
+  function captureReading(anchor) {
+    const viewport=viewportRef.current,content=contentRef.current;
+    if(!live.current||!viewport||!content||anchor?.nodeType!==1||!content.contains(anchor))return;
+    interaction.current++;scrollIntent.current=false;pagerRef.current.pause();setFollow(false);
+    readingAnchor.current={anchor,viewport,content,lifetime:lifetime.current,interaction:interaction.current,
+      offset:anchor.getBoundingClientRect().top-viewport.getBoundingClientRect().top};
+    schedule();
+  }
+  function restoreReadingAnchor() {
+    const saved=readingAnchor.current;if(!saved)return;
+    readingAnchor.current=null;
+    if(!mayRestoreTranscriptAnchor({startedAtGeneration:saved.interaction,currentGeneration:interaction.current,
+      sameViewport:viewportRef.current===saved.viewport&&contentRef.current===saved.content&&lifetime.current===saved.lifetime,live:live.current})||follow.current)return;
+    if(!saved.anchor.isConnected||!saved.content.contains(saved.anchor)||!saved.anchor.getClientRects().length)return;
+    const offset=saved.anchor.getBoundingClientRect().top-saved.viewport.getBoundingClientRect().top;
+    const top=readingAnchorScrollTop(saved,{viewport:viewportRef.current,content:contentRef.current,lifetime:lifetime.current,
+      interaction:interaction.current,live:live.current,following:follow.current,visible:true,offset,scrollTop:saved.viewport.scrollTop});
+    if(top!==null)writeScroll(saved.viewport,top);
+  }
+  function onReadingIntent(event) {
+    if(event.detail?.afterLayout) {
+      if(readingAnchor.current?.anchor===event.detail.anchor)restoreReadingAnchor();
+    } else captureReading(event.detail?.anchor);
+  }
+  function onReadingClick(event) {
+    // Capture keyboard activation and native <summary> before their default action.
+    const target=event.target?.closest?.('button,summary,[role="button"]');
+    if(event.isTrusted&&target)captureReading(target);
+  }
   const schedule=()=>{
     if(!live.current||frame.current!==null)return;
     frame.current=requestAnimationFrame(()=>{
@@ -38,7 +78,7 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
       const viewport=viewportRef.current;
       if(!live.current||!viewport)return;
       if(follow.current)writeScroll(viewport,viewport.scrollHeight);
-      else {measureTail(viewport);requestHistory();}
+      else {restoreReadingAnchor();measureTail(viewport);requestHistory();}
     });
   };
   function measurements(viewport,content) {
@@ -59,15 +99,19 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
   }
   React.useLayoutEffect(()=>{
     lifetime.current++;live.current=true;setFollow(true);setShowLatest(false);setPrepending(false);
-    interaction.current++;expectedScroll.current=null;pendingRestore.current=null;scrollIntent.current=false;touchPoint.current=null;
+    interaction.current++;expectedScroll.current=null;pendingRestore.current=null;readingAnchor.current=null;scrollIntent.current=false;touchPoint.current=null;
     const viewport=viewportRef.current,content=contentRef.current;
     lastScrollTop.current=viewport?.scrollTop||0;
     pagerRef.current.activate(ready,identity);
     const observer=viewport&&content?new ResizeObserver(schedule):null;
     if(observer){observer.observe(viewport);observer.observe(content);}
+    viewport?.addEventListener('rssh:reading-intent',onReadingIntent);
+    viewport?.addEventListener('click',onReadingClick,true);
     schedule();
     return()=>{
-      live.current=false;lifetime.current++;pendingRestore.current=null;
+      live.current=false;lifetime.current++;pendingRestore.current=null;readingAnchor.current=null;
+      viewport?.removeEventListener('rssh:reading-intent',onReadingIntent);
+      viewport?.removeEventListener('click',onReadingClick,true);
       pagerRef.current.activate(false,identity);observer?.disconnect();
       if(frame.current!==null)cancelAnimationFrame(frame.current);frame.current=null;
     };
@@ -88,6 +132,8 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
   const onScroll=event=>{
     if(event&&event.target!==event.currentTarget)return;
     const viewport=viewportRef.current;if(!viewport)return;
+    // Layout/scroll anchoring caused by expansion is not a new reader gesture.
+    if(readingAnchor.current?.interaction===interaction.current) {measureTail(viewport);return;}
     const user=expectedScroll.current===null||Math.abs(viewport.scrollTop-expectedScroll.current)>1;
     const upwards=viewport.scrollTop<lastScrollTop.current;
     const downwards=viewport.scrollTop>lastScrollTop.current;
@@ -108,11 +154,14 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     if(event.defaultPrevented||event.altKey||isNestedScroll(event,['ArrowUp','PageUp','Home'].includes(event.key)))return;
     if(['ArrowUp','PageUp','Home'].includes(event.key)){
       interaction.current++;scrollIntent.current=true;setFollow(false);requestHistory({gesture:true});
-    } else if(['ArrowDown','PageDown','End'].includes(event.key)){scrollIntent.current=false;pagerRef.current.pause();}
+    } else if(['ArrowDown','PageDown','End'].includes(event.key)){interaction.current++;readingAnchor.current=null;scrollIntent.current=false;pagerRef.current.pause();}
   };
   const onPointerDown=event=>{
-    if(event.button!==0||isNestedScroll(event)||event.target.closest('button,a,summary,input,select,textarea,[role="button"]'))return;
-    interaction.current++;scrollIntent.current=event.target===event.currentTarget;setFollow(false);pagerRef.current.pause();
+    if(event.button!==0||isNestedScroll(event))return;
+    const control=event.target.closest('button,summary,[role="button"]');
+    if(control){captureReading(control);return;}
+    if(event.target.closest('a,input,select,textarea'))return;
+    interaction.current++;readingAnchor.current=null;scrollIntent.current=event.target===event.currentTarget;setFollow(false);pagerRef.current.pause();
   };
   const onTouchStart=event=>{
     const touch=event.touches.length===1?event.touches[0]:null;
@@ -130,7 +179,7 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     else {scrollIntent.current=false;pagerRef.current.pause();}
   };
   const onTouchEnd=()=>{touchPoint.current=null;};
-  const latest=()=>{interaction.current++;scrollIntent.current=false;pagerRef.current.pause();setFollow(true);schedule();};
+  const latest=()=>{interaction.current++;readingAnchor.current=null;scrollIntent.current=false;pagerRef.current.pause();setFollow(true);schedule();};
   const retryHistory=()=>{viewportRef.current?.focus({preventScroll:true});setFollow(false);requestHistory({retry:true});};
   function prepend(load) {
     if(pendingPrepend.current)return pendingPrepend.current;

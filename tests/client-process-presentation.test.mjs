@@ -52,17 +52,18 @@ test('tools and reasoning share a leading-only disclosure affordance with access
   }
   assert.match(disclosure,/className:'rssh-disclosure-leading','aria-hidden':true/);
   assert.match(disclosure,/className:'rssh-flow-title',title/);
-  assert.match(disclosure,/open\?\(typeof children==='function'\?children\(\):children\):null/);
+  assert.match(disclosure,/open\|\|mounted\?\(typeof children==='function'\?children\(\):children\):null/);
   assert.match(thought,/!open&&summary&&\(running\|\|showPreview\)/);
 });
-test('native row sizing and glyph replacement respect keyboard focus and reduced motion',async()=>{
+test('row sizing and permanent disclosure affordances respect focus and reduced motion',async()=>{
   const css=read('tool-stream.css'),thoughtCss=read('styles.css');
   for(const sheet of [css,thoughtCss])assert.equal((await transform(sheet,{loader:'css'})).warnings.length,0);
   assert.match(css,/\.rssh-flow-toggle \{[^}]*font-size: var\(--dsh-content-font-size-secondary, 13px\)/);
-  assert.match(css,/\.rssh-disclosure-leading \{[^}]*width: calc\(16px \+ var\(--dsh-content-font-delta/);
-  assert.match(css,/\.rssh-disclosure-leading svg \{[^}]*width: calc\(14px \+ var\(--dsh-content-font-delta/);
-  assert.match(css,/:focus-visible > \.rssh-disclosure-leading \.rssh-disclosure-chevron \{ opacity: 1/);
-  assert.match(css,/\[aria-expanded=true\] > \.rssh-disclosure-leading \.rssh-disclosure-chevron \{ transform: rotate\(180deg\)/);
+  assert.match(css,/\.rssh-disclosure-leading \{[^}]*width: calc\(32px \+ var\(--dsh-content-font-delta/);
+  assert.match(css,/\.rssh-disclosure-leading svg \{[^}]*width: 14px/);
+  assert.doesNotMatch(css,/\.rssh-disclosure-chevron[^}]*opacity:\s*0/);
+  assert.match(css,/\.rssh-flow-toggle:focus-visible \{[^}]*outline: 2px solid var\(--dsw-alias-state-info-primary\)/);
+  assert.match(css,/\[aria-expanded=true\] > \.rssh-disclosure-leading \.rssh-disclosure-chevron \{ transform: rotate\(0deg\)/);
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.match(css,/\.rssh-flow-title \{[^}]*max-width: 100%/);
   assert.match(css,/\.rssh-flow\[data-summary\] > \.rssh-flow-toggle \.rssh-flow-title \{ max-width: 60%/);
@@ -79,14 +80,14 @@ test('bounded process lists open at the correct edge and respect readers leaving
   assert.equal(followsTranscriptTail(metrics),false);
   assert.equal(followsTranscriptTail({...metrics,scrollTop:500}),true);
 });
-test('only grouped process bodies are bounded, labelled and independently keyboard-scrollable',()=>{
+test('grouped processes share the outer reading scrollport and preserve child state',()=>{
   const css=read('tool-stream.css'),disclosure=read('disclosure.js'),transcript=read('transcript.js');
-  assert.match(css,/\.rssh-process-disclosure > \.rssh-flow-body \{[^}]*max-height: min\(400px, 50vh\);[^}]*overflow-y: auto/);
+  const group=css.match(/\.rssh-process-disclosure > \.rssh-flow-body \{([^}]*)\}/)?.[1];
+  assert.ok(group);assert.doesNotMatch(group,/max-height|overflow-y|scrollbar-gutter/);
   assert.match(css,/\.rssh-process-disclosure\[data-open\] > \.rssh-flow-toggle \{ padding-bottom: 8px/);
   assert.match(css,/\.rssh-process-rows > [^\n]*\{ margin-top: 4px/);
-  assert.match(transcript,/className:'rssh-process-disclosure',scrollBody:true/);
-  assert.match(disclosure,/tabIndex:scrollBody\?0:undefined/);
-  assert.match(disclosure,/role:scrollBody\?'region':undefined,'aria-label':scrollBody\?title:undefined/);
-  assert.match(disclosure,/following.current=followsTranscriptTail\(event.currentTarget\)/);
-  assert.match(disclosure,/\[open,running,scrollBody,children\]/);
+  assert.match(transcript,/className:'rssh-process-disclosure'/);
+  assert.doesNotMatch(disclosure,/tabIndex:scrollBody|role:scrollBody|following.current|processBodyScrollTop/);
+  assert.match(disclosure,/onRead/);assert.match(disclosure,/open\|\|mounted\?/);
+  assert.match(disclosure,/requestReadingIntent\(event.currentTarget\)/);
 });

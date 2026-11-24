@@ -34,8 +34,47 @@ function appendText(items, event, type) {
   return [...items, { ...event, key: itemKey(event), type, identity, lastSeq: event.seq, ...(type === 'thought' ? {streaming:true} : {}), text: String(event.text || '') }];
 }
 function finishThoughts(items, event) {
-  return items.map(item => item.type === 'thought' && item.sessionId === event.sessionId &&
-    (!event.turnId || item.turnId === event.turnId) ? {...item,streaming:false} : item);
+  return items.map(item => item.sessionId === event.sessionId && (!event.turnId || item.turnId === event.turnId)
+    ? item.type === 'thought' ? {...item,streaming:false}
+      : item.type === 'plan' ? {...item,settled:true,settledReason:event.type === 'stop' ? 'stop' : 'idle'} : item
+    : item);
+}
+const planIdentity = event => JSON.stringify([event.sessionId || '',event.turnId || '',event.parentToolCallId || '',event.planId || '']);
+const receiptIdentity = item => JSON.stringify([item.interaction,item.sessionId || '',item.turnId || '',item.requestId || '',item.parentToolCallId || '']);
+function resolveInteraction(state, event, interaction) {
+  const field = interaction === 'permission' ? 'permissions' : 'elicitations';
+  const pending = state[field];
+  let matches = event.requestId == null ? pending : pending.filter(item => String(item.requestId) === String(event.requestId));
+  // Broker request IDs are unique. If a replay contains collisions, only a
+  // supplied matching scope may disambiguate them; never resolve both by guess.
+  if (matches.length > 1 && event.requestId != null) {
+    matches = matches.filter(item => ['sessionId','turnId','parentToolCallId'].every(key => event[key] == null || event[key] === item[key]));
+    if (matches.length !== 1) return state;
+  }
+  const outcome = event.type.endsWith('_cancelled') || event.outcome === 'cancelled' || event.action === 'cancel' ? 'cancelled' : 'resolved';
+  const previousReceipts = state.items.filter(item => item.type === 'interaction_receipt' && item.interaction === interaction &&
+    event.requestId != null && item.requestId === String(event.requestId) &&
+    ['sessionId','turnId','parentToolCallId'].every(key => event[key] == null || event[key] === item[key]));
+  const sources = matches.length ? matches : event.requestId != null ? [previousReceipts.length === 1 ? previousReceipts[0] : event] : [];
+  let items = state.items;
+  for (const source of sources) {
+    // Deliberate allowlist: no message, answer, option value, schema or raw data.
+    const receipt = {type:'interaction_receipt',interaction,outcome,
+      sessionId:source.sessionId || event.sessionId || '',turnId:source.turnId || event.turnId || '',
+      requestId:String(source.requestId ?? event.requestId ?? ''),parentToolCallId:source.parentToolCallId || event.parentToolCallId || ''};
+    const previousDecision = source.type === 'interaction_receipt' && ['allowed','denied','answered','declined','resolved','cancelled'].includes(source.decision) ? source.decision : 'resolved';
+    const kind = interaction === 'permission' && event.outcome === 'selected'
+      ? list(source.options).find(option => option.optionId === event.optionId)?.kind : null;
+    receipt.decision = outcome === 'cancelled' ? 'cancelled'
+      : interaction === 'question' && event.action === 'accept' ? 'answered'
+      : interaction === 'question' && event.action === 'decline' ? 'declined'
+      : ['allow_once','allow_always'].includes(kind) ? 'allowed'
+      : ['reject_once','reject_always'].includes(kind) ? 'denied' : previousDecision;
+    const identity = receiptIdentity(receipt);
+    items = upsert(items,item => item.type === 'interaction_receipt' && receiptIdentity(item) === identity,
+      item => ({...receipt,key:item?.key || `receipt:${identity}`,seq:event.seq,lastSeq:event.seq}));
+  }
+  return {...state,items,[field]:pending.filter(item => !matches.includes(item))};
 }
 export function reduceEvent(previous, event) {
   if (!event || typeof event !== 'object') return previous;
@@ -70,12 +109,11 @@ export function reduceEvent(previous, event) {
         item => ({ key: item?.key || key, type: 'tool', tool: defined(item?.tool, event) })) };
     case 'permission':
       return event.autoResolved ? state : { ...state, permissions: [...state.permissions.filter(value => value.requestId !== event.requestId), event] };
-    case 'permission_resolved': return { ...state, permissions: state.permissions.filter(value => value.requestId !== event.requestId) };
-    case 'permission_cancelled': return { ...state, permissions: [] };
+    case 'permission_resolved': case 'permission_cancelled': return resolveInteraction(state,event,'permission');
     case 'elicitation':
       return event.supported === false ? state : { ...state, elicitations: [...state.elicitations.filter(value => value.requestId !== event.requestId), event] };
     case 'elicitation_resolved': case 'elicitation_cancelled':
-      return { ...state, elicitations: event.requestId ? state.elicitations.filter(value => value.requestId !== event.requestId) : [] };
+      return resolveInteraction(state,event,'question');
     case 'commands': return { ...state, commands: list(event.commands) };
     case 'config': return { ...state, config: event.config || state.config };
     case 'mode': return { ...state, config: event.config || { ...state.config, mode: event.currentModeId,
@@ -98,7 +136,14 @@ export function reduceEvent(previous, event) {
     case 'error': return { ...state, error: event.message || event.code || 'Agent error', running: event.fatal ? false : state.running,
       binding: event.fatal ? { ...state.binding, status: 'error' } : state.binding,
       items: [...items, { ...event, key, type: 'error', text: event.message || event.code || '' }] };
-    case 'plan': return { ...state, items: [...items, { ...event, key, type: 'plan' }] };
+    case 'plan': {
+      const identity = planIdentity(event),turn = state.turns[JSON.stringify([event.sessionId || '',event.turnId || ''])];
+      return {...state,items:upsert(items,item => item.type === 'plan' && planIdentity(item) === identity,
+        item => ({...defined(item,event),key:item?.key || key,type:'plan',lastSeq:event.seq,
+          settled:item?.settled === true || !!turn?.status && turn.status !== 'running'}))};
+    }
+    case 'plan_removed': return {...state,items:items.map(item => item.type === 'plan' && planIdentity(item) === planIdentity(event)
+      ? {...item,settled:true,settledReason:'removed',removed:true,lastSeq:event.seq} : item)};
     case 'notice': return { ...state, items: [...items, { ...event, key, type: 'notice' }] };
     case 'compaction': case 'compaction_chunk': {
       const match = item => item.type === 'compaction' && item.compactionId === event.compactionId && item.sessionId === event.sessionId;

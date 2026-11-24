@@ -10,6 +10,9 @@ export function rawDetailEntries(payload={}) {
     if(payload[key]!==undefined&&payload[key]!==null&&payload[key]!=='')entries.push({key,value:payload[key]});
   }
   if(payload.output!==undefined&&payload.output!==null&&payload.output!=='')entries.push({key:'output',value:payload.output});
+  const identity=Object.fromEntries(['agentId','sessionId','taskId','toolUseId','toolCallId','turnId','parentToolCallId'].filter(key=>payload[key]!=null).map(key=>[key,payload[key]]));
+  if(Object.keys(identity).length)entries.push({key:'identity',value:identity});
+  if(payload.subagent)entries.push({key:'subagent',value:payload.subagent});
   return entries;
 }
 const firstLine=value=>String(value||'').split(/\r?\n/,1)[0].trim();
@@ -24,14 +27,23 @@ export function toolFlowModel(tool={}) {
   const locations=Array.isArray(tool.locations)?tool.locations:[];
   const raw=tool.rawInput;
   const command=typeof raw==='string'?raw:raw&&typeof raw==='object'&&!raw.truncated?String(raw.command||raw.cmd||raw.command_line||raw.commandLine||''):'';
-  const output=typeof tool.output==='string'?tool.output:tool.output!=null?fullPayloadText(tool.output):acpContentText(content.filter(block=>block?.type!=='diff'&&block?.type!=='terminal'));
+  const contentOutput=acpContentText(content.filter(block=>block?.type!=='diff'&&block?.type!=='terminal'));
+  const suppliedOutput=typeof tool.output==='string'?tool.output:tool.output!=null?fullPayloadText(tool.output):'';
+  const output=suppliedOutput||contentOutput;
+  const textOutputs=[...new Set([suppliedOutput,contentOutput].filter(Boolean))];
   const name=String(tool.name||tool.title||''),kind=String(tool.kind||'').toLowerCase();
-  // Structured results win; exactly one main result renderer is selected.
+  // Retain a primary kind for compatibility; toolBodyParts exposes every supplied
+  // result section, rather than silently hiding mixed output behind diagnostics.
   const body=diffs.length?'diff':terminals.length||kind==='execute'?'terminal':kind==='read'?'read':'generic';
   const terminal=terminals[0]||{};
   const explicitExit=terminal.exitStatus??tool.exitStatus??terminal.exitCode??tool.exitCode;
   const exit=explicitExit===undefined?{exitCode:undefined,signal:undefined,running:['pending','in_progress'].includes(tool.status)}:acpNormalizeExit(explicitExit);
-  const failed=tool.status==='failed'||(exit.exitCode!==undefined&&exit.exitCode!==0)||!!exit.signal;
+  const terminalFailure=terminals.find(value=>{
+    const status=value.exitStatus??value.exitCode;
+    if(status==null)return false;
+    const result=acpNormalizeExit(status);return result.exitCode!==undefined&&result.exitCode!==0||!!result.signal;
+  });
+  const failed=tool.status==='failed'||(exit.exitCode!==undefined&&exit.exitCode!==0)||!!exit.signal||!!terminalFailure;
   const running=!failed&&['pending','in_progress'].includes(tool.status);
   const resolvedCommand=String(terminal.command||command);
   const resolvedOutput=typeof terminal.output==='string'?terminal.output:output;
@@ -45,6 +57,23 @@ export function toolFlowModel(tool={}) {
   // ACP adapters often use the command/path as the title too. Show it only once.
   const summary=preview===firstLine(title)?'':preview;
   return {title,summary,body,diffs,terminals,locations,command:resolvedCommand,cwd:String(terminal.cwd||tool.cwd||''),
-    output:resolvedOutput,exit,failed,running,name,
-    error:firstLine(tool.errorMessage||tool.error|| (failed?resolvedOutput:''))};
+    output:resolvedOutput,textOutput:output,textOutputs,kind,exit,failed,running,name,
+    error:firstLine(tool.errorMessage||tool.error||terminalFailure?.output|| (failed?resolvedOutput:''))};
+}
+
+export function toolBodyParts(model) {
+  const parts=[];
+  if(model.diffs.length)parts.push({kind:'diff',diffs:model.diffs});
+  if(model.terminals.length){
+    model.terminals.forEach((terminal,index)=>{
+      const supplied=terminal.exitStatus??terminal.exitCode;
+      const exit=supplied==null?(index===0?model.exit:{exitCode:undefined,signal:undefined,running:model.running}):acpNormalizeExit(supplied);
+      parts.push({kind:'terminal',command:String(terminal.command||(index===0?model.command:'')),cwd:String(terminal.cwd||(index===0?model.cwd:'')),
+        output:typeof terminal.output==='string'?terminal.output:index===0?model.textOutput:'',...exit});
+    });
+  } else if(model.body==='terminal'||model.kind==='execute')parts.push({kind:'terminal',command:model.command,cwd:model.cwd,output:model.output,...model.exit});
+  for(const text of model.textOutputs||[model.textOutput]){
+    if(text&&!parts.some(part=>part.kind==='terminal'&&part.output===text))parts.push({kind:model.body==='read'?'read':'text',text,label:model.locations[0]?.path||model.name});
+  }
+  return parts;
 }

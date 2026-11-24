@@ -2,7 +2,7 @@ import React from "react";
 import {ui, h} from "./shared.js";
 import {acpNativeName, acpContentText, acpNormalizeExit, acpNativeState, acpSubagentFromTool, acpItemId, acpChildrenFor, acpQuestionField, acpQuestionAnswersValid} from "./presentation.js";
 import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
-import {toolFlowModel,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
+import {toolFlowModel,toolBodyParts,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
 import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 const UiButton=ui.Button, UiInput=ui.Input;
@@ -12,7 +12,9 @@ function payloadItem(props,type,payload) {
 }
 function nested(props,item) {
   var id=acpItemId(item);
-  return h(AcpNestedChildren,{...props,items:acpChildrenFor(item,props.childMap,props.ancestors),ancestors:(props.ancestors||[]).concat(id)});
+  const children=acpChildrenFor(item,props.childMap,props.ancestors),ancestors=(props.ancestors||[]).concat(id);
+  if(!children.length)return null;
+  return props.renderNested?props.renderNested(children,ancestors):h(AcpNestedChildren,{...props,items:children,ancestors});
 }
 
 // One secondary raw disclosure per event. Full existing objects are retained;
@@ -30,17 +32,15 @@ export function AcpNativeDetails(props) {
 }
 export function AcpSourceFallback({item,fallback,t}) {
   if(!fallback)return null;
-  return h('div',{className:'rssh-flow-source'},
-    [t?t('acp.sourceFallback'):null,fallback.reason, fallback.sessionId&&'session: '+fallback.sessionId,
+  return h('details',{className:'rssh-flow-raw'},h('summary',null,t?t('acp.sourceFallback'):'Unlinked source'),
+    h('div',{className:'rssh-flow-source'},[fallback.reason, fallback.sessionId&&'session: '+fallback.sessionId,
       fallback.parentToolCallId&&'parent: '+fallback.parentToolCallId,
-      fallback.rootSessionId&&'root: '+fallback.rootSessionId].filter(Boolean).join(' · '));
+      fallback.rootSessionId&&'root: '+fallback.rootSessionId].filter(Boolean).join(' · ')));
 }
 export function AcpSubagentMeta(props) {
   var sub=props.subagent||{},t=props.t;
-  var ids=['agentId','sessionId','taskId','toolUseId'].filter(key=>sub[key]);
   return h('div',{className:'rssh-flow-agent-meta'},
     sub.description?h('div',null,String(sub.description)):null,
-    ids.length?h('div',{className:'rssh-flow-source'},ids.map(key=>key+': '+String(sub[key])).join(' · ')):null,
     sub.background?h('div',{className:'rssh-flow-source'},t('acp.subagentBackground')):null,
     sub.outputFile?h('div',null,h('code',null,String(sub.outputFile)),props.onOpenOutput?h(UiButton,{variant:'ghost',size:'sm',onClick:()=>props.onOpenOutput(String(sub.outputFile),String(sub.title||''))},t('acp.subagentOpenOutput')):null):null);
 }
@@ -74,7 +74,7 @@ export function AcpTerminalEventCard(props) {
   var failed=exit.exitCode!==undefined&&exit.exitCode!==0||!!exit.signal;
   return h(React.Fragment,null,h(Disclosure,{icon:h(FlowIcon),title:t('acp.terminalEvent'),summary:String(item.command||item.cwd||item.terminalId||''),
     running:exit.running,failed,status:t(failed?'acp.failed':exit.running?'acp.running':'acp.done'),children:()=>h(React.Fragment,null,
-      h(ui.TerminalBlock,{command:String(item.command||''),cwd:String(item.cwd||''),output:String(item.output??''),...exit,labels:props.labels.terminal,maxLines:Number.MAX_SAFE_INTEGER}),
+      h(ui.TerminalBlock,{command:String(item.command||''),cwd:String(item.cwd||''),output:String(item.output??''),...exit,labels:props.labels.terminal,maxLines:20}),
       h(AcpNativeDetails,{t,payload:item}),nested(props,item))}),h(AcpSourceFallback,{item,t,fallback:props.sourceFallback}));
 }
 export function AcpNativeEventCard(props) {
@@ -125,6 +125,7 @@ export function AcpNestedItem(props) {
     case 'native_event':return h(AcpNativeEventCard,common);
     case 'compaction':return h(AcpCompactionCard,common);
     case 'notice':return h(AcpNoticeCard,common);
+    case 'interaction_receipt':return h(AcpInteractionReceipt,common);
     case 'thought':return h(React.Fragment,null,h(AcpThought,{...common,running:thoughtIsStreaming(item,props.transcriptItems||[item],props.running)}),h(AcpNativeDetails,{t:props.t,payload:item}),nested(props,item));
     case 'assistant': case 'user':return h('div',{className:'rssh-flow-text'},h(AcpMarkdown,{text:String(item.text||acpContentText(item.content)),labels:props.labels.markdown}),
       h(AcpNativeDetails,{t:props.t,payload:item}),nested(props,item));
@@ -133,13 +134,22 @@ export function AcpNestedItem(props) {
       h(AcpNativeDetails,{t:props.t,payload:{event:item}}),nested(props,item));
   }
 }
+function AcpResultText({text,labels}) {
+  const [expanded,setExpanded]=React.useState(false),lines=String(text||'').split('\n'),limited=lines.length>20;
+  return h('div',{className:'rssh-flow-result'},h(AcpMarkdown,{text:expanded?text:lines.slice(0,20).join('\n'),labels:labels.markdown}),
+    limited?h(UiButton,{variant:'ghost',size:'sm','aria-expanded':expanded,onClick:()=>setExpanded(value=>!value)},expanded?labels.read.collapse:labels.read.expand(lines.length-20)):null);
+}
 function AcpToolBody({model,labels}) {
-  switch(model.body) {
-    case 'diff':return h(ui.DiffBlock,{diffs:model.diffs.map(d=>({path:String(d.path||''),oldText:d.oldText==null?null:String(d.oldText),newText:String(d.newText||'')})),labels:labels.diff,maxLines:Number.MAX_SAFE_INTEGER});
-    case 'terminal':return h(ui.TerminalBlock,{command:model.command,cwd:model.cwd,output:model.output,...model.exit,labels:labels.terminal,maxLines:Number.MAX_SAFE_INTEGER});
-    case 'read':return model.output?h(ui.ReadBlock,{label:model.locations[0]?.path||model.name,lines:model.output.split('\n').map((text,i)=>({number:i+1,text})),totalLines:model.output.split('\n').length,labels:labels.read,maxLines:Number.MAX_SAFE_INTEGER}):null;
-    default:return model.output?h('div',{className:'rssh-flow-result'},h(AcpMarkdown,{text:model.output,labels:labels.markdown})):null;
-  }
+  const counts={};
+  return h(React.Fragment,null,toolBodyParts(model).map(part=>{
+    const key=part.kind+':'+(counts[part.kind]=(counts[part.kind]||0)+1);
+    switch(part.kind) {
+      case 'diff':return h(ui.DiffBlock,{key,diffs:part.diffs.map(d=>({path:String(d.path||''),oldText:d.oldText==null?null:String(d.oldText),newText:String(d.newText||'')})),labels:labels.diff,maxLines:20});
+      case 'terminal':return h(ui.TerminalBlock,{key,...part,labels:labels.terminal,maxLines:20});
+      case 'read':return h(ui.ReadBlock,{key,label:part.label,lines:part.text.split('\n').map((text,i)=>({number:i+1,text})),totalLines:part.text.split('\n').length,labels:labels.read,maxLines:20});
+      default:return h(AcpResultText,{key,text:part.text,labels});
+    }
+  }));
 }
 export function AcpToolCard(props) {
   var tool=props.tool||{},t=props.t,model=toolFlowModel(tool),item=payloadItem(props,'tool',tool);
@@ -155,12 +165,18 @@ export function AcpToolCard(props) {
 }
 export function AcpPlanCard(props) {
   var entries=Array.isArray(props.entries)?props.entries:[],t=props.t,item=props.item||props;
-  var active=entries.filter(entry=>entry.status==='in_progress'),done=entries.filter(entry=>entry.status==='completed');
-  var summary=active[0]?.content||String(props.content||'')||(entries.length?done.length+'/'+entries.length:'');
-  return h(React.Fragment,null,h(Disclosure,{secondary:true,icon:h(FlowIcon,{kind:'plan'}),title:t('acp.plan'),summary:String(summary),running:active.length>0,status:active.length?t('acp.running'):undefined,
+  var active=item.settled||item.removed?[]:entries.filter(entry=>entry.status==='in_progress'),done=entries.filter(entry=>entry.status==='completed');
+  var summary=active[0]?.content||(entries.length?done.length+'/'+entries.length:String(props.content||''));
+  return h(React.Fragment,null,h(Disclosure,{secondary:true,icon:h(FlowIcon,{kind:'plan'}),title:t('acp.plan'),summary:String(summary),running:active.length>0,status:active.length?t('acp.running'):item.settled?t('flow.ended'):undefined,
     children:()=>h(React.Fragment,null,entries.length?entries.map((entry,i)=>h('div',{key:entry.id||i,className:'rssh-flow-plan-row'},
-      h(ui.StateDot,{state:entry.status==='completed'?'done':entry.status==='in_progress'?'ongoing':'idle'}),h('span',null,String(entry.content||'')))):h('div',null,String(props.content||'')),
+      h(ui.StateDot,{state:entry.status==='completed'?'done':!item.settled&&!item.removed&&entry.status==='in_progress'?'ongoing':'idle'}),h('span',null,String(entry.content||'')))):h('div',null,String(props.content||'')),
       h(AcpNativeDetails,{t,payload:item}),nested(props,item))}),h(AcpSourceFallback,{item,t,fallback:props.sourceFallback}));
+}
+
+export function AcpInteractionReceipt({item,t}) {
+  const key=item.interaction==='permission'?(item.outcome==='cancelled'?'flow.permissionCancelled':item.decision==='allowed'?'flow.permissionAllowed':item.decision==='denied'?'flow.permissionDenied':'flow.permissionRecorded'):
+    item.outcome==='cancelled'?'flow.questionCancelled':item.decision==='declined'?'flow.questionDeclined':'flow.questionRecorded';
+  return h('div',{className:'rssh-flow-notice'},h(FlowIcon,{kind:'state'}),h('span',{className:'rssh-flow-notice-body'},t(key)));
 }
 
 export function AcpElicitationCard(props) {
