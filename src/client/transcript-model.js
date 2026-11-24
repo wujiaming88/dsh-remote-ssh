@@ -52,6 +52,13 @@ export function transcriptEntries(items,{turns={}}={}) {
 export function processGroupOpen(entry,policy,manual) {
   return manual ?? (!policy.foldCompleted||!entry.settled||entry.interrupted||policy.collapseTiming==='next-input'&&!entry.laterInput);
 }
+// A bounded process list opens at the live tail or at the start of history.
+// Subsequent updates preserve a reader's scroll position unless they follow the tail.
+export function processBodyScrollTop({scrollHeight,clientHeight,scrollTop},{opening,running,following}) {
+  if(opening&&!running)return 0;
+  if(running&&(opening||following))return Math.max(0,scrollHeight-clientHeight);
+  return scrollTop;
+}
 export function responseHidden(entry,policy,foldedScopes) {
   return entry.kind==='item'&&entry.item.type==='assistant'&&policy.foldedReplies==='final'&&foldedScopes.has(entry.scope)&&entry.responseTail===false;
 }

@@ -29,9 +29,9 @@ function upsert(items, match, next) {
 function appendText(items, event, type) {
   const last = items.at(-1), identity = origin(event);
   if (last?.type === type && last.identity === identity) {
-    return [...items.slice(0, -1), { ...last, ...(type === 'thought' ? {streaming:true} : {}), text: event.append === false ? String(event.text || '') : last.text + String(event.text || '') }];
+    return [...items.slice(0, -1), { ...last, lastSeq: event.seq, ...(type === 'thought' ? {streaming:true} : {}), text: event.append === false ? String(event.text || '') : last.text + String(event.text || '') }];
   }
-  return [...items, { ...event, key: itemKey(event), type, identity, ...(type === 'thought' ? {streaming:true} : {}), text: String(event.text || '') }];
+  return [...items, { ...event, key: itemKey(event), type, identity, lastSeq: event.seq, ...(type === 'thought' ? {streaming:true} : {}), text: String(event.text || '') }];
 }
 function finishThoughts(items, event) {
   return items.map(item => item.type === 'thought' && item.sessionId === event.sessionId &&

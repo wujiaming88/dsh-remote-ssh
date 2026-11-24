@@ -1,25 +1,34 @@
 import React from 'react';
 import {followsTranscriptTail,anchoredScrollTop,mayRestoreTranscriptAnchor} from './transcript-model.js';
+import {HistoryPager,scrollBoxConsumesUpward} from './history-pager.js';
+import {historyAnchorAdjustment} from './history-anchor.js';
 
-// One owned scrollport, no outer-document scrolling or reconstructed text DOM.
-// Resizes follow only at the tail; browsing/selecting history opts out.
-export function useTranscriptScroll(identity,items,ready=true) {
+// One owned scrollport. History loads on reader intent near its top, never on a timer.
+export function useTranscriptScroll(identity,items,ready=true,history) {
   const viewportRef=React.useRef(null),contentRef=React.useRef(null);
   const follow=React.useRef(true),frame=React.useRef(null),live=React.useRef(false);
   const interaction=React.useRef(0),expectedScroll=React.useRef(null),pendingPrepend=React.useRef(null);
+  const scrollIntent=React.useRef(false),touchPoint=React.useRef(null);
+  const lastScrollTop=React.useRef(0),pendingRestore=React.useRef(null),lifetime=React.useRef(0);
+  const historyRef=React.useRef(history);historyRef.current=history;
   const [following,setFollowing]=React.useState(true),[prepending,setPrepending]=React.useState(false);
-  const [showLatest,setShowLatest]=React.useState(false);
+  const [showLatest,setShowLatest]=React.useState(false),[historyStatus,setHistoryStatus]=React.useState({loading:false,error:null});
+  const pagerRef=React.useRef(null);
+  if(!pagerRef.current)pagerRef.current=new HistoryPager({
+    getPage:()=>historyRef.current?.getPage(),
+    load:page=>prepend((beforeApply,canApply)=>historyRef.current.load(page,beforeApply,canApply)),
+    changed:state=>{if(live.current){setHistoryStatus(state);schedule();}},
+  });
   const setFollow=value=>{follow.current=value;setFollowing(value);};
-  // Pausing follow (e.g. selecting text) is not evidence of being above the tail.
-  // Only measured viewport distance controls the jump button.
+  const requestHistory=options=>pagerRef.current.check(viewportRef.current,options);
   const measureTail=viewport=>{
     const atTail=followsTranscriptTail(viewport);
     setShowLatest(!atTail);
     return atTail;
   };
   const writeScroll=(viewport,top)=>{
-    expectedScroll.current=Math.max(0,Math.min(top,viewport.scrollHeight-viewport.clientHeight));
-    viewport.scrollTop=expectedScroll.current;
+    expectedScroll.current=Math.max(0,Math.min(top,Math.max(0,viewport.scrollHeight-viewport.clientHeight)));
+    viewport.scrollTop=expectedScroll.current;lastScrollTop.current=viewport.scrollTop;
     measureTail(viewport);
   };
   const schedule=()=>{
@@ -29,52 +38,124 @@ export function useTranscriptScroll(identity,items,ready=true) {
       const viewport=viewportRef.current;
       if(!live.current||!viewport)return;
       if(follow.current)writeScroll(viewport,viewport.scrollHeight);
-      else measureTail(viewport);
+      else {measureTail(viewport);requestHistory();}
     });
   };
+  function measurements(viewport,content) {
+    const edge=viewport.getBoundingClientRect().top;
+    return [...content.querySelectorAll('[data-transcript-anchor]')].filter(node=>node.getClientRects().length).map(node=>{
+      const bounds=node.getBoundingClientRect();
+      return {key:node.dataset.transcriptAnchor,top:bounds.top-edge,bottom:bounds.bottom-edge,
+        members:JSON.parse(node.dataset.historyMembers||'[]'),ranges:JSON.parse(node.dataset.historyRanges||'[]'),versions:JSON.parse(node.dataset.historyVersions||'{}')};
+    });
+  }
+  function restorePrepend() {
+    const saved=pendingRestore.current;if(!saved)return;
+    pendingRestore.current=null;
+    if(!mayRestoreTranscriptAnchor({startedAtGeneration:saved.interaction,currentGeneration:interaction.current,
+      sameViewport:viewportRef.current===saved.viewport&&contentRef.current===saved.content&&lifetime.current===saved.lifetime,live:live.current})||follow.current)return;
+    const adjustment=historyAnchorAdjustment(saved.anchors,measurements(saved.viewport,saved.content));
+    if(adjustment)writeScroll(saved.viewport,anchoredScrollTop({currentTop:saved.viewport.scrollTop,...adjustment}));
+  }
   React.useLayoutEffect(()=>{
-    live.current=true;setFollow(true);setShowLatest(false);
+    lifetime.current++;live.current=true;setFollow(true);setShowLatest(false);setPrepending(false);
+    interaction.current++;expectedScroll.current=null;pendingRestore.current=null;scrollIntent.current=false;touchPoint.current=null;
     const viewport=viewportRef.current,content=contentRef.current;
+    lastScrollTop.current=viewport?.scrollTop||0;
+    pagerRef.current.activate(ready,identity);
     const observer=viewport&&content?new ResizeObserver(schedule):null;
     if(observer){observer.observe(viewport);observer.observe(content);}
     schedule();
-    return()=>{live.current=false;observer?.disconnect();if(frame.current!==null)cancelAnimationFrame(frame.current);frame.current=null;};
+    return()=>{
+      live.current=false;lifetime.current++;pendingRestore.current=null;
+      pagerRef.current.activate(false,identity);observer?.disconnect();
+      if(frame.current!==null)cancelAnimationFrame(frame.current);frame.current=null;
+    };
   },[identity,ready]);
-  React.useLayoutEffect(schedule,[items]);
-  const onScroll=()=>{
+  // Compensate at the commit that prepends, before a later live tail update can resize it.
+  React.useLayoutEffect(()=>{restorePrepend();schedule();},[items]);
+  const isNestedScroll=(event,upwards=null)=>{
+    if(!event.currentTarget||!event.target)return false;
+    let node=event.target.nodeType===1?event.target:event.target.parentElement;
+    for(;node&&node!==event.currentTarget;node=node.parentElement){
+      if(node.matches('input,textarea,select,[contenteditable="true"]'))return true;
+      const style=getComputedStyle(node);
+      if(scrollBoxConsumesUpward({scrollHeight:node.scrollHeight,clientHeight:node.clientHeight,scrollTop:upwards===null?1:upwards?node.scrollTop:node.scrollHeight-node.clientHeight-node.scrollTop,
+        overflowY:style.overflowY,overscrollBehaviorY:style.overscrollBehaviorY}))return true;
+    }
+    return false;
+  };
+  const onScroll=event=>{
+    if(event&&event.target!==event.currentTarget)return;
     const viewport=viewportRef.current;if(!viewport)return;
-    if(expectedScroll.current===null||Math.abs(viewport.scrollTop-expectedScroll.current)>1)interaction.current++;
-    expectedScroll.current=null;
-    setFollow(measureTail(viewport));
+    const user=expectedScroll.current===null||Math.abs(viewport.scrollTop-expectedScroll.current)>1;
+    const upwards=viewport.scrollTop<lastScrollTop.current;
+    const downwards=viewport.scrollTop>lastScrollTop.current;
+    expectedScroll.current=null;lastScrollTop.current=viewport.scrollTop;
+    if(user){
+      interaction.current++;setFollow(measureTail(viewport));
+      if(upwards&&scrollIntent.current)requestHistory({gesture:true});
+      else if(downwards){scrollIntent.current=false;pagerRef.current.pause();}
+    } else measureTail(viewport);
   };
-  const onWheel=event=>{interaction.current++;if(event.deltaY<0)setFollow(false);};
+  const onWheel=event=>{
+    if(!event.deltaY||event.ctrlKey||isNestedScroll(event,event.deltaY<0))return;
+    interaction.current++;
+    if(event.deltaY<0){scrollIntent.current=true;setFollow(false);requestHistory({gesture:true});}
+    else if(event.deltaY>0){scrollIntent.current=false;pagerRef.current.pause();}
+  };
+  const onKeyDown=event=>{
+    if(event.defaultPrevented||event.altKey||isNestedScroll(event,['ArrowUp','PageUp','Home'].includes(event.key)))return;
+    if(['ArrowUp','PageUp','Home'].includes(event.key)){
+      interaction.current++;scrollIntent.current=true;setFollow(false);requestHistory({gesture:true});
+    } else if(['ArrowDown','PageDown','End'].includes(event.key)){scrollIntent.current=false;pagerRef.current.pause();}
+  };
   const onPointerDown=event=>{
-    if(event.button!==0||event.target.closest('button,a,summary,input,select,textarea,[role="button"]'))return;
-    interaction.current++;setFollow(false);
+    if(event.button!==0||isNestedScroll(event)||event.target.closest('button,a,summary,input,select,textarea,[role="button"]'))return;
+    interaction.current++;scrollIntent.current=event.target===event.currentTarget;setFollow(false);pagerRef.current.pause();
   };
-  const latest=()=>{interaction.current++;setFollow(true);schedule();};
+  const onTouchStart=event=>{
+    const touch=event.touches.length===1?event.touches[0]:null;
+    touchPoint.current=touch?{x:touch.clientX,y:touch.clientY}:null;
+    if(!touch){scrollIntent.current=false;pagerRef.current.pause();}
+  };
+  const onTouchMove=event=>{
+    const previous=touchPoint.current,touch=event.touches.length===1?event.touches[0]:null;
+    if(!previous||!touch){touchPoint.current=null;return;}
+    const dx=touch.clientX-previous.x,dy=touch.clientY-previous.y;
+    touchPoint.current={x:touch.clientX,y:touch.clientY};
+    if(event.defaultPrevented||Math.abs(dy)<=Math.abs(dx)||isNestedScroll(event,dy>0))return;
+    interaction.current++;
+    if(dy>0){scrollIntent.current=true;setFollow(false);requestHistory({gesture:true});}
+    else {scrollIntent.current=false;pagerRef.current.pause();}
+  };
+  const onTouchEnd=()=>{touchPoint.current=null;};
+  const latest=()=>{interaction.current++;scrollIntent.current=false;pagerRef.current.pause();setFollow(true);schedule();};
+  const retryHistory=()=>{viewportRef.current?.focus({preventScroll:true});setFollow(false);requestHistory({retry:true});};
   function prepend(load) {
     if(pendingPrepend.current)return pendingPrepend.current;
     const viewport=viewportRef.current,content=contentRef.current;if(!viewport||!content)return Promise.resolve();
+    const epoch=lifetime.current;
     setFollow(false);setPrepending(true);
-    const generation=interaction.current,edge=viewport.getBoundingClientRect().top;
-    const anchor=[...content.querySelectorAll('[data-transcript-anchor]')].find(node=>node.getClientRects().length&&node.getBoundingClientRect().bottom>edge);
-    const anchorKey=anchor?.dataset.transcriptAnchor,offset=anchor?anchor.getBoundingClientRect().top-edge:null;
-    const task=Promise.resolve().then(load).then(async()=>{
-      if(!live.current)return;
+    const beforeApply=()=>{
+      if(!live.current||lifetime.current!==epoch||follow.current||viewportRef.current!==viewport||contentRef.current!==content)return;
+      // Capture the CURRENT reader position after network latency, not where the wheel began.
+      pendingRestore.current={task,viewport,content,lifetime:epoch,interaction:interaction.current,
+        anchors:measurements(viewport,content).filter(anchor=>anchor.bottom>0)};
+    };
+    const canApply=()=>live.current&&lifetime.current===epoch&&viewportRef.current===viewport&&contentRef.current===content;
+    const task=Promise.resolve().then(()=>load(beforeApply,canApply)).then(async()=>{
+      if(!live.current||lifetime.current!==epoch)return;
       await new Promise(resolve=>requestAnimationFrame(resolve));
-      if(!mayRestoreTranscriptAnchor({startedAtGeneration:generation,currentGeneration:interaction.current,
-        sameViewport:viewportRef.current===viewport,live:live.current})||!anchorKey)return;
-      const next=[...content.querySelectorAll('[data-transcript-anchor]')].find(node=>node.dataset.transcriptAnchor===anchorKey&&node.getClientRects().length);
-      if(!next)return;
-      const nextOffset=next.getBoundingClientRect().top-viewport.getBoundingClientRect().top;
-      writeScroll(viewport,anchoredScrollTop({currentTop:viewport.scrollTop,previousOffset:offset,nextOffset}));
+      if(pendingRestore.current?.task===task)restorePrepend();
     }).finally(()=>{
+      if(pendingRestore.current?.task===task)pendingRestore.current=null;
       if(pendingPrepend.current===task)pendingPrepend.current=null;
-      if(live.current)setPrepending(false);
+      if(live.current&&lifetime.current===epoch)setPrepending(false);
     });
     pendingPrepend.current=task;
     return task;
   }
-  return {viewportRef,contentRef,following,showLatest,prepending,onScroll,onWheel,onPointerDown,latest,prepend};
+  return {viewportRef,contentRef,following,showLatest,prepending,history:historyStatus,retryHistory,
+    onScroll,onWheel,onKeyDown,onPointerDown,onTouchStart,onTouchMove,onTouchEnd,latest,prepend};
 }

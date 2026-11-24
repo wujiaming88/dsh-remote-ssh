@@ -111,7 +111,8 @@ test('usage and activity use distinct icons, honest labels, and independent avai
   const source=readFileSync(new URL('../src/client/usage.js',import.meta.url),'utf8');
   assert.match(source,/export function UsagePill/);assert.match(source,/if\(!summary\)return null/);
   assert.match(source,/rx:5.5,ry:2/);assert.match(source,/h\(StatsIcon\)/);assert.match(source,/h\(UsageIcon\)/);
-  assert.match(source,/'usage.contextNote'/);assert.match(source,/'stats.elapsed':'Session age'/);
+  assert.doesNotMatch(source,/usage\.contextNote|rssh-meter-note|这是当前上下文占用|并非累计输入|Current context occupancy, not cumulative/);
+  assert.match(source,/row\('usage.contextUsed'/);assert.match(source,/'stats.elapsed':'Session age'/);
   assert.doesNotMatch(source,/usage\.cost|formatCost|details\.cost|累计费用|最终账单|Cumulative cost|final invoice/);
   assert.match(source,/row\('usage.model',details.model\)/);assert.match(source,/row\('usage.capacity'/);
   assert.match(source,/const reading=stats.running>0/); // age stays in details, not masquerading as execution duration

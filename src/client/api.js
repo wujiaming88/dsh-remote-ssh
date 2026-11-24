@@ -15,7 +15,7 @@ export async function api(method, args = {}, signal) {
       headers: { 'content-type': 'application/json', 'x-requested-with': 'XMLHttpRequest' },
       body: JSON.stringify(args),
     });
-    const value = await response.json();
+    const value = await response.json().catch(()=>null);
     if (!response.ok || value?.ok !== true) {
       return { ...value?.error, ok: false,
         code: value?.error?.code || `http_${response.status}`,
@@ -36,7 +36,7 @@ export async function stream(method, args, signal, onEvent) {
   if (!response.ok || !response.headers.get('content-type')?.includes('ndjson') || !response.body) {
     let failure;
     try { failure = await response.json(); } catch { failure = { error: `HTTP ${response.status}` }; }
-    throw responseError(failure);
+    throw responseError({...failure,code:failure?.code||failure?.error?.code||`http_${response.status}`});
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

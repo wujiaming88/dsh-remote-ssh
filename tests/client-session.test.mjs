@@ -68,3 +68,42 @@ test('failed startup is explicit and never sends a prompt or changes backend',as
  await client.connect();assert.equal(client.state.failure.needsPrepare,true);assert.equal(client.state.error,'prepare');
  assert.deepEqual(calls.map(call=>call.method),['acpStart']);
 });
+
+
+test('history captures the latest reader snapshot immediately before accepted publication',async t=>{
+  const older=deferred();const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===10?older.promise:undefined});
+  await client.connect();event(ev(10,{type:'text',text:'current'}));
+  let captured=null;const pending=client.history(10,{beforeApply:()=>{captured={cursor:client.state.cursor.seq,text:client.state.items.map(item=>item.text)};}});
+  assert.equal(captured,null);event(ev(11,{type:'text',text:' tail'}));
+  older.resolve({ok:true,session:snapshot,events:[ev(1,{type:'user_message',text:'earlier'})],cursor:{generation:'g',seq:1},oldestSeq:1,hasEarlier:false});
+  await pending;assert.deepEqual(captured,{cursor:11,text:['current tail']});assert.equal(client.state.items[0].text,'earlier');assert.equal(client.state.connected,true);
+});
+test('a same-generation replay reset rejects a late history page and its anchor callback',async t=>{
+  const older=deferred();const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===10?older.promise:undefined});
+  await client.connect();event(ev(10,{type:'text',text:'old'}));
+  let captures=0;const pending=client.history(10,{beforeApply:()=>captures++});
+  event({type:'replay',reset:true,cursor:{generation:'g',seq:0}});
+  const revision=client.state.replayRevision;
+  older.resolve({ok:true,session:snapshot,events:[ev(1,{type:'user_message',text:'stale'})],cursor:{generation:'g',seq:1},oldestSeq:1,hasEarlier:false});
+  await pending;assert.equal(captures,0);assert.equal(client.state.items.length,0);assert.ok(revision>0);assert.equal(client.state.replayRevision,revision);
+});
+test('history from a new journal never restores an anchor from the old journal',async t=>{
+  const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===10?{ok:true,session:snapshot,
+    reset:true,events:[{...ev(1,{type:'text',text:'new'}),generation:'replacement'}],cursor:{generation:'replacement',seq:1},oldestSeq:1,hasEarlier:false}:undefined});
+  await client.connect();event(ev(10,{type:'text',text:'old'}));
+  let captures=0;await client.history(10,{beforeApply:()=>captures++});
+  assert.equal(captures,0);assert.equal(client.state.items[0].text,'new');assert.equal(client.state.cursor.generation,'replacement');assert.ok(client.state.replayRevision>0);
+});
+
+
+test('a detached view cannot prepend into a client reused by another mounted view',async t=>{
+  const older=deferred();const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===10?older.promise:undefined});
+  await client.connect();event(ev(10,{type:'text',text:'current'}));
+  let mounted=true,captures=0;
+  const pending=client.history(10,{canApply:()=>mounted,beforeApply:()=>captures++});
+  mounted=false;
+  older.resolve({ok:true,session:snapshot,events:[ev(1,{type:'user_message',text:'earlier'})],cursor:{generation:'g',seq:1},oldestSeq:1,hasEarlier:false});
+  await pending;assert.equal(captures,0);assert.equal(client.events.has(1),false);assert.equal(client.state.items[0].text,'current');
+  await client.history(10,{canApply:()=>true,beforeApply:()=>captures++});
+  assert.equal(captures,1);assert.equal(client.state.items[0].text,'earlier');
+});

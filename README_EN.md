@@ -2,11 +2,11 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.6** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.7** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
-**rc.6 highlights**: fixes deterministic session-menu failures caused by missing service declarations; uses full-height file browsing and native-style composer/centered statistics; removes the header's left navigation toggle, cost readings and billing disclaimer.
+**rc.7 highlights**: scroll up to load older history automatically; reuse recent session connections and recover interrupted subscriptions with heartbeats; retain drafts and acknowledgement state across views; use native-density, bounded process rows without repeated command titles or the extra token explanation.
 
 ## Principles
 
@@ -81,7 +81,11 @@ Workspace creation can explicitly create a Git worktree from a branch/base. The 
 
 ## Lifecycle and data
 
-UI unmount only detaches browser subscriptions. generation/seq cursors and history pages support reconnection. Permission/form activity participates in native archive checks. Plugin shutdown reclaims connections but keeps recovery data; profile/workspace removal stops related instances without deleting histories or directories.
+- Switching views or closing the browser does not cancel remote work. The plugin keeps two recent browser clients warm; inactive clients expire after 10 minutes or are evicted by LRU, while mounted readers remain protected.
+- Unsequenced Host heartbeats arrive every 15 seconds. After 45 seconds without a frame the browser subscription reconnects from its cursor with 1–10-second backoff. Initial connection and reconnection are distinct, and history replay does not reset transport state. Heartbeats do not prove remote Agent health; missing runtimes or denied access require explicit retry.
+- Draft attachments and uncertain request metadata survive view changes and connection eviction within this client-plugin lifetime; only draft text is persisted. ACKs reconcile matching inputs without clearing later edits. Manual retries of uncertain sends retain the original request ID and operation. Plugin/page teardown loses in-memory attachments and pending metadata; identity changes or access revocation clear the corresponding cache.
+- Scroll near the top to load earlier pages using wheel, scrollbar, keyboard or touch. There is no routine Load earlier button; errors expose an explicit retry. Anchors are captured just before history publication, rather than using total height growth from independent tail output. No-progress pages stop; short/invisible pages continue for at most three loads per renewed reading gesture.
+- Permission/form activity participates in native archive checks. Plugin shutdown reclaims connections but keeps recovery data; profile/workspace removal stops related instances without deleting histories or directories.
 
 New data has explicit schema/version under the current profile's `data/remote-acp/v3/`. Existing user data is not deleted, but old formats are not read or migrated. Old remote workspaces must be added again.
 
@@ -102,7 +106,7 @@ node build-client.mjs
 node --test tests/*.test.mjs
 ```
 
-`lib/client.js` is generated with one module factory. Install a candidate using DSH **Plugins → Add plugin → Local directory**; this document does not imply publication to npm/GitHub.
+`lib/client.js` is generated with one module factory. Install a candidate using DSH **Plugins → Add plugin → Local directory**; Git commits and version tags do not imply an npm release; this release operation does not publish to npm.
 
 HTTP routes live under `/remote-ssh/v3/` and use one JSON envelope, current DSH authentication and resource authorization. The namespace is owner-only; old URLs, anonymous authorization and LiveShare fallbacks are not registered.
 

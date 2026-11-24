@@ -33,8 +33,18 @@ export function toolFlowModel(tool={}) {
   const exit=explicitExit===undefined?{exitCode:undefined,signal:undefined,running:['pending','in_progress'].includes(tool.status)}:acpNormalizeExit(explicitExit);
   const failed=tool.status==='failed'||(exit.exitCode!==undefined&&exit.exitCode!==0)||!!exit.signal;
   const running=!failed&&['pending','in_progress'].includes(tool.status);
-  const summary=firstLine(tool.description||locations[0]?.path||command||tool.summary||output);
-  return {title:String(tool.title||tool.name||''),summary,body,diffs,terminals,locations,command:String(terminal.command||command),cwd:String(terminal.cwd||tool.cwd||''),
-    output:typeof terminal.output==='string'?terminal.output:output,exit,failed,running,name,
-    error:firstLine(tool.errorMessage||tool.error|| (failed?output:''))};
+  const resolvedCommand=String(terminal.command||command);
+  const resolvedOutput=typeof terminal.output==='string'?terminal.output:output;
+  const suppliedTitle=String(tool.title||tool.name||'');
+  const description=typeof tool.description==='string'?tool.description:
+    raw&&!raw.truncated&&typeof raw.description==='string'?raw.description:'';
+  // Use an actual supplied description, never a guessed interpretation of shell text.
+  const title=description&&(!suppliedTitle.trim()||suppliedTitle.trim()===resolvedCommand.trim())?description:suppliedTitle;
+  const preview=firstLine(description&&firstLine(description)!==firstLine(title)?description:
+    locations[0]?.path||resolvedCommand||tool.summary||resolvedOutput);
+  // ACP adapters often use the command/path as the title too. Show it only once.
+  const summary=preview===firstLine(title)?'':preview;
+  return {title,summary,body,diffs,terminals,locations,command:resolvedCommand,cwd:String(terminal.cwd||tool.cwd||''),
+    output:resolvedOutput,exit,failed,running,name,
+    error:firstLine(tool.errorMessage||tool.error|| (failed?resolvedOutput:''))};
 }

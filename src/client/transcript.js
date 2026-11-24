@@ -6,16 +6,17 @@ import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
 import {AcpToolCard,AcpSubagentCard,AcpPlanCard,AcpStateCard,AcpSessionMessageCard,AcpTerminalEventCard,AcpNativeEventCard,AcpCompactionCard,AcpNoticeCard,AcpSourceFallback} from './cards.js';
 import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
+import {historyAnchorAttributes} from './history-anchor.js';
 
 export const messages={
   zh:{'flow.you':'你的消息','flow.agent':'Agent 回复','flow.copy':'复制','flow.copied':'已复制','flow.copyFailed':'复制失败，请选中文字手动复制。',
     'flow.process':'思考过程','flow.processCount':'项过程记录','flow.stopped':'已停止','flow.interrupted':'已中断',
     'flow.latest':'回到最新消息','flow.replying':'正在生成回复','flow.waitingPermission':'等待权限确认','flow.waitingQuestion':'等待你的回答',
-    'flow.working':'正在处理','flow.connection':'正在恢复连接','flow.source':'来源未关联'},
+    'flow.working':'正在处理','flow.connecting':'正在连接','flow.connection':'正在恢复连接','flow.source':'来源未关联'},
   en:{'flow.you':'Your message','flow.agent':'Agent response','flow.copy':'Copy','flow.copied':'Copied','flow.copyFailed':'Copy failed. Select the text and copy manually.',
     'flow.process':'Process','flow.processCount':'process items','flow.stopped':'Stopped','flow.interrupted':'Interrupted',
     'flow.latest':'Jump to latest','flow.replying':'Generating a response','flow.waitingPermission':'Awaiting permission','flow.waitingQuestion':'Awaiting your answer',
-    'flow.working':'Working','flow.connection':'Reconnecting','flow.source':'Unlinked source'},
+    'flow.working':'Working','flow.connecting':'Connecting','flow.connection':'Reconnecting','flow.source':'Unlinked source'},
 };
 
 export function Transcript({items,running,turns={},preferences,t,labels,openFile,renderFactorySlot,rootSessionId}) {
@@ -68,13 +69,13 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
     }
   }
   return entries.map(entry=>entry.kind==='process'
-    ?h('div',{key:entry.key,className:'rssh-process-group','data-transcript-anchor':entry.key,'data-flow-kind':'process'},
+    ?h('div',{key:entry.key,className:'rssh-process-group','data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':'process'},
       policy.stepGrouping==='none'||policy.stepGrouping==='history'&&!entry.settled
       ?h('div',{className:'rssh-process-rows'},entry.items.map(item=>render(item)))
-      :h(Disclosure,{title:t('flow.process'),summary:policy.showProcessSummary?`${entry.items.length} ${t('flow.processCount')}`:undefined,
+      :h(Disclosure,{className:'rssh-process-disclosure',scrollBody:true,title:t('flow.process'),summary:policy.showProcessSummary?`${entry.items.length} ${t('flow.processCount')}`:undefined,
         icon:h(FlowIcon,{kind:'state'}),open:groupOpen(entry),onOpenChange:open=>setManual(previous=>({...previous,[entry.key]:open})),
         running:running&&entry.scope===activeScope&&!entry.settled,children:()=>entry.items.map(item=>render(item))}))
-    :h('div',{key:entry.key,className:'rssh-transcript-item','data-transcript-anchor':entry.key,'data-flow-kind':entry.item.type,
+    :h('div',{key:entry.key,className:'rssh-transcript-item','data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':entry.item.type,
       hidden:responseHidden(entry,policy,foldedScopes)},render(entry.item,entry)));
 }
 
@@ -82,7 +83,7 @@ export function RunningTail({state,t}) {
   const waiting=state.permissions.length||state.elicitations.length;
   if(!state.running&&!waiting&&state.connected)return null;
   const last=[...state.items].reverse().find(item=>item.type==='assistant'||item.type==='thought'||item.type==='tool');
-  const label=!state.connected?t('flow.connection'):state.permissions.length?t('flow.waitingPermission'):
+  const label=!state.connected?t(state.everConnected?'flow.connection':'flow.connecting'):state.permissions.length?t('flow.waitingPermission'):
     state.elicitations.length?t('flow.waitingQuestion'):last?.type==='assistant'?t('flow.replying'):t('flow.working');
   return h('div',{className:'rssh-running-tail',role:'status'},h(ui.StateDot,{state:waiting?'warning':'ongoing'}),h('span',null,label));
 }

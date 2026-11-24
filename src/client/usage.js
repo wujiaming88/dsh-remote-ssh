@@ -7,13 +7,13 @@ export const messages = {
     'usage.title':'上下文与用量','usage.context':'上下文','usage.usage':'用量',
     'usage.model':'模型','usage.reasoning':'思考级别','usage.mode':'权限模式','usage.unreported':'尚未报告',
     'stats.title':'会话统计','stats.turns':'轮','stats.elapsed':'会话时长','stats.running':'进行中',
-    'usage.contextUsed':'当前上下文 token','usage.capacity':'上下文容量','usage.contextNote':'这是当前上下文占用，并非累计输入 / 输出 token。',
+    'usage.contextUsed':'当前上下文 token','usage.capacity':'上下文容量',
   },
   en: {
     'usage.title':'Context & usage','usage.context':'Context','usage.usage':'Usage',
     'usage.model':'Model','usage.reasoning':'Reasoning','usage.mode':'Permission mode','usage.unreported':'Not reported',
     'stats.title':'Session statistics','stats.turns':'turns','stats.elapsed':'Session age','stats.running':'Running',
-    'usage.contextUsed':'Current context tokens','usage.capacity':'Context capacity','usage.contextNote':'Current context occupancy, not cumulative input/output tokens.',
+    'usage.contextUsed':'Current context tokens','usage.capacity':'Context capacity',
   },
 };
 
@@ -78,8 +78,7 @@ export function UsagePill({state}) {
       h('div',{className:'rssh-meter-header'},h('span',{className:'rssh-meter-headline'},t('usage.usage'))),
       h('dl',{className:'rssh-meter-rows'},
         row('usage.contextUsed',details.used===null?t('usage.unreported'):formatTokens(details.used)),
-        row('usage.capacity',details.capacity===null?t('usage.unreported'):formatTokens(details.capacity))),
-      h('p',{className:'rssh-meter-note'},t('usage.contextNote'))));
+        row('usage.capacity',details.capacity===null?t('usage.unreported'):formatTokens(details.capacity)))));
 }
 
 export function SessionStatsPill({state}) {

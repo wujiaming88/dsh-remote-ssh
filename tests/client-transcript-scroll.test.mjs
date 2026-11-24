@@ -9,17 +9,19 @@ const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
 const hook = ast.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'useTranscriptScroll').declaration;
 // Exercise the actual numeric scroll callbacks with a deterministic frame queue.
 // This does not mount React or emulate/render a DOM or browser.
-const names = ['setFollow', 'measureTail', 'writeScroll', 'schedule', 'onScroll', 'onWheel', 'onPointerDown', 'latest'];
+const names = ['setFollow', 'measureTail', 'writeScroll', 'schedule', 'onScroll', 'onWheel', 'onPointerDown', 'latest', 'onTouchStart', 'onTouchMove', 'onTouchEnd'];
 const declarations = hook.body.body.filter(node => node.type === 'VariableDeclaration' && node.declarations.some(value => names.includes(value.id.name)));
 assert.equal(declarations.length, names.length);
 const callbacks = new Function('environment', `
-  const { follow, frame, live, viewportRef, interaction, expectedScroll, setFollowing, setShowLatest, requestAnimationFrame, followsTranscriptTail } = environment;
+  const { follow, frame, live, viewportRef, interaction, expectedScroll, setFollowing, setShowLatest, requestAnimationFrame, followsTranscriptTail, lastScrollTop, requestHistory, pagerRef, isNestedScroll, scrollIntent, touchPoint } = environment;
   ${declarations.map(node => source.slice(node.start, node.end)).join('\n')}
   return { ${names.join(',')} };
 `);
 function fixture(metrics = { scrollHeight: 1000, scrollTop: 600, clientHeight: 400 }) {
-  const frames = [], state = { following: true, showLatest: false, measurements: 0 };
+  const frames = [], state = { following: true, showLatest: false, measurements: 0, historyRequests: [], paused: 0 };
   const environment = {
+    touchPoint: { current: null }, scrollIntent: { current: false }, lastScrollTop: { current: metrics.scrollTop }, requestHistory: options => state.historyRequests.push(options),
+    pagerRef: { current: { pause: () => state.paused++ } }, isNestedScroll: () => false,
     follow: { current: true }, frame: { current: null }, live: { current: true },
     viewportRef: { current: { ...metrics } }, interaction: { current: 0 }, expectedScroll: { current: null },
     setFollowing: value => { state.following = value; },
@@ -85,6 +87,40 @@ test('rendering uses measured visibility and observes resizes independent of fol
   assert.doesNotMatch(chat, /!scroll\.following\?h\(ui\.Button/);
   assert.match(source, /new ResizeObserver\(schedule\)/);
   assert.match(source, /observer\.observe\(viewport\);observer\.observe\(content\)/);
-  assert.match(source, /React\.useLayoutEffect\(schedule,\[items\]\)/);
+  assert.match(source, /React\.useLayoutEffect\(\(\)=>\{restorePrepend\(\);schedule\(\);\},\[items\]\)/);
   assert.match(source, /live.current=true;setFollow\(true\);setShowLatest\(false\)/);
+});
+
+
+test('outer upward scrolling and wheel-at-top arm history while downward browsing pauses it', () => {
+  const f=fixture();f.onWheel({deltaY:-1});f.viewport.scrollTop=100;f.onScroll();
+  assert.ok(f.state.historyRequests.some(options=>options?.gesture));
+  const count=f.state.historyRequests.length;f.viewport.scrollTop=150;f.onScroll();
+  assert.equal(f.state.historyRequests.length,count);assert.ok(f.state.paused>0);
+  f.viewport.scrollTop=0;f.onWheel({deltaY:-100});
+  assert.equal(f.state.historyRequests.at(-1).gesture,true);
+});
+test('programmatic anchor writes and nested scroll events do not create new reader intent', () => {
+  const f=fixture();f.writeScroll(f.viewport,100);f.onScroll();
+  assert.equal(f.state.historyRequests.length,0);
+  f.onScroll({target:{},currentTarget:{}});assert.equal(f.state.historyRequests.length,0);
+  f.onWheel({deltaY:-100,ctrlKey:true});assert.equal(f.state.historyRequests.length,0);
+});
+
+test('layout-generated upward scroll without a reader gesture does not arm history',()=>{
+  const f=fixture();f.viewport.scrollTop=0;f.onScroll();
+  assert.equal(f.state.historyRequests.length,0);
+  f.onPointerDown({button:0,target:{closest:()=>null}});f.viewport.scrollTop=100;f.onScroll();
+  f.viewport.scrollTop=0;f.onScroll();assert.equal(f.state.historyRequests.length,0);
+});
+
+test('touch can request history without an overflow scroll event and ignores taps or horizontal gestures',()=>{
+  const f=fixture({scrollTop:0,scrollHeight:100,clientHeight:400});
+  const touch=(x,y)=>({touches:[{clientX:x,clientY:y}]});
+  f.onTouchStart(touch(100,100));assert.equal(f.state.historyRequests.length,0);
+  f.onTouchMove(touch(140,101));assert.equal(f.state.historyRequests.length,0);
+  f.onTouchMove(touch(140,151));assert.equal(f.state.historyRequests.at(-1).gesture,true);
+  f.onTouchEnd();assert.equal(f.environment.touchPoint.current,null);
+  const count=f.state.historyRequests.length;f.onTouchStart({touches:[{},{}]});
+  f.onTouchMove(touch(150,200));assert.equal(f.state.historyRequests.length,count);
 });

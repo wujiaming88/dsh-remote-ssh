@@ -3,6 +3,7 @@ import { api, h, ui, useT, locale, NAMESPACE } from './shared.js';
 import { createBackendRouter, knownRemoteBlank } from './router.js';
 import {REMOTE_SESSION_PROJECTION_KEY} from '../../lib/protocol.js';
 import { ChatPane } from './chat.js';
+import {SessionClientPool} from './session-pool.js';
 import { SessionSetup, messages as setupMessages } from './session-setup.js';
 import { NewRemoteSession } from './new-session.js';
 import { RemoteFilesSidebar, assertFileCloseAllowed, messages as fileMessages } from './files.js';
@@ -32,7 +33,7 @@ function RemoteConversation(props) {
         workspaceId: routing.value.workspace.shellWorkspaceId, createSession: props.createRemoteSession, openSession: props.openSession, beginNavigation: props.beginNavigation }) : null,
       routing.value?.backend ? props.renderFactorySlot('contextMenu.button', {target:{kind:'remote-agent-session',value:{sessionId:props.sessionId}},label:t('session.more'),size:'sm'}) : null,
       h(ui.Button, { size: 'sm', variant: 'ghost', 'aria-label': t('acp.sidebar'), onClick: props.toggleFiles }, h(ui.IconFolderOpenOutline16, { size: 16 }))),
-    routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, preferences, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile })
+    routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, clients:props.clients, preferences, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile })
       : routing.phase === 'selection' ? h(SessionSetup, { key: props.sessionId, backend: routing.value, onSelected: props.refreshBackend })
       : h(ConversationStatus, { kind: routing.phase === 'loading' ? 'loading' : 'error',
         title: t(routing.phase === 'loading' ? 'session.setup.loading' : 'session.setup.loadFailed'),
@@ -41,6 +42,8 @@ function RemoteConversation(props) {
 
 export function apply(ctx) {
   const { slots } = ctx;
+  const clients=new SessionClientPool();
+  ctx.effect(()=>()=>clients.dispose());
   ctx.effect(() => ctx.locale.register(NAMESPACE, {
     zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...setupMessages.zh, ...sessionActionMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh, ...fileMessages.zh },
     en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...setupMessages.en, ...sessionActionMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en, ...fileMessages.en },
@@ -91,7 +94,7 @@ export function apply(ctx) {
       load: sessionId => api('sessionBackend', { sessionId }),
       show: active => {
         if (active && !disposeMain) disposeMain = slots.register({ name: 'main.conversation', priority: -100, locale: NAMESPACE,
-          inject: () => ({ hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: () => router.refresh(),
+          inject: () => ({ clients, hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: () => router.refresh(),
             beginNavigation: () => ctx.layout.beginNavigation(),
             createRemoteSession: options => ctx.sessions.create(options),
             openSession: id => ctx.uiWorkspace.openSession(id),

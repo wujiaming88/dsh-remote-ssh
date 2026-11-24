@@ -1,11 +1,9 @@
 import React from 'react';
 import { h, ui, api, useT, Select, FileGlyph, formatError } from './shared.js';
-import { SessionClient } from './session.js';
+import {sessionClientKey} from './session-pool.js';
 import { pickerScrollTop } from './picker.js';
 import { UsageMeter, SessionStatsPill, UsagePill } from './usage.js';
 import { ComposerControls, AttachmentButton, PermissionIcon } from './composer-controls.js';
-import {prepareSubmission,acknowledgeSubmission} from './submission.js';
-import { initialState } from './events.js';
 import {acpBlockLabels,acpCommandGroups,acpCommandName} from './presentation.js';
 import {AcpPermissionCard,AcpElicitationCard} from './cards.js';
 import {Transcript,RunningTail} from './transcript.js';
@@ -13,41 +11,39 @@ import {useTranscriptScroll} from './transcript-scroll.js';
 import {visibleTranscriptItem} from './transcript-model.js';
 import {ConversationStatus,PrepareRuntimeDialog} from './status.js';
 
-const EMPTY = initialState();
-const emptySubscribe = () => () => {};
-const emptySnapshot = () => EMPTY;
-function useClient(backend, acknowledge) {
-  const [client, setClient] = React.useState(null);
-  const onAck = React.useRef(acknowledge); onAck.current = acknowledge;
-  React.useEffect(() => {
-    const next = new SessionClient(backend);
-    next.onAcknowledged(id => onAck.current(id));
-    setClient(next);
-    next.connect();
-    return () => next.dispose();
-  }, [backend.sessionId]);
-  const state = React.useSyncExternalStore(client?.subscribe || emptySubscribe, client?.getSnapshot || emptySnapshot, emptySnapshot);
-  return [client, state];
+function useClient(backend,clients) {
+  const [client,setClient]=React.useState(()=>clients.peek(backend));
+  const [error,setError]=React.useState(null),[retry,setRetry]=React.useState(0);
+  const identity=JSON.stringify([sessionClientKey(backend),backend.binding?.id,backend.canonicalRemotePath]);
+  React.useEffect(()=>{
+    let lease;
+    try {lease=clients.acquire(backend);}catch(failure){setClient(null);setError(failure);return;}
+    setError(null);setClient(lease.client);lease.client.ensureConnected();
+    return ()=>lease.release();
+  },[clients,identity,retry]);
+  return {client:client===clients.peek(backend)?client:null,error,retry:()=>setRetry(value=>value+1)};
 }
 
-export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySlot }) {
+export function ChatPane({backend,clients,...props}) {
+  const t=useT(),binding=useClient(backend,clients),client=binding.client;
+  return client?h(ConnectedChatPane,{...props,key:client.viewKey,backend,client}):h(ConversationStatus,{kind:binding.error?'error':'loading',
+    title:t(binding.error?'session.setup.loadFailed':'session.setup.loading'),description:binding.error?.message,onRetry:binding.error?binding.retry:undefined});
+}
+function ConnectedChatPane({ backend, client, openRemoteFile, preferences, renderFactorySlot }) {
   const t = useT(), labels = acpBlockLabels(t), sid = backend.sessionId;
-  const draftKey = `remote-acp.draft.v3.${sid}`;
-  const [draft, setDraftState] = React.useState(() => { try { return localStorage.getItem(draftKey) || ''; } catch { return ''; } });
-  const draftRef = React.useRef(draft); draftRef.current = draft;
-  const setDraft = value => {
-    const text = typeof value === 'function' ? value(draftRef.current) : value;
-    draftRef.current = text; setDraftState(text);
-    try { localStorage.setItem(draftKey, text); } catch {}
-  };
-  const [attachments, setAttachmentState] = React.useState([]);
+  const state=React.useSyncExternalStore(client.subscribe,client.getSnapshot,client.getSnapshot);
+  const composer=client.composer;
+  const composerState=React.useSyncExternalStore(composer.subscribe,composer.getSnapshot,composer.getSnapshot);
+  const {draft,attachments,sending}=composerState;
+  const draftRef=React.useRef(draft);draftRef.current=draft;
+  const setDraft=value=>{composer.setDraft(value);draftRef.current=composer.getSnapshot().draft;};
   const attachmentsRef=React.useRef(attachments);attachmentsRef.current=attachments;
-  const setAttachments=value=>{const next=typeof value==='function'?value(attachmentsRef.current):value;attachmentsRef.current=next;setAttachmentState(next);};
+  const setAttachments=value=>{composer.setAttachments(value);attachmentsRef.current=composer.getSnapshot().attachments;};
   const [readingFiles,setReadingFiles]=React.useState(false);
   const attachmentInput=React.useRef(null);
-  const [sending, setSending] = React.useState(false);
   const [busy, setBusy] = React.useState('');
-  const [error, setError] = React.useState('');
+  const [actionError, setError] = React.useState('');
+  const error=actionError||composerState.error;
   const [preparePlan, setPreparePlan] = React.useState(null);
   const [commandOpen, setCommandOpen] = React.useState(false);
   const [fileQuery, setFileQuery] = React.useState(null);
@@ -55,14 +51,14 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
   const [choice, setChoice] = React.useState(0);
   const pickerPanel = React.useRef(null);
   const [pendingAnswers, setPendingAnswers] = React.useState(new Set());
-  const submission = React.useRef(null), alive = React.useRef(false);
+  const alive = React.useRef(false);
   React.useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const [client, state] = useClient(backend, requestId => {
-    if (submission.current?.requestId !== requestId) return;
-    const next=acknowledgeSubmission(draftRef.current,attachmentsRef.current,submission.current);
-    setDraft(next.draft);setAttachments(next.attachments);submission.current=null;setSending(false);
+  const historyIdentity=value=>JSON.stringify([sid,value.cursor.generation,value.replayRevision||0]);
+  const scroll=useTranscriptScroll(historyIdentity(state),state.items,!!state.binding&&!state.loading&&!state.failure,{
+    getPage:()=>{const value=client.getSnapshot();return {identity:historyIdentity(value),
+      ready:!!value.binding&&!value.loading&&!value.failure,hasEarlier:value.hasEarlier,beforeSeq:value.oldestSeq};},
+    load:(page,beforeApply,canApply)=>client.history(page.beforeSeq,{beforeApply,canApply}),
   });
-  const scroll=useTranscriptScroll(sid,state.items,!!state.binding&&!state.loading&&!state.failure);
   React.useEffect(() => {
     if (fileQuery === null) { setFileOptions([]); return; }
     const controller = new AbortController();
@@ -92,11 +88,9 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
   function chooseCommand(command) { input(`/${acpCommandName(command)} `); setCommandOpen(false); }
   async function send() {
     if (!client || sending || readingFiles || (!draft.trim() && !attachments.length)) return;
-    const request=prepareSubmission(draft,attachmentsRef.current,submission.current);
-    submission.current = request; setSending(true); setError(''); scroll.latest();
-    try { await client.submit(request); }
-    catch (failure) { if (alive.current) setError(failure.message); }
-    finally { if (alive.current) setSending(false); }
+    setError(''); scroll.latest();
+    try { await client.sendDraft(); }
+    catch { /* The retained composer records the current attempt's outcome. */ }
   }
   async function action(method, payload, key = method) {
     if (!client || busy) return;
@@ -206,12 +200,13 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
       !state.connected&&state.transportError?h('p',{role:'alert',className:'ra-acp-error rssh-output-alert'},state.transportError):null,
       state.binding.status === 'error' ? h(ui.Button, {className:'rssh-output-retry', onClick: () => client.connect() }, t('acp.retry')) : null,
       h('div',{className:'rssh-transcript-frame'},
-        h('div', {className:'ra-acp-messages',ref:scroll.viewportRef,tabIndex:-1,onScroll:scroll.onScroll,onWheel:scroll.onWheel},
-          h('div',{className:'rssh-transcript-column',ref:scroll.contentRef,onPointerDown:scroll.onPointerDown},
-            state.hasEarlier?h(ui.Button,{variant:'ghost',size:'sm',className:'rssh-history-control',disabled:scroll.prepending,onClick:async()=>{
-              try{await scroll.prepend(()=>client.history(state.oldestSeq));}
-              catch(failure){if(alive.current)setError(failure.message);}
-            }},t('acp.loadEarlier')):null,
+        h('div', {className:'ra-acp-messages',ref:scroll.viewportRef,tabIndex:0,role:'region','aria-label':t('acp.messageHistory'),onScroll:scroll.onScroll,onWheel:scroll.onWheel,onKeyDown:scroll.onKeyDown,onPointerDown:scroll.onPointerDown,onTouchStart:scroll.onTouchStart,onTouchMove:scroll.onTouchMove,onTouchEnd:scroll.onTouchEnd,onTouchCancel:scroll.onTouchEnd},
+          h('div',{className:'rssh-transcript-column',ref:scroll.contentRef},
+            h('div',{className:'rssh-history-status','aria-busy':scroll.history.loading},
+              h('span',{role:scroll.history.error?'alert':'status',title:scroll.history.error?.message},
+                scroll.history.error?t(scroll.history.error.code==='history_no_progress'?'acp.historyNoProgress':'acp.historyFailed'):
+                scroll.history.loading?t('acp.historyLoading'):state.hasEarlier?t('acp.historyScrollHint'):hasVisibleContent?t('acp.historyStart'):''),
+              scroll.history.error?h(ui.Button,{variant:'ghost',size:'sm',onClick:scroll.retryHistory},t('acp.historyRetry')):null),
             hasVisibleContent?h(Transcript,{items:state.items,running:state.running,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId}):null,
             !hasVisibleContent&&!state.running&&!waiting&&state.connected?h('div',{className:'ra-acp-empty-state'},t('acp.emptyHint')):null,
             h(RunningTail,{state,t}))),

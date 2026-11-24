@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.0.0-rc.7 — scroll-loaded history, connection continuity and clearer process rows
+
+- Release verification: 392 automated tests pass; source-level UI/UX review completed. Live GUI visual acceptance and real-network interruption testing remain unverified.
+
+- Replace the routine “Load earlier messages” button with automatic near-top paging from mouse wheel, scrollbar, keyboard and touch reading gestures. Keep localized loading/start feedback and a retry button only after an error; the transcript is keyboard-focusable.
+- Coalesce in-flight history reads, stop on exhausted/nonadvancing cursors and bound short/invisible-page continuation to three pages per renewed gesture. Initial tail-following and resize/live updates without prior reader intent do not initiate a history download; nested scroll containment remains local.
+- Capture the current reading anchors immediately before a page is published and restore in the committed layout, rather than using stale pre-network positions or total scroll-height growth. Preserve factual text/member identities across split pages and reject ambiguous/changed live boundaries. Journal-reset revisions reject late pages even when a reset reuses the same generation.
+
+- Remove the explanatory current-context-versus-cumulative-token note from the usage popover in both languages; keep the current-context token and capacity readings unchanged.
+
+- Retain recent session clients at plugin lifetime instead of aborting the event subscription on every view switch. Keep two warm clients with LRU eviction and a 10-minute inactive timeout; mounted readers remain protected. Eviction closes browser requests, never cancels the remote Agent.
+- Keep connection state independent of journal replay/reset so idle sessions and loading earlier history cannot falsely remain “Reconnecting”. Initial attachment is labelled “Connecting”. Healthy remounts reuse the existing cursor and projection without another start/resume/history cycle.
+- Add unsequenced 15-second HTTP heartbeats, a 45-second client watchdog and cursor-based reconnect with 1–10-second backoff. Heartbeats verify Host subscription liveness, not remote Agent health; missing runtimes and authorization failures require explicit retry rather than endless reconnection or implicit new work.
+- Retain draft/attachment and pending-request metadata independently of view and connection eviction, reconciling ACKs even while detached. Uncertain sends keep their original request ID and prompt/steer kind; EOF without acknowledgment remains explicit. Only draft text is persisted; other composer data lives until this client-plugin lifetime ends.
+- Validate immutable workspace, profile, binding and canonical-path identity before reusing cached data, including after eviction. Authorization denial clears cached private data, halts automatic retry and prevents stale responses from repopulating it. HTTP detach/backpressure does not discard an already-admitted authorized prompt.
+- Add 30 client lifecycle/identity/ACK regressions and 35 deterministic Host heartbeat/admission/cleanup tests. Browser visual acceptance and real-network interruption testing remain unverified.
+
+- Suppress repeated command/path previews when ACP uses the same text as the tool title. Prefer an actual supplied command description when available; preserve full commands, output and failure details without guessing shell intent.
+- Match native 13px/24px tool typography and leading icon-to-chevron disclosure affordances for tool and reasoning rows; remove trailing arrows and let single-title rows use the available width.
+- Bound expanded process lists to the native `min(400px, 50vh)` height with 4px row spacing and keyboard scrolling. Live lists open at the tail and follow while the reader stays there; history opens at the start. Existing view preferences and manual folding remain unchanged.
+- Add nine process-presentation regressions. Source-level UI/UX review completed; live GUI visual acceptance remains unverified.
+
 ## 3.0.0-rc.6 — native-style composer, files and session actions
 
 - Align the remote composer with native DSH surfaces, 28px panel radius, typography, attachment/permission controls on the left and model/reasoning/send controls on the right. The draft grows within a bounded scroll area; narrow layouts wrap rather than hiding controls.
