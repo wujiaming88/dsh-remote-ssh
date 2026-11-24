@@ -2,9 +2,9 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.3** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.4** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
-> The plugin remains disabled. Re-enabling requires the user's explicit agreement. Offline tests are not GUI acceptance. If an earlier process retains a filesystem wrapper, restart DSH while the plugin stays disabled.
+> Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
 ## Principles
 
@@ -35,15 +35,23 @@ Local directories use native DSH and its native directory picker. Remote workspa
 
 ### Chat
 
-- Enter sends, Shift+Enter adds a newline. Drafts clear after Host acknowledgement.
+- Enter sends, Shift+Enter adds a newline. Drafts clear after Host acknowledgement (no persistent Enter hint line).
+- While running, the primary button becomes an icon Stop instead of the text button; a non-empty draft keeps Send/Steer.
 - Model, reasoning and mode controls follow actual adapter capabilities and update after confirmation.
 - In-turn input uses steering or the Host's serial queue. Unknown delivery is not blindly resent.
 - Stop cancels execution/queued work without deleting history.
 - Permission requests and form elicitation support choices, multiple selection and custom answers, including AskUserQuestion. Unsupported schemas decline explicitly; URL/OAuth elicitation is not advertised.
-- `/` opens actual commands/skills; arrows select, Enter/Tab insert and Escape dismisses.
+- `/` opens actual commands/skills; arrows select, Enter/Tab insert and Escape dismisses. The command roster is restored from the session snapshot, so it survives long/resumed sessions.
 - `@` browses workspace files. A bounded snapshot is used both for actual ACP input and native durable recording.
 - Text/images may be pasted or dropped, subject to capabilities and limits: 16 attachments, 1 MiB total text and 2 MiB total images.
-- The transcript shows text, thoughts, tools, diffs, reads, terminal output, plans, usage and subagent/native events with turn and parent identity.
+- The transcript uses native presentation: user messages are right-aligned bubbles, assistant text is full-width; thoughts, tool calls, subagents, plans, terminals, session messages, notices and compaction are lightweight disclosure rows with turn/parent identity.
+
+### Native stream and composer
+
+- One vertical scrollport; streaming follows the tail, scrolling up opts out, and history prepend keeps position via a stable anchor.
+- Thinking renders as a "think icon + single-line summary + chevron" with a soft shimmer while streaming; expanding shows the full content without resetting on stream updates.
+- Below the composer, a native ContextMeter-style context ring (click-open: percent, `~used / capacity` and a bar) plus a session-statistics pill (turn count, elapsed time); no hover icon and no session path/ID.
+- Tool/subagent/plan rows show only a summary when collapsed and mount Diff/Read/Terminal or a structured result when expanded; raw payloads sit in a secondary "Raw details" disclosure.
 
 Terminal cards are output views, not interactive TTYs. Command and subagent controls are limited to what the adapters actually expose.
 
@@ -99,8 +107,10 @@ HTTP routes live under `/remote-ssh/v3/` and use one JSON envelope, current DSH 
 - Journal pages currently use sequential disk scans, without automatic permanent-history deletion.
 - Remote process survival after network/host failure depends on SSH and the CLI.
 - No passwords, audio, arbitrary URI attachments, old-data migration or automatic per-session worktree allocation.
+- ACP reports only `used/size/cost`: no system/tools/messages context breakdown, and no per-turn input/output/cache tokens, tokens-per-second or LLM/tool timing. The context bar is a single segment and session statistics show only turn count and elapsed time; those native metrics are not fabricated.
+- There is no public general-purpose Markdown factory, so body text uses the plugin's own safe Markdown subset (no HTML execution, no inline executable documents); full CommonMark is not claimed.
 - DSH has no verified composable early rejection hook for native prompts. Normal plugin UI keeps the remote backend, but Host-level prevention of an owner directly invoking native `session/prompt` is not claimed. No private patch or late fake guard is installed.
-- Real GUI mounting, focus and local-session isolation must be checked before re-enabling.
+- Real GUI dark/light theme, focus, keyboard and pixel-level appearance have not been manually verified.
 
 [MIT license](./LICENSE)
 
