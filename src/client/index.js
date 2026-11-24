@@ -3,6 +3,8 @@ import { api, h, ui, useT, locale, NAMESPACE } from './shared.js';
 import { createBackendRouter, knownRemoteBlank } from './router.js';
 import {REMOTE_SESSION_PROJECTION_KEY} from '../../lib/protocol.js';
 import { ChatPane } from './chat.js';
+import { SessionSetup, messages as setupMessages } from './session-setup.js';
+import { NewRemoteSession } from './new-session.js';
 import { RemoteFilesSidebar, assertFileCloseAllowed } from './files.js';
 import { SettingsSection, messages as settingsMessages } from './settings.js';
 import {installSessionActions, messages as sessionActionMessages} from './session-actions.js';
@@ -26,18 +28,22 @@ function RemoteConversation(props) {
     h('header', { className: 'rssh-conversation-header', 'data-window-drag': '' },
       h(ui.Button, { size: 'sm', variant: 'ghost', 'aria-label': t('acp.navigation'), onClick: props.toggleNavigation }, h(ui.IconSidebarOutlineRegular, { size: 16 })),
       h('span', { className: 'rssh-conversation-title' }, title || t('acp.hero')),
-      props.renderFactorySlot('contextMenu.button', {target:{kind:'remote-agent-session',value:{sessionId:props.sessionId}},label:t('session.more'),size:'sm'}),
+      routing.value?.workspace?.shellWorkspaceId && routing.value.backend ? h(NewRemoteSession, { key: props.sessionId,
+        workspaceId: routing.value.workspace.shellWorkspaceId, createSession: props.createRemoteSession, openSession: props.openSession, beginNavigation: props.beginNavigation }) : null,
+      routing.value?.backend ? props.renderFactorySlot('contextMenu.button', {target:{kind:'remote-agent-session',value:{sessionId:props.sessionId}},label:t('session.more'),size:'sm'}) : null,
       h(ui.Button, { size: 'sm', variant: 'ghost', 'aria-label': t('acp.sidebar'), onClick: props.toggleFiles }, h(ui.IconFolderOpenOutline16, { size: 16 }))),
     routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, preferences, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile })
+      : routing.phase === 'selection' ? h(SessionSetup, { key: props.sessionId, backend: routing.value, onSelected: props.refreshBackend })
       : h(ConversationStatus, { kind: routing.phase === 'loading' ? 'loading' : 'error',
-        description: routing.error || '', meta: title || '', onRetry: props.refreshBackend }));
+        title: t(routing.phase === 'loading' ? 'session.setup.loading' : 'session.setup.loadFailed'),
+        description: routing.error || '', meta: t('session.setup.loadingHint'), onRetry: props.refreshBackend }));
 }
 
 export function apply(ctx) {
   const { slots } = ctx;
   ctx.effect(() => ctx.locale.register(NAMESPACE, {
-    zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...sessionActionMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh },
-    en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...sessionActionMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en },
+    zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...setupMessages.zh, ...sessionActionMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh },
+    en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...setupMessages.en, ...sessionActionMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en },
   }));
   locale.t = ctx.locale.bind(NAMESPACE);
   locale.subscribe = listener => ctx.locale.subscribe(listener);
@@ -85,7 +91,10 @@ export function apply(ctx) {
       load: sessionId => api('sessionBackend', { sessionId }),
       show: active => {
         if (active && !disposeMain) disposeMain = slots.register({ name: 'main.conversation', priority: -100, locale: NAMESPACE,
-          inject: () => ({ hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: changed,
+          inject: () => ({ hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: () => router.refresh(),
+            beginNavigation: () => ctx.layout.beginNavigation(),
+            createRemoteSession: options => ctx.sessions.create(options),
+            openSession: id => ctx.uiWorkspace.openSession(id),
             toggleNavigation: () => ctx.layout.toggleSidebar(),
             toggleFiles: () => ctx.sidebarRight.isExpanded() ? ctx.sidebarRight.toggleExpanded() : ctx.sidebarRight.openTab('remote-files'),
             openRemoteFile: path => ctx.sidebarRight.openTab('remote-files', { params: { path } }),

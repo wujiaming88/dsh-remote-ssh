@@ -44,7 +44,7 @@ export function ConversationStatus({kind,title,description,code,nodeMissing,need
   const t=useT();
   const error=kind==='error';
   return h('section',{className:'rssh-status','data-kind':kind,role:error?'alert':'status'},
-    error?h(WarningIcon):h('span',{className:'rssh-status-spinner',role:'img','aria-label':t('status.starting')},
+    error?h(WarningIcon):h('span',{className:'rssh-status-spinner',role:'img','aria-label':title||t('status.starting')},
       h('svg',{width:28,height:28,viewBox:'0 0 16 16','aria-hidden':true},h('circle',{cx:8,cy:8,r:6,fill:'none',stroke:'currentColor',strokeOpacity:0.3,strokeWidth:1.6}),
         h('path',{d:'M8 2a6 6 0 0 1 6 6',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round'}))),
     h('h2',{className:'rssh-status-title'},title||t(error?'status.failed':'status.starting')),

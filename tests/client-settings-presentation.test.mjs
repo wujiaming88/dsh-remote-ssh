@@ -54,9 +54,9 @@ test('more menus capture the row, remain keyboard accessible and preserve confir
 });
 test('primary action and modal styling stay scoped to SSH settings',()=>{
   assert.match(source,/variant:'primary',onClick:\(\)=>setDialog\(\{kind:'profile',target:null\}\)/);
-  assert.equal((source.match(/className:'rssh-settings-dialog'/g)||[]).length,4);
+  assert.equal((source.match(/className:'rssh-settings-dialog'/g)||[]).length,3);
   assert.match(css,/background: var\(--dsw-alias-button-primary-fill\); color: var\(--dsw-alias-label-primary-foreground\)/);
   assert.match(source,/className:'rssh-settings-destructive'/);
-  const backend=functionSource('BackendEditor');assert.match(backend,/disabled: bypass && !confirmed/);assert.match(backend,/setConfirmed\(false\)/);
+  assert.doesNotMatch(source,/function BackendEditor|workspace\.backend|kind:'backend'/);
   assert.doesNotMatch(source,/require\(|@deepseek-ai\/dsh-client-ui-primitives|document\.querySelector|window\.fetch\s*=/);
 });

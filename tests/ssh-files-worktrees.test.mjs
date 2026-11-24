@@ -114,13 +114,14 @@ async function workspacesFixture(t, { failRegistration = false } = {}) {
   return { ...f, repo, configuration, records, native, shutdowns, workspaces, create };
 }
 
-test('Remote backends default to Claude, permit Codex, and reject native DSH', () => {
+test('Legacy backend normalization is compatible while workspaces without backend stay unselected', () => {
   assert.equal(normalizeBackend().type, 'dsh');
   assert.equal(normalizeRemoteBackend().type, 'claude');
   assert.equal(normalizeRemoteBackend({ type: 'codex' }).type, 'codex');
   assert.throws(() => normalizeRemoteBackend({ type: 'dsh' }), code('invalid_remote_backend'));
   const workspace = { id: 'w', profileId: 'p', title: 'W', mirrorPath: '/fixture/mirror', remotePath: '/fixture/remote' };
-  assert.equal(validateWorkspace(workspace).backend.type, 'claude');
+  assert.equal(Object.hasOwn(validateWorkspace(workspace), 'backend'), false);
+  assert.equal(validateWorkspace({ ...workspace, backend: { type: 'codex', permission: 'plan', model: 'old-model', modeId: 'old-mode', remoteRuntimeDir: '/legacy/runtime' } }).backend.remoteRuntimeDir, '/legacy/runtime');
   assert.throws(() => validateWorkspace({ ...workspace, backend: { type: 'dsh' } }), code('invalid_remote_backend'));
 });
 
@@ -130,7 +131,7 @@ test('Workspace registration uses the registry canonical path rather than the re
   await mkdir(canonicalState); await symlink(canonicalState, state);
   const result = await f.workspaces.create({ profileId: 'test-profile', remotePath: f.repo });
   assert.equal(result.ok, true);
-  assert.equal(result.workspace.backend.type, 'claude');
+  assert.equal(Object.hasOwn(result.workspace, 'backend'), false);
   assert.equal(result.mirrorPath, join(canonicalState, 'workspaces', result.workspace.id));
   assert.equal(result.workspace.mirrorPath, f.native.get(result.workspaceId).path);
   assert.equal(result.workspace.mirrorPath, await realpath(join(state, 'workspaces', result.workspace.id)));
@@ -295,6 +296,7 @@ test('Config requires volatile modern references, clones snapshots and serialize
 
 test('Files enforce mirror boundaries, root writes and remote-only Sessions before executing', async t => {
   const f = await filesFixture(t);
+  f.binding.backend = null; f.binding.binding = null; f.binding.selectionRequired = true;
   assert.equal(inside(f.mirrorPath, f.mirrorPath), true);
   assert.equal(inside(f.mirrorPath, f.mirrorPath + '-sibling'), false);
   for (const path of ['../escape', f.mirrorPath + '-sibling/file']) await assert.rejects(f.request('read', path), code('path_outside_workspace'));
@@ -354,8 +356,15 @@ test('Files raw upload/download preserve bytes and image inline is opt-in', asyn
   assert.equal((await f.files.download({ sessionId: 'session', path: 'sample.png' })).inline, false);
 });
 
-test('Worktree creation records owned identity and clean removal preserves the branch', async t => {
-  const f = await workspacesFixture(t); const result = await f.create();
+test('Worktree creation records owned identity, omits parent backend, and clean removal preserves the branch', async t => {
+  const f = await workspacesFixture(t);
+  const parent = await f.workspaces.create({ profileId: 'test-profile', remotePath: f.repo });
+  await f.configuration.update(snapshot => ({ ...snapshot, workspaces: snapshot.workspaces.map(w => w.id === parent.workspace.id ? { ...w, backend: { type: 'codex', permission: 'bypass' } } : w) }));
+  const before = f.calls.length;
+  await assert.rejects(f.workspaces.create({ profileId: 'test-profile', remotePath: f.repo, worktree: { branch: 'blocked' }, backend: { type: 'claude', permission: 'plan' } }), code('workspace_backend_unsupported'));
+  assert.equal(f.calls.length, before);
+  const result = await f.create();
+  assert.equal(Object.hasOwn(result.workspace, 'backend'), false);
   assert.equal(result.ok, true); assert.equal(result.worktreeCreated, true); assert.equal(result.worktree.owned, true);
   assert.equal(result.workspace.worktree.path, result.workspace.remotePath);
   f.assertOwned(result.worktree.path); assert.equal(await realpath(result.worktree.path), result.worktree.path);

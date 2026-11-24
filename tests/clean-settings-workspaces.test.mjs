@@ -30,18 +30,16 @@ test('Profile edits preserve identity and reject unknown authentication', () => 
 test('Missing connection fields and invalid ports do not reach the Host', () => {
   for (const patch of [{ host: ' ' }, { user: '' }, { port: 0 }, { port: 65536 }, { port: '22bad' }, { port: 1.5 }]) assert.equal(profilePayload({ ...profile, ...patch }), null);
 });
-test('Remote creation defaults to Claude with acceptEdits and no optional worktree', () => {
-  assert.deepEqual(remoteWorkspacePayload(form), { value: { profileId: 'p1', remotePath: '~/repo', backend: { type: 'claude', permission: 'acceptEdits' } } });
+test('Remote workspace creation only carries connection and directory', () => {
+  assert.deepEqual(remoteWorkspacePayload(form), { value: { profileId: 'p1', remotePath: '~/repo' } });
+  assert.deepEqual(remoteWorkspacePayload({ profileId: 'p1', remotePath: '~/repo' }), { value: { profileId: 'p1', remotePath: '~/repo' } });
 });
-test('Remote workspaces accept only actual remote Agent backends', () => {
-  for (const type of ['claude', 'codex']) assert.equal(remoteWorkspacePayload({ ...form, type }).value.backend.type, type);
-  assert.equal(remoteWorkspacePayload({ ...form, type: 'unknown' }).error, 'invalid');
-  assert.equal(remoteWorkspacePayload({ ...form, type: 'dsh' }).error, 'invalid');
-});
-test('Bypass requires explicit confirmation and forwards it to the Host', () => {
-  assert.equal(remoteWorkspacePayload({ ...form, permission: 'bypass' }).error, 'bypassConfirm');
-  assert.equal(remoteWorkspacePayload({ ...form, permission: 'bypass', confirmBypass: true }).value.confirmBypass, true);
-  assert.equal(remoteWorkspacePayload({ ...form, permission: 'plan', confirmBypass: true }).value.confirmBypass, undefined);
+test('Stale Agent and permission fields cannot bind a workspace or grant bypass', () => {
+  for (const type of ['claude', 'codex', 'dsh', 'unknown']) {
+    const result = remoteWorkspacePayload({ ...form, type, permission: 'bypass', confirmBypass: true });
+    assert.equal(result.value.backend, undefined);
+    assert.equal(result.value.confirmBypass, undefined);
+  }
 });
 test('Owned worktree request carries branch and optional base, never ownership claims', () => {
   assert.deepEqual(remoteWorkspacePayload({ ...form, worktree: true, branch: ' feature/new ', base: ' main ' }).value.worktree, { branch: 'feature/new', base: 'main' });

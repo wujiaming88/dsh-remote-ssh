@@ -214,7 +214,7 @@ export function ChatPane({ backend, openRemoteFile, preferences, renderFactorySl
             hasVisibleContent?h(Transcript,{items:state.items,running:state.running,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId}):null,
             !hasVisibleContent&&!state.running&&!waiting&&state.connected?h('div',{className:'ra-acp-empty-state'},t('acp.emptyHint')):null,
             h(RunningTail,{state,t}))),
-        !scroll.following?h(ui.Button,{variant:'outline',className:'rssh-jump-latest','aria-label':t('flow.latest'),title:t('flow.latest'),onClick:()=>{
+        scroll.showLatest?h(ui.Button,{variant:'outline',className:'rssh-jump-latest','aria-label':t('flow.latest'),title:t('flow.latest'),onClick:()=>{
           scroll.latest();scroll.viewportRef.current?.focus({preventScroll:true});
         }},h('svg',{width:16,height:16,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.5,'aria-hidden':true},h('path',{d:'m4 6 4 4 4-4'}))):null),
       waiting ? h('div', { className: 'ra-acp-perms' },

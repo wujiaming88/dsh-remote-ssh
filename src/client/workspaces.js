@@ -5,6 +5,7 @@ const h = React.createElement;
 export const messages = {
   zh: {
     'rssh.flow.title': '添加工作区', 'rssh.flow.local': '选择本机目录…', 'rssh.flow.localHint': '使用 DSH 原生系统目录选择器；不会用远端浏览器代替。',
+    'rssh.flow.sessionHint': 'Agent 和权限在新建会话时选择；同一工作区可使用不同 Agent。',
     'rssh.flow.remote': '远端 SSH 工作区', 'rssh.flow.profile': '连接配置', 'rssh.flow.chooseProfile': '选择连接配置',
     'rssh.flow.noProfiles': '尚无连接配置，请先在「设置 → 远程 SSH」中新建 SSH 密钥或 Kerberos 连接。',
     'rssh.flow.remoteDir': '远端目录', 'rssh.flow.browse': '浏览远端', 'rssh.flow.up': '上一级', 'rssh.flow.empty': '此目录没有子目录。',
@@ -22,6 +23,7 @@ export const messages = {
   },
   en: {
     'rssh.flow.title': 'Add workspace', 'rssh.flow.local': 'Choose local directory…', 'rssh.flow.localHint': 'Uses the DSH native OS directory chooser, never the remote browser.',
+    'rssh.flow.sessionHint': 'Choose the Agent and permissions in each new session. One workspace can use different Agents.',
     'rssh.flow.remote': 'Remote SSH workspace', 'rssh.flow.profile': 'Connection profile', 'rssh.flow.chooseProfile': 'Choose a connection profile',
     'rssh.flow.noProfiles': 'No connections yet. Create an SSH key or Kerberos profile in Settings → Remote SSH first.',
     'rssh.flow.remoteDir': 'Remote directory', 'rssh.flow.browse': 'Browse remote', 'rssh.flow.up': 'Parent directory', 'rssh.flow.empty': 'No subdirectories in this directory.',
@@ -64,11 +66,7 @@ export function createFlowLifetime() {
 }
 export function remoteWorkspacePayload(form) {
   if (!form.profileId || !form.remotePath.trim() || /[\0\r\n]/.test(form.remotePath)) return { error: 'invalid' };
-  const backend = { type: form.type, permission: form.permission };
-  if (!['claude', 'codex'].includes(backend.type) || !['plan', 'acceptEdits', 'bypass'].includes(backend.permission)) return { error: 'invalid' };
-  if (backend.permission === 'bypass' && !form.confirmBypass) return { error: 'bypassConfirm' };
-  const value = { profileId: form.profileId, remotePath: form.remotePath.trim(), backend,
-    ...(backend.permission === 'bypass' ? { confirmBypass: true } : {}) };
+  const value = { profileId: form.profileId, remotePath: form.remotePath.trim() };
   if (form.worktree) {
     const branch = form.branch.trim(); const base = form.base.trim();
     if (!branch || branch.startsWith('-') || branch.includes('..') || !/^[A-Za-z0-9._/-]+$/.test(branch) || base.startsWith('-') || /[\0\r\n]/.test(base)) return { error: 'invalidBranch' };
@@ -102,7 +100,7 @@ function OpenRemoteWorkspaceFlow(props) {
   const [error, setError] = React.useState(''); const [profiles, setProfiles] = React.useState([]);
   const [loading, setLoading] = React.useState(true); const [profileError, setProfileError] = React.useState('');
   const [listing, setListing] = React.useState(null); const [recovery, setRecovery] = React.useState(null);
-  const [form, setForm] = React.useState({ profileId: '', remotePath: '', type: 'claude', permission: 'acceptEdits', confirmBypass: false, worktree: false, branch: '', base: '' });
+  const [form, setForm] = React.useState({ profileId: '', remotePath: '', worktree: false, branch: '', base: '' });
   const disabled = !!props.busy || working || delivered;
   React.useLayoutEffect(() => {
     life.current.open();
@@ -122,7 +120,7 @@ function OpenRemoteWorkspaceFlow(props) {
     finally { if (life.current.accepts(token) && request === profileRequest.current) setLoading(false); }
   }
   React.useEffect(() => { void loadProfiles(); }, []);
-  const change = (key, value) => { setForm(current => ({ ...current, [key]: value, ...(['permission', 'type'].includes(key) ? { confirmBypass: false } : {}) })); setError(''); };
+  const change = (key, value) => { setForm(current => ({ ...current, [key]: value })); setError(''); };
   function cancel() {
     const token = life.current.current();
     if (!life.current.settle(token)) return;
@@ -178,11 +176,10 @@ function OpenRemoteWorkspaceFlow(props) {
     }, result => { if (result.worktreeCreated && result.recovery) setRecovery(result.recovery); });
   }
   const input = (key, placeholder) => h(ui.Input, { value: form[key], placeholder, disabled, onChange: event => change(key, event.target.value) });
-  const bypass = form.permission === 'bypass';
   return h(ui.Modal, { open: true, title: t('rssh.flow.title'), closeLabel: t('rssh.flow.close'), onClose: cancel,
     footer: h(React.Fragment, null,
       h(ui.Button, { disabled: delivered || !!props.busy, onClick: cancel }, t('rssh.flow.cancel')),
-      h(ui.Button, { variant: 'primary', loading: working || !!props.busy, disabled: disabled || loading || !form.profileId || !form.remotePath.trim() || bypass && !form.confirmBypass || !!recovery, onClick: create }, t('rssh.flow.create'))) },
+      h(ui.Button, { variant: 'primary', loading: working || !!props.busy, disabled: disabled || loading || !form.profileId || !form.remotePath.trim() || !!recovery, onClick: create }, t('rssh.flow.create'))) },
     h('style', null, css),
     h('form', { className: 'rssh-flow', onSubmit: create },
       h('div', { className: 'rssh-flow-local' }, h(ui.Button, { disabled, onClick: pickLocal }, t('rssh.flow.local')), h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.localHint'))),
@@ -192,7 +189,7 @@ function OpenRemoteWorkspaceFlow(props) {
       !loading && !profileError && profiles.length === 0 ? h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.noProfiles')) : null,
       field(t('rssh.flow.profile'), select(form.profileId, profileId => {
         setListing(null); setError('');
-        setForm(current => ({ ...current, profileId, remotePath: profiles.find(profile => profile.id === profileId)?.remoteRoot || '~', confirmBypass: false }));
+        setForm(current => ({ ...current, profileId, remotePath: profiles.find(profile => profile.id === profileId)?.remoteRoot || '~' }));
       }, [['', t('rssh.flow.chooseProfile')], ...profiles.map(profile => [profile.id, profile.name || `${profile.user}@${profile.host}`])], disabled || loading)),
       field(t('rssh.flow.remoteDir'), h('span', { className: 'rssh-flow-line' }, input('remotePath'), h(ui.Button, { disabled: disabled || !form.profileId, onClick: () => browse() }, t('rssh.flow.browse')))),
       listing ? h('div', { className: 'rssh-flow-browser', 'aria-label': t('rssh.flow.remoteDir'), 'aria-busy': working },
@@ -201,10 +198,7 @@ function OpenRemoteWorkspaceFlow(props) {
         listing.entries.length === 0 ? h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.empty')) : null,
         listing.entries.map(entry => h(ui.Button, { key: entry.path, size: 'sm', variant: 'ghost', disabled, onClick: () => browse(entry.path) }, entry.name, '/')),
         listing.truncated ? h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.truncated')) : null) : null,
-      h('div', { className: 'rssh-flow-grid' },
-        field(t('rssh.flow.backend'), select(form.type, value => change('type', value), [['claude', 'Claude'], ['codex', 'Codex']], disabled)),
-        field(t('rssh.flow.permission'), select(form.permission, value => change('permission', value), ['plan', 'acceptEdits', 'bypass'].map(key => [key, t('rssh.flow.' + key)]), disabled))),
-      bypass ? h('div', { className: 'rssh-flow-warning' }, h('p', null, t('rssh.flow.bypassWarning')), h(ui.Checkbox, { checked: form.confirmBypass, disabled, onChange: value => change('confirmBypass', value), label: t('rssh.flow.bypassConfirm') })) : null,
+      h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.sessionHint')),
       h('div', { className: 'rssh-flow-worktree' }, h(ui.Checkbox, { checked: form.worktree, disabled: disabled || !!recovery, onChange: value => change('worktree', value), label: t('rssh.flow.worktree') }),
         form.worktree ? h(React.Fragment, null, h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.worktreeHint')),
           field(t('rssh.flow.branch'), input('branch')), field(t('rssh.flow.base'), input('base', t('rssh.flow.baseHint')))) : null),

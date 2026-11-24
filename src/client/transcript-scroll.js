@@ -8,20 +8,32 @@ export function useTranscriptScroll(identity,items,ready=true) {
   const follow=React.useRef(true),frame=React.useRef(null),live=React.useRef(false);
   const interaction=React.useRef(0),expectedScroll=React.useRef(null),pendingPrepend=React.useRef(null);
   const [following,setFollowing]=React.useState(true),[prepending,setPrepending]=React.useState(false);
+  const [showLatest,setShowLatest]=React.useState(false);
   const setFollow=value=>{follow.current=value;setFollowing(value);};
+  // Pausing follow (e.g. selecting text) is not evidence of being above the tail.
+  // Only measured viewport distance controls the jump button.
+  const measureTail=viewport=>{
+    const atTail=followsTranscriptTail(viewport);
+    setShowLatest(!atTail);
+    return atTail;
+  };
   const writeScroll=(viewport,top)=>{
     expectedScroll.current=Math.max(0,Math.min(top,viewport.scrollHeight-viewport.clientHeight));
     viewport.scrollTop=expectedScroll.current;
+    measureTail(viewport);
   };
   const schedule=()=>{
-    if(!live.current||!follow.current||frame.current!==null)return;
+    if(!live.current||frame.current!==null)return;
     frame.current=requestAnimationFrame(()=>{
       frame.current=null;
-      if(live.current&&follow.current&&viewportRef.current)writeScroll(viewportRef.current,viewportRef.current.scrollHeight);
+      const viewport=viewportRef.current;
+      if(!live.current||!viewport)return;
+      if(follow.current)writeScroll(viewport,viewport.scrollHeight);
+      else measureTail(viewport);
     });
   };
   React.useLayoutEffect(()=>{
-    live.current=true;setFollow(true);
+    live.current=true;setFollow(true);setShowLatest(false);
     const viewport=viewportRef.current,content=contentRef.current;
     const observer=viewport&&content?new ResizeObserver(schedule):null;
     if(observer){observer.observe(viewport);observer.observe(content);}
@@ -33,7 +45,7 @@ export function useTranscriptScroll(identity,items,ready=true) {
     const viewport=viewportRef.current;if(!viewport)return;
     if(expectedScroll.current===null||Math.abs(viewport.scrollTop-expectedScroll.current)>1)interaction.current++;
     expectedScroll.current=null;
-    setFollow(followsTranscriptTail(viewport));
+    setFollow(measureTail(viewport));
   };
   const onWheel=event=>{interaction.current++;if(event.deltaY<0)setFollow(false);};
   const onPointerDown=event=>{
@@ -64,5 +76,5 @@ export function useTranscriptScroll(identity,items,ready=true) {
     pendingPrepend.current=task;
     return task;
   }
-  return {viewportRef,contentRef,following,prepending,onScroll,onWheel,onPointerDown,latest,prepend};
+  return {viewportRef,contentRef,following,showLatest,prepending,onScroll,onWheel,onPointerDown,latest,prepend};
 }

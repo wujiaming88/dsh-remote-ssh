@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.5 — per-session Agent selection and scroll visibility
+
+- Remote workspace creation now asks only for the SSH connection, directory and optional owned worktree. Agent and permissions are selected explicitly in each new conversation; existing Session bindings remain unchanged.
+- Unselected remote Sessions do not inherit workspace defaults, persist a binding or start an Agent. Host selection is owner-only, validates blank/unarchived state, requires explicit Bypass confirmation and rejects conflicting concurrent selections.
+- The remote conversation header offers New session without native blank reuse, so another Agent can be selected even before the current Session sends its first message. Later navigation suppresses stale opening results.
+- Jump-to-latest visibility now follows actual distance from the bottom (more than 32px), independently of automatic following. Clicking/selecting text at the bottom no longer reveals the button; paused stream growth, viewport resizing and content collapse update its visibility.
+- Added regression coverage for selection, authorization, immutability, navigation races and scroll geometry. Real GUI acceptance remains unverified.
+
 ## 3.0.0-rc.4 — native-style output stream
 
 - The remote transcript renders user/assistant messages, thoughts, tool calls, subagent calls, plans, terminal output, session messages, notices and context compaction as lightweight native-style disclosure rows with one owned scrollport and turn-level fold behavior.

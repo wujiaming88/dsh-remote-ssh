@@ -4,7 +4,7 @@ export function knownRemoteBlank(session, workspaces) {
   if (session?.blank !== true || typeof session.cwd !== 'string' || !Array.isArray(workspaces)) return false;
   const path = session.cwd.replaceAll('\\', '/').replace(/\/$/, '');
   return workspaces.some(workspace => {
-    if (!['claude', 'codex'].includes(workspace?.backend?.type) || typeof workspace?.mirrorPath !== 'string') return false;
+    if (typeof workspace?.mirrorPath !== 'string') return false;
     const root = workspace.mirrorPath.replaceAll('\\', '/').replace(/\/$/, '');
     return root.length > 1 && (path === root || path.startsWith(root + '/'));
   });
@@ -38,8 +38,9 @@ export function createBackendRouter({ load, show }) {
       if (disposed || generation !== request) return;
       if (!result?.ok || result.sessionId !== sessionId) throw new Error(formatError(result));
       const remote = result.remote === true && result.workspace && ['claude', 'codex'].includes(result.backend?.type);
+      const selection = result.remote === true && result.workspace && result.selectionRequired === true && result.backend === null;
       if (facts.recorded === true && !remote) throw new Error('The recorded remote conversation is currently unavailable');
-      publish({ phase: remote ? 'remote' : 'native', sessionId, value: result, error: '' });
+      publish({ phase: selection ? 'selection' : remote ? 'remote' : 'native', ownsRemote: !!selection, sessionId, value: result, error: '' });
     }).catch(error => {
       if (!disposed && generation === request) publish({ phase: 'error', sessionId, value: retained, ownsRemote: !!retained || ownsPlaceholder, error: error.message });
     });

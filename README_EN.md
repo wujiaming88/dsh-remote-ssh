@@ -2,14 +2,14 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.4** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.5** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
 ## Principles
 
 - The ACP adapter, CLI, cwd, skills and MCP run together on the remote host.
-- Workspaces provide defaults; each Session receives an immutable backend snapshot. Changing defaults does not rewrite existing Sessions.
+- Workspaces store connections and directories, not Agent defaults. Explicitly choose an Agent and permissions in each new Session; the selection is immutable. Claude and Codex Sessions can share a workspace without changing existing bindings.
 - Local Sessions keep native Chat. Unknown metadata and unrelated remote failures cannot seize it. No filesystem/file-reference monkeypatches, terminal overrides, global fetch replacement or cross-plugin DOM mutation.
 - Actual remote turns produce legitimate paired native `turn/start`, `user/message`, and `turn/end` records. Queuing is not execution. Native New Session can therefore distinguish a used remote Session from an eligible blank without placeholder events.
 - The only model tool, `remote_session_status`, reads the executing Session's status. It cannot start an Agent, approve permissions, answer forms or change a backend.
@@ -27,9 +27,11 @@ Pinned remote dependencies: ACP SDK `2.9.1`, Claude adapter `0.109.1`, Codex ada
 ## Use
 
 1. In **Settings → Remote SSH**, create a key/Kerberos profile or select SSH config data and explicitly save it. Test the connection.
-2. In **Add workspace → Remote workspace**, select a connection, directory and **Claude or Codex**. Accept edits is the default permission; Bypass requires confirmation.
-3. Use the workspace's native **New Session** action. Confirmed remote Sessions open directly in the main conversation, without a global extra Agent tab.
+2. In **Add workspace → Remote workspace**, select only a connection, directory and optional owned worktree, without choosing an Agent.
+3. Use the workspace's native **New Session** action. Choose **Claude Code / Codex** and permissions in the main conversation, then click **Start session**. Accept edits is the default permission; Bypass requires explicit confirmation. No remote Agent starts or workspace default binds before selection.
 4. When dependencies are missing, inspect and confirm **Prepare remote runtime**. Errors remain explicit; the plugin does not intentionally switch a confirmed remote conversation to a local execution backend.
+
+After selecting an Agent, **New session** in the conversation header creates an independent session in the same workspace and lets you choose another Agent, preserving the current session. Unlike the native workspace entry, it does not reuse an already-selected blank that has not sent its first message.
 
 Local directories use native DSH and its native directory picker. Remote workspaces do not offer a misleading DSH option that would merely operate on an empty local anchor.
 

@@ -106,17 +106,18 @@ test('existing connection targets are immutable and deleted ids cannot be reused
     assert.equal(f.writes(), writes); assert.equal(f.calls.probe, 0); assert.equal(f.calls.create, 0);
   } finally { await f.close(); }
 });
-test('remote workspaces default to Claude and reject native DSH without side effects', { skip: !installed }, async () => {
+test('remote workspaces omit backend and reject workspace-level selection without side effects', { skip: !installed }, async () => {
   const f = await fixture();
   try {
     assert.equal(configModule.normalizeBackend().type, 'dsh');
     assert.equal(configModule.normalizeRemoteBackend().type, 'claude');
     assert.throws(() => configModule.Config({ ...f.raw, workspacesV3: [{ ...f.raw.workspacesV3[0], backend: { type: 'dsh' } }] }));
-    await assert.rejects(f.host.api.createRemoteWorkspace({ profileId: 'p1', remotePath: '/remote/no-dsh', backend: { type: 'dsh' } }), { code: 'invalid_remote_backend' });
-    await assert.rejects(f.host.api.updateWorkspace({ id: 'w1', backend: { type: 'dsh' } }), { code: 'invalid_remote_backend' });
+    await assert.rejects(f.host.api.createRemoteWorkspace({ profileId: 'p1', remotePath: '/remote/no-dsh', backend: { type: 'dsh' } }), { code: 'workspace_backend_unsupported' });
+    await assert.rejects(f.host.api.updateWorkspace({ id: 'w1', backend: { type: 'dsh' } }), { code: 'workspace_backend_unsupported' });
     assert.equal(f.writes(), 0); assert.equal(f.calls.probe, 0); assert.equal(f.calls.create, 0);
     const created = await f.host.api.createRemoteWorkspace({ profileId: 'p1', remotePath: '/remote/default' });
-    assert.equal(created.workspace.backend.type, 'claude');
+    assert.equal(Object.hasOwn(created.workspace, 'backend'), false);
+    assert.equal(Object.hasOwn(f.config.workspacesV3.get().find(w => w.id === created.workspace.id), 'backend'), false);
     const reused = await f.host.api.createRemoteWorkspace({ profileId: 'p1', remotePath: '/remote/repo' });
     assert.equal(reused.mirrorPath, await realpath(f.mirror));
     assert.equal(reused.workspace.mirrorPath, reused.mirrorPath);
@@ -146,18 +147,90 @@ test('local Session resolution never touches ACP store or unrelated broken roots
     assert.equal(value.remote, false); assert.equal(value.backend.type, 'dsh');
   } finally { await f.close(); }
 });
-test('workspace defaults are snapshotted and volatile edits do not restart other runtimes', { skip: !installed }, async () => {
+test('blank Sessions require explicit selection and never inherit legacy workspace defaults', { skip: !installed }, async () => {
   const f = await fixture();
   try {
     const first = f.root.sessions.create('first', { meta: { cwd: f.mirror } });
-    assert.equal((await f.host.api.sessionBackend({ sessionId: first.id })).backend.type, 'claude');
-    const started = await f.host.api.acpStart({ dshSessionId: first.id }); assert.equal(started.session.agent, 'claude');
-    await f.host.api.updateWorkspace({ id: 'w1', backend: { type: 'codex' } });
+    for (const value of [await f.host.api.sessionBackend({ sessionId: first.id }), await f.host.sessionStatus(first.id)]) {
+      assert.equal(value.remote, true); assert.equal(value.selectionRequired, true); assert.equal(value.backend, null); assert.equal(value.binding, null);
+    }
+    await assert.rejects(readFile(join(f.host.stateDir, 'bindings.json')), { code: 'ENOENT' });
+    await assert.rejects(f.host.api.acpStart({ dshSessionId: first.id }), { code: 'backend_selection_required' });
+    await assert.rejects(f.host.api.acpPreflight({ sessionId: first.id }), { code: 'backend_selection_required' });
+    await assert.rejects(f.host.api.acpPrepareRuntime({ sessionId: first.id, confirm: true }), { code: 'backend_selection_required' });
+    assert.deepEqual((await f.host.api.acpList({ dshSessionId: first.id })).sessions, []);
+    const actions = await f.host.api.sessionActions({ sessionId: first.id });
+    assert.equal(actions.remote, true); assert.equal(actions.selectionRequired, true); assert.equal(actions.canFork, false);
+    await assert.rejects(f.host.api.sessionFork({ sessionId: first.id, operationId: 'unselected-fork' }), { code: 'backend_not_acp' });
+    assert.equal(f.calls.create, 0); assert.equal(f.calls.probe, 0); assert.equal(f.calls.prepare, 0); assert.equal(f.calls.list, 0);
+    const selected = await f.host.api.selectSessionBackend({ sessionId: first.id, backend: { type: 'codex', permission: 'plan' } });
+    assert.equal(selected.selectionRequired, false); assert.equal(selected.backend.type, 'codex'); assert.equal(selected.binding, null);
+    assert.equal(f.calls.create, 0); assert.equal(f.calls.probe, 0);
+    const stored = new bindingModule.BackendBindings(join(f.host.stateDir, 'bindings.json'));
+    assert.equal((await stored.get(first.id)).backend.type, 'codex');
+    const started = await f.host.api.acpStart({ dshSessionId: first.id }); assert.equal(started.session.agent, 'codex');
+    await f.host.api.updateWorkspace({ id: 'w1', title: 'renamed' });
     assert.equal(f.calls.shutdown, 0); assert.equal(f.calls.create, 1); assert.equal(f.writes(), 1);
-    assert.equal((await f.host.api.sessionBackend({ sessionId: first.id })).backend.type, 'claude');
+    assert.equal((await f.host.api.sessionBackend({ sessionId: first.id })).backend.type, 'codex');
     const second = f.root.sessions.create('second', { meta: { cwd: f.mirror } });
-    assert.equal((await f.host.api.sessionBackend({ sessionId: second.id })).backend.type, 'codex');
+    assert.equal((await f.host.api.sessionBackend({ sessionId: second.id })).backend, null);
+    assert.equal(await stored.get(second.id), null);
     const events = await f.host.api.acpEvents({ id: started.session.id }); assert.equal(events.session.id, started.session.id); assert.ok(events.cursor);
+  } finally { await f.close(); }
+});
+test('cold blank Sessions classify through SessionQuery without binding or native runtime launch', { skip: !installed }, async () => {
+  const f = await fixture();
+  try {
+    const snapshot = f.root.sessions.create('cold-snapshot', { meta: { cwd: f.mirror } });
+    let inspected = 0;
+    f.root.provide('sessionPersistence', { stat: async id => id === 'cold-blank' ? { header: { ...snapshot.header, id } } : null });
+    f.root.provide('sessionQuery', { inspectSession: async (id, read) => { assert.equal(id, 'cold-blank'); inspected++; return read(snapshot); } });
+    const status = await f.host.api.sessionBackend({ sessionId: 'cold-blank' });
+    assert.equal(status.remote, true); assert.equal(status.selectionRequired, true); assert.equal(status.backend, null); assert.equal(status.binding, null); assert.equal(inspected, 1);
+    await assert.rejects(readFile(join(f.host.stateDir, 'bindings.json')), { code: 'ENOENT' });
+    assert.equal(f.calls.create, 0); assert.equal(f.calls.probe, 0); assert.equal(f.calls.list, 0);
+    const selected = await f.host.api.selectSessionBackend({ sessionId: 'cold-blank', backend: { type: 'codex', permission: 'acceptEdits' } });
+    assert.equal(selected.backend.type, 'codex'); assert.equal(f.root.sessions.get('cold-blank'), undefined); assert.equal(f.calls.create, 0);
+  } finally { await f.close(); }
+});
+test('selection validates explicit fields, confirmation, Session state and racing immutable requests', { skip: !installed }, async () => {
+  const f = await fixture();
+  try {
+    const native = f.root.sessions.create('selection-validation', { meta: { cwd: f.mirror } });
+    const choose = backend => f.host.api.selectSessionBackend({ sessionId: native.id, backend });
+    for (const backend of [undefined, null, {}, { type: 'dsh', permission: 'plan' }, { type: 'claude' }, { permission: 'plan' }, { type: 'claude', permission: 'no' }, { type: 'codex', permission: 'plan', model: 'injected' }]) {
+      await assert.rejects(async () => choose(backend), { code: 'invalid_remote_backend' });
+    }
+    await assert.rejects(async () => choose({ type: 'claude', permission: 'bypass' }), { code: 'confirmation_required' });
+    f.root.workspaceRegistry.archivedSessionIds.push(native.id);
+    await assert.rejects(choose({ type: 'claude', permission: 'plan' }), { code: 'session_archived' });
+    f.root.workspaceRegistry.archivedSessionIds.length = 0;
+    await assert.rejects(readFile(join(f.host.stateDir, 'bindings.json')), { code: 'ENOENT' });
+    const results = await Promise.allSettled([choose({ type: 'claude', permission: 'plan' }), choose({ type: 'codex', permission: 'plan' })]);
+    assert.equal(results[0].status, 'fulfilled'); assert.equal(results[1].status, 'rejected'); assert.equal(results[1].reason.code, 'binding_conflict');
+    assert.equal((await choose({ type: 'claude', permission: 'plan' })).backend.type, 'claude');
+    await assert.rejects(choose({ type: 'claude', permission: 'acceptEdits' }), { code: 'binding_conflict' });
+    const bypass = f.root.sessions.create('selection-bypass', { meta: { cwd: f.mirror } });
+    const selected = await f.host.api.selectSessionBackend({ sessionId: bypass.id, backend: { type: 'codex', permission: 'bypass' }, confirmBypass: true });
+    assert.equal(selected.backend.permission, 'bypass'); assert.equal(selected.backend.type, 'codex');
+    const local = f.root.sessions.create('selection-local', { meta: { cwd: f.directory } });
+    await assert.rejects(f.host.api.selectSessionBackend({ sessionId: local.id, backend: { type: 'claude', permission: 'plan' } }), { code: 'not_remote_workspace' });
+    const used = f.root.sessions.create('selection-used', { meta: { cwd: f.mirror } }); used.append('turn/start', { turn: 1 });
+    await assert.rejects(f.host.api.selectSessionBackend({ sessionId: used.id, backend: { type: 'claude', permission: 'plan' } }), { code: 'session_not_blank' });
+    assert.equal(f.calls.create, 0); assert.equal(f.calls.probe, 0); assert.equal(f.calls.prepare, 0); assert.equal(f.writes(), 0);
+  } finally { await f.close(); }
+});
+test('recorded remote history missing immutable binding fails closed', { skip: !installed }, async () => {
+  const f = await fixture();
+  try {
+    const native = f.root.sessions.create('orphan-remote', { meta: { cwd: f.mirror } });
+    native.append('turn/start', { turn: 1 });
+    native.append('user/message', { id: 'remote-acp-turn:' + Buffer.from(JSON.stringify([native.id, 'acp-lost', 'turn-1', ''])).toString('base64url'), role: 'user', content: [{ type: 'text', text: 'remote prompt' }], source: { kind: 'user' } }, { surfaceOp: 'append' });
+    native.append('turn/end', { turn: 1, reason: { kind: 'completed' } });
+    await assert.rejects(f.host.api.sessionBackend({ sessionId: native.id }), { code: 'backend_binding_missing' });
+    await assert.rejects(f.host.api.selectSessionBackend({ sessionId: native.id, backend: { type: 'claude', permission: 'plan' } }), { code: 'backend_binding_missing' });
+    await assert.rejects(readFile(join(f.host.stateDir, 'bindings.json')), { code: 'ENOENT' });
+    assert.equal(f.calls.create, 0); assert.equal(f.calls.probe, 0);
   } finally { await f.close(); }
 });
 test('real remote execution records paired native lifecycle and consumes blank exactly once', { skip: !installed }, async () => {
@@ -165,6 +238,7 @@ test('real remote execution records paired native lifecycle and consumes blank e
   try {
     const native = f.root.sessions.create('recorded-prompt', { meta: { cwd: f.mirror } });
     assert.equal(f.list.summaryFor(native).blank, true);
+    await f.host.api.selectSessionBackend({ sessionId: native.id, backend: { type: 'claude', permission: 'plan' } });
     const started = await f.host.api.acpStart({ dshSessionId: native.id });
     await f.host.prompt({ id: started.session.id, dshSessionId: native.id, text: 'the actual user prompt', requestId: 'once' });
     assert.equal(f.list.summaryFor(native).blank, false);
@@ -200,6 +274,7 @@ test('prepare plan performs no SSH/runtime prepare until explicit confirmation',
   const f = await fixture();
   try {
     const session = f.root.sessions.create('prepare-fixture', { meta: { cwd: f.mirror } });
+    await f.host.api.selectSessionBackend({ sessionId: session.id, backend: { type: 'claude', permission: 'plan' } });
     const plan = await f.host.api.acpPrepareRuntime({ sessionId: session.id });
     assert.equal(plan.confirmationRequired, true); assert.equal(f.calls.prepare, 0); assert.equal(f.calls.probe, 0);
     const result = await f.host.api.acpPrepareRuntime({ sessionId: session.id, confirm: true });
@@ -243,7 +318,7 @@ test('actual RemoteAccess policy denies authenticated non-owner file/prompt/appr
     root.provide('webServer', { register: route => { routes.push(route); return () => {}; } });
     await root.plugin(hostModule, {});
     const route = routes.find(route => route.path === HTTP_BASE + '/api'); assert.ok(route);
-    for (const method of ['sessionBackend', 'sessionFiles', 'acpPrompt', 'acpPermission', 'acpPrepareRuntime']) {
+    for (const method of ['sessionBackend', 'selectSessionBackend', 'sessionFiles', 'acpPrompt', 'acpPermission', 'acpPrepareRuntime']) {
       const request = Readable.from([Buffer.from(JSON.stringify({ sessionId: 'fixture', id: 'missing', action: 'write', path: 'file', content: 'no' }))]);
       request.method = 'POST'; request.url = HTTP_BASE + '/api/' + method; request.headers = { 'x-requested-with': 'XMLHttpRequest' };
       let status, payload;

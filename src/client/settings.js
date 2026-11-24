@@ -7,7 +7,7 @@ export const messages = {
   zh: {
     'rssh.settings.more': '更多操作', 'rssh.settings.testing': '正在测试连接…',
     'rssh.settings.profilesDescription': '管理 SSH 密钥与 Kerberos 连接。',
-    'rssh.settings.workspacesDescription': 'Agent 默认设置仅用于新会话，已有会话保持原配置。',
+    'rssh.settings.workspacesDescription': '工作区只管理连接与目录；Agent 和权限在每个新会话中选择。',
     'rssh.settings.targetImmutable': '主机、用户、端口和跳板机确定连接身份；更换目标请新建连接，避免已有会话与文件访问指向不同机器。',
     'rssh.settings.title': '远程 SSH', 'rssh.settings.profiles': '连接配置', 'rssh.settings.workspaces': '远端工作区',
     'rssh.settings.newProfile': '新建连接', 'rssh.settings.import': '从 SSH config 导入', 'rssh.settings.refresh': '刷新',
@@ -25,10 +25,6 @@ export const messages = {
     'rssh.settings.deleteProfileBlocked': '此连接仍有已注册工作区，请先在下方解除注册。',
     'rssh.settings.importTitle': '导入 SSH config', 'rssh.settings.importHint': '选择主机以填入新连接表单；检查用户名和认证方式后保存。',
     'rssh.settings.noSshHosts': 'SSH config 中没有可导入的具体主机。', 'rssh.settings.required': '请填写主机、用户名及有效端口（1–65535）。',
-    'rssh.settings.backend': 'Agent 后端', 'rssh.settings.permission': '权限', 'rssh.settings.plan': 'Plan · 只读规划',
-    'rssh.settings.acceptEdits': 'Accept edits · 默认', 'rssh.settings.bypass': 'Bypass · 跳过审批',
-    'rssh.settings.bypassWarning': 'Bypass 将跳过工具审批，允许 Agent 执行高风险操作。仅对可信工作区使用。',
-    'rssh.settings.bypassConfirm': '我理解风险，确认启用 Bypass', 'rssh.settings.configure': '配置 Agent',
     'rssh.settings.unregister': '解除注册', 'rssh.settings.unregisterTitle': '解除工作区注册？',
     'rssh.settings.unregisterHint': '只解除注册，保留远端文件、本机目录、Git 分支和会话历史。已创建的 worktree 也将保留。',
     'rssh.settings.removeWorktree': '移除 owned worktree', 'rssh.settings.removeWorktreeTitle': '移除远端 worktree？',
@@ -39,7 +35,7 @@ export const messages = {
   en: {
     'rssh.settings.more': 'More actions', 'rssh.settings.testing': 'Testing connection…',
     'rssh.settings.profilesDescription': 'Manage SSH key and Kerberos connections.',
-    'rssh.settings.workspacesDescription': 'Agent defaults apply to new sessions; existing sessions keep their configuration.',
+    'rssh.settings.workspacesDescription': 'Workspaces manage connections and directories. Choose the Agent and permissions in each new session.',
     'rssh.settings.targetImmutable': 'Host, user, port and jump host define this connection. Create a new profile to change the target, so existing sessions and files cannot switch machines independently.',
     'rssh.settings.title': 'Remote SSH', 'rssh.settings.profiles': 'Connection profiles', 'rssh.settings.workspaces': 'Remote workspaces',
     'rssh.settings.newProfile': 'New connection', 'rssh.settings.import': 'Import SSH config', 'rssh.settings.refresh': 'Refresh',
@@ -57,10 +53,6 @@ export const messages = {
     'rssh.settings.deleteProfileBlocked': 'This connection has registered workspaces. Unregister them below first.',
     'rssh.settings.importTitle': 'Import SSH config', 'rssh.settings.importHint': 'Choose a host to fill a new connection form, then review the username and authentication before saving.',
     'rssh.settings.noSshHosts': 'No concrete hosts to import from SSH config.', 'rssh.settings.required': 'Enter a host, username and valid port (1–65535).',
-    'rssh.settings.backend': 'Agent backend', 'rssh.settings.permission': 'Permission', 'rssh.settings.plan': 'Plan · read-only planning',
-    'rssh.settings.acceptEdits': 'Accept edits · default', 'rssh.settings.bypass': 'Bypass · skip approvals',
-    'rssh.settings.bypassWarning': 'Bypass skips tool approvals and allows high-risk Agent operations. Use only in trusted workspaces.',
-    'rssh.settings.bypassConfirm': 'I understand the risk and confirm Bypass', 'rssh.settings.configure': 'Configure Agent',
     'rssh.settings.unregister': 'Unregister', 'rssh.settings.unregisterTitle': 'Unregister workspace?',
     'rssh.settings.unregisterHint': 'Only removes registration. Remote files, local directories, Git branches and session history remain. Any created worktree is also retained.',
     'rssh.settings.removeWorktree': 'Remove owned worktree', 'rssh.settings.removeWorktreeTitle': 'Remove remote worktree?',
@@ -181,20 +173,6 @@ function SshImporter({ onClose, onChoose }) {
       hosts?.length === 0 ? h('p', { className: 'rssh-settings-muted' }, t('rssh.settings.noSshHosts')) : null,
       hosts?.map(host => h(ui.Button, { key: host.name, onClick: () => onChoose({ ...blankProfile(), name: host.name, host: host.name, user: host.user || '', port: host.port || 22, keyPath: host.identityFile || '', proxyJump: host.proxyJump || '', authMethod: host.gssapi ? 'kerberos' : 'key' }) }, host.name))));
 }
-function BackendEditor({ workspace, onClose, onSaved }) {
-  const t = useT(); const request = useRequest();
-  const [backend, setBackend] = React.useState(() => ({ type: workspace.backend.type, permission: workspace.backend.permission }));
-  const [confirmed, setConfirmed] = React.useState(false);
-  const bypass = backend.permission === 'bypass';
-  const save = () => request.run('updateWorkspace', { id: workspace.id, backend, ...(bypass ? { confirmBypass: confirmed } : {}) }, onSaved);
-  return h(ui.Modal, { open: true, className:'rssh-settings-dialog', title: t('rssh.settings.configure'), closeLabel: t('rssh.settings.close'), onClose,
-    footer: h(React.Fragment, null, h(ui.Button, { variant:'ghost', onClick: onClose }, t('rssh.settings.cancel')), h(ui.Button, { variant: 'primary', loading: request.busy, disabled: bypass && !confirmed, onClick: save }, t('rssh.settings.save'))) },
-    h('div', { className: 'rssh-settings-form' }, h('div', { className: 'rssh-settings-path' }, workspace.remotePath),
-      field(t('rssh.settings.backend'), choices(backend.type, type => { setBackend(current => ({ ...current, type })); setConfirmed(false); }, [['claude', 'Claude'], ['codex', 'Codex']], request.busy)),
-      field(t('rssh.settings.permission'), choices(backend.permission, permission => { setBackend(current => ({ ...current, permission })); setConfirmed(false); }, ['plan', 'acceptEdits', 'bypass'].map(key => [key, t('rssh.settings.' + key)]), request.busy)),
-      bypass ? h('div', { className: 'rssh-settings-warning' }, h('p', null, t('rssh.settings.bypassWarning')), h(ui.Checkbox, { checked: confirmed, disabled: request.busy, onChange: setConfirmed, label: t('rssh.settings.bypassConfirm') })) : null,
-      errorView(request.error)));
-}
 function DeleteDialog({ target, kind, blocked, onClose, onSaved }) {
   const t = useT(); const request = useRequest(); const [confirmed, setConfirmed] = React.useState(false);
   const worktree = kind === 'worktree';
@@ -251,16 +229,13 @@ export function SettingsSection(props) {
       loaded&&!workspaces.length?h('p',{className:'rssh-settings-muted rssh-settings-empty'},t('rssh.settings.emptyWorkspaces')):null,
       workspaces.length?h('div',{className:'rssh-settings-list'},workspaces.map(workspace=>h('div',{key:workspace.id,className:'rssh-settings-row'},
         h('div',{className:'rssh-settings-info'},h('div',{className:'rssh-settings-row-title rssh-settings-path'},workspace.remotePath),
-          h('div',{className:'rssh-settings-meta'},h('span',{className:'rssh-settings-muted'},profiles.find(profile=>profile.id===workspace.profileId)?.name||workspace.profileId),
-            h(ui.Tag,null,workspace.backend.type==='claude'?'Claude Code':'Codex'),
-            h(ui.Tag,{tone:workspace.backend.permission==='bypass'?'warning':'neutral'},t('rssh.settings.'+workspace.backend.permission))),
+          h('div',{className:'rssh-settings-meta'},h('span',{className:'rssh-settings-muted'},profiles.find(profile=>profile.id===workspace.profileId)?.name||workspace.profileId)),
           workspace.worktree?.owned?h('div',{className:'rssh-settings-muted'},`${t('rssh.settings.owned')} · ${workspace.worktree.branch}`):null),
-        h('div',{className:'rssh-settings-actions'},h(ui.Button,{size:'sm',variant:'ghost',onClick:()=>setDialog({kind:'backend',target:workspace})},t('rssh.settings.configure')),
+        h('div',{className:'rssh-settings-actions'},
           h(SettingsMore,{name:workspace.remotePath,items:[{id:'unregister',label:t('rssh.settings.unregister')},...(workspace.worktree?.owned?[{id:'worktree',label:t('rssh.settings.removeWorktree')}]:[])],
             onAction:id=>setDialog({kind:id==='worktree'?'worktree':'workspace',target:workspace})}))))):null),
     dialog?.kind === 'profile' ? h(ProfileEditor, { key: dialog.target?.id || 'new', profile: dialog.target, onClose: close, onSaved: saved }) : null,
     dialog?.kind === 'import' ? h(SshImporter, { onClose: close, onChoose: profile => setDialog({ kind: 'profile', target: profile }) }) : null,
-    dialog?.kind === 'backend' ? h(BackendEditor, { key: dialog.target.id, workspace: dialog.target, onClose: close, onSaved: saved }) : null,
     dialog && ['deleteProfile', 'workspace', 'worktree'].includes(dialog.kind) ? h(DeleteDialog, { key: dialog.kind + dialog.target.id, target: dialog.target, kind: dialog.kind === 'deleteProfile' ? 'profile' : dialog.kind,
       blocked: dialog.kind === 'deleteProfile' && workspaces.some(workspace => workspace.profileId === dialog.target.id), onClose: close, onSaved: saved }) : null);
 }

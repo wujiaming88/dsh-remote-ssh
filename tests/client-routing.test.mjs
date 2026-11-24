@@ -48,6 +48,23 @@ test('known remote startup failures retain an error placeholder, not native Chat
  pending[0].resolve({ok:false,error:'backend unavailable'});await settle();assert.equal(visible.at(-1),true);assert.equal(router.getSnapshot().phase,'error');
  router.select('local',true,{});await settle();assert.equal(visible.at(-1),false);
 });
+test('backend-free workspaces own their blank-session placeholder',()=>{
+ assert.equal(knownRemoteBlank({blank:true,cwd:'/remote/w/sub'},[{mirrorPath:'/remote/w'}]),true);
+});
+test('unselected remote sessions show setup, never native or an active runtime',async t=>{
+ const {router,pending,visible}=setup(t);router.select('s');await settle();
+ pending[0].resolve({...remote('s'),backend:null,selectionRequired:true});await settle();
+ assert.equal(router.getSnapshot().phase,'selection');assert.equal(visible.at(-1),true);
+ router.refresh();await settle();pending[1].resolve({ok:false,error:'offline'});await settle();
+ assert.equal(router.getSnapshot().phase,'error');assert.equal(visible.at(-1),true);
+ router.refresh();await settle();pending[2].resolve(remote('s'));await settle();
+ assert.equal(router.getSnapshot().phase,'remote');assert.equal(visible.at(-1),true);
+});
+test('a recorded remote session cannot be downgraded to a new Agent picker',async t=>{
+ const {router,pending,visible}=setup(t);router.select('s',true,{recorded:true});await settle();
+ pending[0].resolve({...remote('s'),backend:null,selectionRequired:true});await settle();
+ assert.equal(router.getSnapshot().phase,'error');assert.equal(visible.at(-1),true);
+});
 test('native recorded remote facts cannot be downgraded by a missing private binding',async t=>{
  const {router,pending,visible}=setup(t);router.select('recorded',true,{recorded:true});await settle();
  pending[0].resolve({ok:true,sessionId:'recorded',remote:false,backend:{type:'dsh'}});await settle();
