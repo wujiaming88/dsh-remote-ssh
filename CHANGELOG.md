@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.0.0-rc.9 — automatic HTTP links in message text
+
+- Release verification: build and 410 automated tests pass; source-level link interaction review completed. Includes the rc.8 browser timer receiver hotfix.
+
+- Recognize bare HTTP(S) URLs and angle autolinks in message Markdown, preserving literal query strings and reusing native anchors with `noopener noreferrer`. No automatic navigation, URL fetching or authentication is performed.
+- Keep code spans/fences literal, avoid nested anchors in existing Markdown labels, and keep common prose punctuation outside links while preserving balanced URL brackets. Long candidates are never linked using a truncated prefix; oversized or invalid candidates remain text.
+- Add 15 pure parsing/render-contract regressions, including long inline code, authorization-shaped synthetic URLs, Unicode, IPv6, streamed text and bounded malformed input. Live browser click acceptance remains unverified.
+
+## 3.0.0-rc.8 — browser timer receiver hotfix
+
+- Build and 395 automated tests pass. The default-timer regression is independently source-reviewed; actual GUI acceptance after refresh remains required.
+
+- Bind native browser timer defaults to `globalThis` in both the session pool and session client. rc.7 invoked captured Window timers as instance methods, causing `Illegal invocation` during the first pool acquisition and again at connection startup, before any remote request.
+- Keep explicitly injected timer functions unchanged. Add three controller regressions enforcing the Window receiver contract across acquisition, remount, eviction, startup, heartbeat expiry, reconnect and disposal. The two default-timer tests reproduce the failure before the fix; ordinary Node/injected arrow timers had concealed it. These tests do not replace live-browser acceptance.
+
 ## 3.0.0-rc.7 — scroll-loaded history, connection continuity and clearer process rows
 
 - Release verification: 392 automated tests pass; source-level UI/UX review completed. Live GUI visual acceptance and real-network interruption testing remain unverified.

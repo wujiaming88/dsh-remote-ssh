@@ -34,7 +34,53 @@ export function stripTerminal(value) {
     .replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '');
 }
 
-export function inlineTokens(value, depth) {
+// Recognize literal HTTP(S) text, never fetch it or rewrite signed query strings.
+function httpLinkAt(source, index, delimited) {
+  if (!/^https?:\/\//i.test(source.slice(index, index + 8))) return null;
+  if (!delimited && index && /[a-z0-9_@/\\#=%+.-]/i.test(source[index - 1])) return null;
+  var match = /^https?:\/\/[^\s<>"'`\\\u0000-\u001f\u007f\u0080-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f，。！？；：、（）【】《》“”‘’]+/i.exec(source.slice(index));
+  if (!match) return null;
+  var raw = match[0], href = raw;
+  if (/[\\\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f]/.test(source[index + raw.length] || '')) return { literal: raw, length: raw.length };
+  // Never turn a truncated prefix of a long URL into a different destination.
+  if (raw.length > 16384) return { literal: raw, length: raw.length };
+  if (!delimited) {
+    var pairs = { ')': '(', ']': '[', '}': '{' }, counts = {};
+    for (var char of href) counts[char] = (counts[char] || 0) + 1;
+    while (href) {
+      var last = href.slice(-1);
+      if (/[.,!?;:]/.test(last) || pairs[last] && counts[last] > (counts[pairs[last]] || 0)) {
+        counts[last]--; href = href.slice(0, -1);
+      } else break;
+    }
+  }
+  if (!/^https?:\/\/[^/?#]/i.test(href) || !safeHref(href)) return { literal: raw, length: raw.length };
+  try {
+    var parsed = new URL(href);
+    if (!parsed.hostname || !/^https?:$/.test(parsed.protocol)) return { literal: raw, length: raw.length };
+  } catch { return { literal: raw, length: raw.length }; }
+  return { href: href, length: href.length };
+}
+
+function codeSpanAt(source, index, budget) {
+  if (source[index] !== '`') return null;
+  var start = index; while (source[index] === '`') index++;
+  var width = index - start, content = index, work = width;
+  while (index < source.length) {
+    var next = source.indexOf('`', index);
+    if (next < 0) next = source.length;
+    work += next - index;
+    if (work > budget) return { literal: source.slice(start), length: source.length - start, work: work };
+    if (next === source.length) return { work: work };
+    var end = next; while (source[end] === '`') end++;
+    work += end - next;
+    if (end - next === width) return { text: source.slice(content, next).replace(/\n/g, ' '), length: end - start, work: work };
+    index = end;
+  }
+  return { work: work };
+}
+
+export function inlineTokens(value, depth, allowLinks) {
   var source = text(value), out = [], plain = '', index = 0, work = 0;
   depth = depth || 0;
   if (depth > 12) return [{ type: 'text', text: source }];
@@ -45,13 +91,26 @@ export function inlineTokens(value, depth) {
     // remaining source literally instead of blocking the chat while parsing.
     if (work > 65536) { plain += source.slice(index); break; }
     if (source[index] === '\\' && /[\\`*_{}\[\]()#+.!~>|-]/.test(source[index + 1] || '')) { plain += source[index + 1]; index += 2; continue; }
-    if ((match = /^(`+)([\s\S]*?)\1(?!`)/.exec(rest))) { flush(); out.push({ type: 'code', text: match[2].replace(/\n/g, ' ') }); index += match[0].length; continue; }
-    if ((match = /^(!?)\[([^\]\n]*)\]\(\s*(?:<([^>\n]*)>|([^\s)]*(?:\([^)]*\)[^\s)]*)?))(?:\s+["']([^\n]*?)["'])?\s*\)/.exec(rest))) {
-      var href = safeHref(match[3] || match[4]);
-      if (href) { flush(); out.push({ type: 'link', href: href, title: match[5], children: inlineTokens(match[2] || href, depth + 1), image: !!match[1] }); index += match[0].length; continue; }
+    var code = codeSpanAt(source, index, 65536 - work);
+    if (code) {
+      work += code.work;
+      if (code.literal != null) { plain += code.literal; index += code.length; continue; }
+      if (code.text != null) { flush(); out.push({ type: 'code', text: code.text }); index += code.length; continue; }
     }
-    if ((match = /^(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/.exec(rest))) { flush(); out.push({ type: match[1] === '~~' ? 'del' : 'strong', children: inlineTokens(match[2], depth + 1) }); index += match[0].length; continue; }
-    if ((match = /^(\*|_)(?=\S)([^\n]*?\S)\1/.exec(rest)) && (index === 0 || !/[\p{L}\p{N}]/u.test(source[index - 1]))) { flush(); out.push({ type: 'em', children: inlineTokens(match[2], depth + 1) }); index += match[0].length; continue; }
+    if (allowLinks !== false && (match = /^(!?)\[([^\]\n]*)\]\(\s*(?:<([^>\n]*)>|([^\s)]*(?:\([^)]*\)[^\s)]*)?))(?:\s+["']([^\n]*?)["'])?\s*\)/.exec(rest))) {
+      var href = safeHref(match[3] || match[4]);
+      if (href) { flush(); out.push({ type: 'link', href: href, title: match[5], children: inlineTokens(match[2] || href, depth + 1, false), image: !!match[1] }); index += match[0].length; continue; }
+    }
+    if (allowLinks !== false) {
+      var angle = source[index] === '<', link = httpLinkAt(source, index + (angle ? 1 : 0), angle);
+      if (link && (!angle || source[index + 1 + link.length] === '>')) {
+        if (link.href) { flush(); out.push({ type: 'link', href: link.href, children: [{ type: 'text', text: link.href }] }); }
+        else plain += (angle ? '<' : '') + link.literal + (angle ? '>' : '');
+        index += link.length + (angle ? 2 : 0); continue;
+      }
+    }
+    if ((match = /^(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/.exec(rest))) { flush(); out.push({ type: match[1] === '~~' ? 'del' : 'strong', children: inlineTokens(match[2], depth + 1, allowLinks) }); index += match[0].length; continue; }
+    if ((match = /^(\*|_)(?=\S)([^\n]*?\S)\1/.exec(rest)) && (index === 0 || !/[\p{L}\p{N}]/u.test(source[index - 1]))) { flush(); out.push({ type: 'em', children: inlineTokens(match[2], depth + 1, allowLinks) }); index += match[0].length; continue; }
     if (/[`\[!*_~]/.test(source[index])) work += rest.length;
     plain += source[index++];
   }

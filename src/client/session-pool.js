@@ -25,9 +25,10 @@ function compatible(client,backend) {
 
 // At most two warm subscriptions (HTTP/1.1 also needs room for prompt and metadata).
 // Eviction closes browser requests only; the Host continues the remote task.
+// Bind Window timer defaults before storing them as pool instance methods.
 export class SessionClientPool {
   constructor({maxClients=2,idleMs=10*60*1000,createClient=(backend,deps)=>new SessionClient(backend,deps),
-    storage,setTimeout:later=globalThis.setTimeout,clearTimeout:cancel=globalThis.clearTimeout}={}) {
+    storage,setTimeout:later=globalThis.setTimeout.bind(globalThis),clearTimeout:cancel=globalThis.clearTimeout.bind(globalThis)}={}) {
     this.maxClients=maxClients;this.idleMs=idleMs;this.createClient=createClient;this.storage=storage;
     this.later=later;this.cancel=cancel;this.entries=new Map();this.drafts=new Map();this.identities=new Map();this.clock=0;this.disposed=false;this.denied=null;
   }

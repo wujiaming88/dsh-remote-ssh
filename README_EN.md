@@ -2,9 +2,13 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.7** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.9** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
+
+**rc.9 highlights**: recognize bare HTTP/HTTPS URLs as clickable links without rewriting query strings; long links wrap and code remains literal. External links retain safe new-tab isolation; nothing is automatically fetched, opened or authorized.
+
+**rc.8 fix**: preserve the native browser timer receiver, fixing the rc.7 “Could not load remote session configuration / Illegal invocation” failure across remote conversations. Refresh the page after updating; no SSH configuration changes or session deletion are needed.
 
 **rc.7 highlights**: scroll up to load older history automatically; reuse recent session connections and recover interrupted subscriptions with heartbeats; retain drafts and acknowledgement state across views; use native-density, bounded process rows without repeated command titles or the extra token explanation.
 

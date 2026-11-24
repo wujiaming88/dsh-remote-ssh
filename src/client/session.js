@@ -32,8 +32,9 @@ export class SessionClient {
     this.retryBlocked = false;
     this.composer = dependencies.composer || new ComposerSession(backend.sessionId,dependencies.storage);
     this.onAccessDenied = dependencies.onAccessDenied || (error=>this.invalidate(error));
-    this.later = dependencies.setTimeout || globalThis.setTimeout;
-    this.cancelTimer = dependencies.clearTimeout || globalThis.clearTimeout;
+    // Window timers reject a SessionClient receiver; only bind native defaults.
+    this.later = dependencies.setTimeout || globalThis.setTimeout.bind(globalThis);
+    this.cancelTimer = dependencies.clearTimeout || globalThis.clearTimeout.bind(globalThis);
     this.heartbeatMs = dependencies.heartbeatMs || 45000;
     this.heartbeatTimer = null;
   }
