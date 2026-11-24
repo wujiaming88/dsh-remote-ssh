@@ -1,106 +1,120 @@
-# @wujiaming88/dsh-remote-ssh
+# dsh-remote-ssh
 
 [English](./README_EN.md)
 
-在 DSH 里直接开发远端机器：SSH 连接、远端工作区、远端的文件与终端，以及把 Claude Code / Codex 这类 coding agent 接到远端执行——通过工作区原生的「新会话 / ⌘N → SSH」创建会话后，切到「**远端 Agent**」Tab 即可对话。
+在 DSH 中通过 SSH 使用远端 Claude Code / Codex。当前代码为 **3.0.0-rc.3**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
 
-## 功能
+> 当前插件保持禁用。重新启用须由用户明确同意；源码与离线测试通过不代表已完成真实 GUI 验收。若旧进程残留文件包装，请先在禁用状态下重启 DSH。
 
-### SSH 与工作区
+## 设计约束
 
-- **三种认证**：私钥、**Kerberos（GSSAPI，免密钥/口令）**、密码；支持 ProxyJump、`~/.ssh/config` 一键导入
-- **多连接并存**：同一页面同时管理多台机器；同名远端目录会自动用「连接名:路径」区分工作区标题
-- **远端工作区**：选择远端目录即注册为原生 DSH 工作区；会话的 `@` 引用列远端文件
-- **文件与终端**：内置「文件」页签直接 SSH 读写远端文件（配合 `dsh-better-sidebar`）；「终端」页签自动 SSH 到工作区目录
-- **同步与写回**：整树/子路径同步、上传下载、写回护栏（远端新鲜度检查）
+1. **执行在远端。** ACP adapter、CLI、cwd、skills 和 MCP 位于同一台远端机器；本机只负责连接、持久化与界面。
+2. **会话后端固定。** 工作区保存默认 Agent；会话首次安全绑定后持久化快照，改工作区设置不改变已有会话。
+3. **本机会话零接管。** 未确认、查询失败或无关远端数据异常，不替换原生 Chat。插件不修改 `ctx.fs`、原生文件引用、终端配置、其他插件 DOM 或全局 fetch。
+4. **真实生命周期。** 只在实际执行时记录原生 `turn/start + user/message`，完成后配对 `turn/end`；排队不冒充执行。原生新会话入口因此能区分已运行会话，不用占位消息或模拟点击。
+5. **用户授权不自动代答。** 权限、表单与依赖准备都遵循明确的操作边界；唯一模型工具 `remote_session_status` 只查询执行者当前会话状态，不能启动 Agent、批准权限、回答表单或改变后端。
+6. **没有兼容分支。** 不提供本地 adapter wrapper、旧 TUI/Shell、同步写回、旧 sidebar 接管、旧 schema 迁移或旧 DSH 版本兜底。
 
-### ACP Chat（会话内常驻 View）
+## 前置条件
 
-通过工作区原生的「**新会话 / ⌘N**」→ 在 DSH 工作区选择器里选「**SSH**」→ 远端工作区创建会话，
-然后在会话顶部切到「**远端 Agent**」Tab。这个 View 绑定当前 DSH 会话（Host 的 `dshSessionId`）：
-挂载时 `acpList({dshSessionId})`，有记录就 `acpResume`；没有记录则在 View 内显示 setup。
+- DSH `0.2.2-rc.5`，本机 Node.js 22+。
+- SSH 私钥/ssh-agent 或 Kerberos/GSSAPI。Kerberos 用户先取得有效票据。
+- 远端 Node.js 22+、npm、bash；文件和 worktree 功能需要 Python 3，worktree 需要 Git。
+- 远端 CLI 的账号、代理、模型网关和额度可用。发现可执行文件不等于已验证模型访问。
 
-1. setup 会优先使用当前 DSH 会话所属的**远端工作区**（`useWorkspaces.sessionIds` + `mirrorPath` 推断），也可改选连接/工作区
-2. 选 agent（Claude Code / Codex）与权限（Accept edits / Plan / Bypass）→「开始会话」（`acpStart` 带 `dshSessionId`）
+运行环境使用固定版本：ACP SDK `2.9.1`、Claude adapter `0.109.1`、Codex adapter `2.9.0`。远端依赖只在确认安装计划后准备，默认目录 `~/.local/share/dsh-remote-acp/v1`，不使用 sudo、不修改 shell、不安装系统 Node。
 
-> 建区时也可在「添加工作区 → SSH 远程」里直接选「会话 Agent」（DSH 默认 / Claude Code / Codex）；之后新会话打开「远端 Agent」View 会自动预选，不用每次重选。
-3. 之后切走再切回、或刷新页面，View 会自动恢复会话；**切换 View 不会结束会话**
+## 使用流程
 
-View 内提供：Markdown 正文、工具卡片（DiffBlock / TerminalBlock / ReadBlock）、原生事件/子 Agent 卡片、模型 / 思考级别 / 模式切换（`acpSetConfig` / `acpSetMode`）、
-运行中 Steer（`acpSteer`，立即上屏）、停止（`acpCancel`，只停当前 turn）、HITL 权限卡片（按 adapter 的 options 原样回传 optionId，不自动批准；Bypass 由 Host 自动）、
-会话列表与恢复（`acpList` / `acpResume`）。
+### 工作区与会话
 
-- **文件**：直接用 DSH 侧边栏的「文件」页签浏览远端目录（文本/图片预览、上传下载）；ACP View 不再放文件按钮
-- **命令 / skill**：ACP `commands` 做搜索 + 分组 + 点击插入 composer；支持 `/name`、Codex `/skills`，显示 description 与 input hint；发送后就是普通消息
-- **退出**：没有 Modal 壳；切 View/刷新不调用 `acpClose`，只有「结束会话」会移除记录
+1. **设置 → 远程 SSH**：新增 key/Kerberos 连接，或从 SSH config 选取配置后明确保存；测试连接。
+2. **添加工作区 → 远端工作区**：选择连接、目录和 Claude/Codex 后端。权限默认 Accept edits；Bypass 必须明确确认。
+3. 点击工作区的原生 **新会话**。已确认的远端后端直接进入主会话页面，不再增加一个全局 Agent Tab。
+4. 缺少依赖时，查看「准备远端运行环境」计划并确认。错误留在对应远端页面，不偷偷改用本机 DSH 执行。
 
-Host 侧：本地 ACP adapter（Claude Code / Codex）+ 生成的 SSH wrapper 驱动远端 agent，事件以 NDJSON 流式返回。
+本机目录入口使用原生 DSH；远端工作区只提供 Claude/Codex，不提供一个只能操作本机空目录的虚假 DSH 远端选项。本机目录选择仍调用 DSH 原生选择器。
 
-- **端点**：`acpAgents` / `acpStart` / `acpPrompt`（NDJSON）/ `acpSteer` / `acpSetConfig` / `acpSetMode` / `acpPermission` / `acpCancel` / `acpResume` / `acpClose` / `acpList` / `acpState`
-- **启动**：`acpStart({profileId, agent, mirrorCwd, remotePath?, permission?, dshSessionId?})`；同一 `dshSessionId` 配置一致时 Host 复用现有会话
-- **事件**：`session` / `text` / `thought` / `tool_call` / `tool_call_update` / `plan` / `commands` / `config` / `mode` / `permission` / `permission_resolved` / `notice` / `usage` / `stop` / `error`，以及原生/子 Agent 事件：`subagent` / `subagent_update` / `state` / `session_message` / `terminal` / `suggestions`；每条都带 `native`/`nativeMeta`
-- **权限**：`session/request_permission` 挂起为 `permission` 事件，`acpPermission({id, requestId, optionId})` 原样回传 adapter 的 optionId；不自动批准（Bypass 由 Host）
-- **认证**：私钥 / Kerberos；password 明确报错。wrapper 落在 `~/.dsh/remote-ssh/acp/`，不落盘口令
+### 对话与 Agent 能力
 
-### 模型工具
+- Enter 发送，Shift+Enter 换行；Host 确认接收后清空草稿。
+- 模型、思考级别和模式按 adapter 的实际配置展示，Host 确认后生效。
+- 运行中支持原生 steer；不支持时走 Host 串行队列。未知提交结果不盲目重发。
+- 停止取消执行及待提交队列，不删除会话历史。
+- 支持权限请求，以及含单选、多选、自由回答的 form elicitation（包括 AskUserQuestion）。不支持的 schema 明确拒绝；不声明 URL/OAuth elicitation 支持。
+- 输入 `/` 搜索实际提供的命令/skills；方向键选择，Enter/Tab 插入，Escape 关闭。
+- 输入 `@` 浏览并引用远端工作区文件。发送前读取有界快照；原生记录与实际发送使用同一份内容。
+- 文本/图片可粘贴或拖入；图片须有能力支持。最多 16 个附件，文本合计 1 MiB，图片合计 2 MiB。
+- 消息流展示正文、思考、工具、diff、读取、终端输出、计划、用量、原生事件及子 Agent，保留回合/父子归属。
 
-`remote_ssh_*` 共 13 个：`profiles` / `exec` / `kill` / `ls` / `cat` / `write` / `grep` / `glob` / `mkdir` / `delete` / `move` / `sync` / `push`。在远程工作区会话里可省略连接参数；命令有超时、取消与会话池复用。
+终端卡是输出展示，不是交互式 TTY。命令列表仅代表 adapter 提供的命令，不模拟任意终端命令；子 Agent 可操作范围以协议实际暴露为准。
 
-## 安装
+### 重命名、置顶与分叉
+
+远端会话头部的原生「…」菜单提供 **重命名 / 置顶（取消置顶）/ 分叉**。
+
+- **重命名**：名称写入同一个 DSH Session，并通过 ACP `session/set_title` 同步远端 CLI；采用返回的规范名称。原生侧栏重命名也会同步；异步失败通过原生通知提示，并可打开对应会话的同步状态。远端失败不假回滚已保存的 DSH 名称；界面显示 failed/unknown，不能把不确定结果当成“远端没改”。归档/冷会话通过 metadata-only 连接改名，不启动新会话或发送 prompt。
+- **置顶**：完全使用 DSH 原生 WorkspaceRegistry 的持久置顶状态，不另建排序或远端 pin 概念。
+- **分叉**：调用真正的远端 `session/fork`，创建独立的远端 ID/controller，然后发布继承历史的新 DSH 会话；不会把旧聊天拼成新 prompt，也不会仅复制空外壳。模型、思考级别和实际权限继承并校验，不提升权限，不继承置顶或待审批状态。
+
+分叉只支持**最新完整上下文**；源会话必须无正在执行的回合、排队、审批或配置操作，归档会话先取消归档。两个会话仍共享原工作目录，不自动复制文件或创建 worktree。
+
+原生列表右键额外提供「分叉远端会话」。DSH 自带的普通「分叉」及其快捷键只复制原生日志，因此在远端会话上被明确拒绝，请使用上述远端操作；本机 DSH 分叉不受影响。
+
+分叉使用持久 operationId 和双阶段结果。远端已创建但本地发布失败时，重试恢复同一个 child，不再次 fork；结果未知时不自动重发，重新创建必须明确确认。继承历史带来源标记，不重演工具或重复记账原生 turn。
+
+### 文件与 worktree
+
+从会话右侧栏打开远端文件页，完成浏览、预览、编辑、上传、下载：
+
+- 所有路径按真实会话工作区验证，拒绝越界。
+- 保存以 SHA256 内容版本检查冲突，并原子发布；不无条件覆盖。
+- 上传覆盖需要明确确认；下载上限 64 MiB。
+- 未保存的编辑阻止关闭文件页或切换文件。
+- PNG/JPEG/GIF/WebP 可以预览；HTML/SVG 不以内联可执行文档打开。
+
+建区时可选「从 Git worktree 创建」，填写分支/基点并选择远端仓库。Host 创建并记录所有权后注册实际目录。移除 owned worktree 需要确认、先停止并归档相关会话；脏目录拒绝移除，不使用 force，不删除分支。普通解除工作区注册始终保留文件。
+
+## 生命周期与存储
+
+- 切换界面、关闭浏览器只释放 UI 订阅，不因页面卸载取消远端任务。
+- generation/seq 游标支持续接；历史按页读取，按回合与请求 ID 去重。
+- Native Session 的记录与私有 ACP journal 都只记录真实发生的事实；缓存卸载不能伪造回合或取消远端任务。
+- 归档遵循 DSH 原生 activity 检查，涵盖执行、排队、权限和表单。
+- 插件退出回收连接，保留可恢复记录；删除连接/工作区先回收相关实例，保留历史与目录。
+
+新记录位于当前 profile 的 `data/remote-acp/v3/`，有明确 schema/version。旧记录、目录和用户文件不会被删除，但本实现不读取或迁移旧格式；旧远端工作区需要重新添加。
+
+## 代码结构
+
+- [Host 装配](./lib/index.js)：路由、授权、生命周期、工具。
+- [配置](./lib/config.js)、[SSH](./lib/ssh.js)、[工作区](./lib/workspaces.js)、[绑定](./lib/bindings.js)、[文件](./lib/files.js)。
+- [ACP 编排](./lib/acp.js) 与 `acp-core/config/events/requests/store/transport` 模块。
+- [原生回合记录器](./lib/remote-turn-recorder.js)：合法原生 Session 事件与去重 projection。
+- [客户端入口](./src/client/index.js)：独立的设置、建区、会话、事件、文件、控件与样式模块。
+
+客户端仅导入 Host React，不导入 DSH 私有 UI 包。使用 DSH 主题和交互规范；Markdown 为安全基本子集，不执行 HTML，不承诺完整 CommonMark 或像素级一致。
+
+## 开发与安装
 
 ```bash
-# npm（发布后）
-dsh plugin --profile <name> add @wujiaming88/dsh-remote-ssh@2.15.0
-
-# 或 GitHub
-dsh plugin --profile <name> add github:wujiaming88/dsh-remote-ssh
+node build-client.mjs
+node --test tests/*.test.mjs
 ```
 
-- 安装后重启 DSH
-- 「文件」页签的远端读写依赖 `dsh-better-sidebar`；不装也能用设置页、模型工具、终端与 Agent 面板（TUI/Shell 需要远端 tmux）
+浏览器产物为 `lib/client.js`，只有一个模块 factory；不要直接编辑生成文件。候选版可通过 DSH **插件 → 添加插件 → 本地目录**安装。本文不代表候选版已发布到 npm/GitHub。
 
-## 快速开始
+HTTP 接口统一位于 `/remote-ssh/v3/`，仅使用单层 JSON 信封。它使用 DSH 当前连接认证与资源权限，现为 owner-only；不注册旧 URL、匿名 curl 授权或 LiveShare 权限兜底。
 
-1. **设置 → 远程连接**：新增连接（主机 / 端口 / 用户 / 认证方式）→「测试连接」；已配置 `~/.ssh/config` 可一键导入
-   - Kerberos：先在终端 `kinit <主名>`，认证方式选 **Kerberos (GSSAPI)**
-2. **添加工作区 → 选择远程目录**：选择连接并浏览远端目录，创建原生工作区
-3. 进入工作区：用「文件」页签改文件，「终端」页签直接落在远端目录
-4. **新会话 / ⌘N → SSH → 远端工作区**：创建会话后切到「远端 Agent」Tab；View 会优先带出当前远端工作区，选 agent/权限后开始
+## 已知边界
 
-## Agent 会话怎么用
+- 长历史 journal 目前顺序扫描，无自动永久删除策略。
+- 网络/主机故障后的远端进程存活取决于 SSH 和 CLI，不保证任务不中断。
+- 不支持密码认证、音频附件、任意 URI 附件、旧版数据迁移或自动为每个会话分配 worktree。
+- DSH 当前没有可安全叠加的早期原生 prompt 拒绝接口。正常插件 UI 不切回 DSH 执行，但不能宣称 Host 能阻止 owner 绕过 UI 直接调用原生 `session/prompt`；未使用私有补丁或晚期假 guard。
+- 重新启用前仍须核验当前 DSH GUI 的挂载、焦点和本机会话隔离。
 
-- **创建**：新会话 / ⌘N → SSH → 远端工作区 → 切到「远端 Agent」Tab → 确认连接/工作区 → 开始
-- **对话**：Enter 发送、Shift+Enter 换行；turn 运行时发送按钮变成「追加」（Steer），消息立即上屏，不等待 turn 结束
-- **权限**：工具请求权限时底部出现权限卡片，按 adapter 的选项允许一次 / 总是允许 / 拒绝，或「忽略」回传 cancelled；`Bypass` 模式由 Host 自动批准
-- **模型 / 思考级别 / 模式**：View 顶部下拉切换，立即作用于当前会话
-- **停止 / 结束**：`停止` 只取消当前 turn；`结束会话` 需确认，移除会话（之后不能恢复）；切 View/刷新只影响渲染，会话保留并可 `resume`
-- **文件 / 命令**：顶部「文件」浏览远端目录；命令按钮打开搜索+分组面板，点击 `/name` 或 `/skills` 插入 composer
-- 旧面板的会话记录仍在 `~/.dsh/remote-ssh/agent-sessions.json`；TUI/Shell 的远端进程在 tmux 里，可在 SSH 终端用 `tmux attach -t dsh-rs-*` 接管
-
-### 取消、超时与 kill
-
-按停止键或调用 `remote_ssh_kill` 会尽力给远端进程组发 `SIGHUP`；`remote_ssh_exec` 的 `timeoutMs` 只是**本地等待预算**，到点只放弃等待、**不会终止远端命令**（需要远端硬时限请用远端 `timeout` 命令）。池化会话在超时后自动丢弃，下次调用会重建连接。
-
-## 兼容性
-
-- 实测 DSH：`0.2.2-rc.5`（peer 范围显式覆盖 `^0.2.2-rc.5`）
-- 可选：`dsh-better-sidebar`（「文件」页签的远端读写与编辑器）
-- 远端：标准 sshd；`claude` / `codex` 需已安装并登录（ACP Chat）。旧 TUI/Shell 面板另需 `tmux`；git（worktree 功能）
-
-## 故障排查
-
-| 现象 | 处理 |
-| --- | --- |
-| Kerberos 认证失败 | `klist` 确认票据有效；`kinit <主名>`；核对用户名与主名一致；确认远端 sshd 开启 GSSAPIAuthentication |
-| 测试连接报私钥不存在 | 修正 `keyPath`，或清空它依赖 ssh-agent / `~/.ssh/config` |
-| 「探测」找不到 agent | 先在 SSH 终端完成 `claude` / `codex` 首次登录；再点一次「探测」（覆盖 PATH、登录 shell 与常见安装目录） |
-| 看不到「远端 Agent」Tab | 确认会话来自 SSH 远端目录；刷新页面，或在会话 View 栏切到该 Tab（`conversation.view`） |
-| 「文件」页签不能读远端 | 安装 `dsh-better-sidebar`；独立安装时该页签会降级 |
-| 命令超时 | `remote_ssh_exec` 的 `timeoutMs` 是本地等待预算；长任务用 `timeoutMs: 0`，远端硬限制用 `timeout` |
-
-## 许可证
-
-[MIT](./LICENSE)
+[MIT 许可证](./LICENSE)
 
 ---
 
