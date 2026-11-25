@@ -53,22 +53,35 @@ test('available images remain mounted through turn lifecycle changes; pending an
 test('sent renderer aborts old requests, ignores token deltas and provides readonly preview with retry',async()=>{
   const source=readFileSync(new URL('../src/client/sent-attachments.js',import.meta.url),'utf8');
   const transcript=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
-  const css=readFileSync(new URL('../src/client/sent-attachments.css',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../src/client/native-attachment-view.css',import.meta.url),'utf8');
+  const view=readFileSync(new URL('../src/client/native-attachment-view.js',import.meta.url),'utf8');
   parse(source,{ecmaVersion:'latest',sourceType:'module'});
   parse(transcript,{ecmaVersion:'latest',sourceType:'module'});
   assert.match(source,/live=false;controller.abort\(\)/);
   assert.match(source,/if\(live\)setLoaded\(\{key,response\}\)/);
   assert.match(source,/\[key,hasImages,phase,attempt\]/);
   assert.match(source,/loaded\?\.key===key\?loaded.response:null/);
-  assert.match(source,/h\(ImagePreviewModal/);assert.match(source,/loading:'lazy'/);
+  assert.match(source,/h\(ImagePreviewModal/);assert.match(view,/loading:'lazy'/);
   // Pending always has an explicit recovery path; no session-wide polling.
   assert.ok(source.includes("['unavailable','pending'].includes(response.status)"));
   // A failed modal must not disable the opener to which native focus returns.
-  assert.ok(source.includes("disabled:!src,'data-failed'"));
-  assert.ok(source.includes('onClick:()=>failed?retry():setOpen(true)'));
+  assert.ok(view.includes("if(failed)return h('button'"));
+  assert.ok(source.includes('onOpen:()=>setOpen(true),onRetry:retry'));
+  assert.ok(view.includes('onClick:onRetry'));
+  assert.doesNotMatch(view,/failed.*disabled:true/);
   assert.doesNotMatch(source,/setAttachments|removeAttachment|setInterval|setTimeout|localStorage|sessionStorage/);
   assert.match(transcript,/h\(SentAttachments/);assert.match(transcript,/!ancestors.length&&\(!item.rootSessionId\|\|item.rootSessionId===item.sessionId\)/);
-  assert.match(transcript,/String\(item.text\|\|''\).trim\(\)\?h\('div',\{className:'rssh-user-bubble'/);
-  assert.match(css,/object-fit: contain/);assert.match(css,/overflow-x: auto/);
+  assert.match(transcript,/String\(item.text\|\|''\)\.trim\(\)/);
+  assert.match(source,/variant:files.length>1\?'tile':'single'/);
+  assert.match(source,/singleImageFit\(dimensions\)/);
+  assert.match(source,/className:'rssh-native-sent-attachmentRow'/);
+  assert.match(source,/h\(NativeSentFile/);assert.doesNotMatch(source,/figcaption|rssh-message-attachment/);
+  assert.match(css,/\.rssh-native-image-frame img \{[^}]*object-fit: cover/s);
+  assert.match(css,/\.rssh-native-sent-attachmentRow \{[^}]*flex-wrap: wrap/s);
+  const adapterCss=readFileSync(new URL('../src/client/sent-attachments.css',import.meta.url),'utf8');
+  assert.match(adapterCss,/\.rssh-native-image-gallery, \.rssh-native-sent-attachmentRow \{ min-width: 0; max-width: 100%/);
+  assert.match(adapterCss,/flex-basis: min\(240px, 100%\)/);
+  assert.match(view,/width:fit.width,aspectRatio:/);assert.doesNotMatch(view,/height:fit.height/);
+  assert.match(adapterCss,/max-width: 100%; height: auto/);
   assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
 });

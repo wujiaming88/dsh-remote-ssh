@@ -1,0 +1,596 @@
+/* COPY: DSH 0.2.2-rc.5 published TSX/CSS (MIT). Full sheets, class/keyframe names scoped. */
+
+/* dsh-client-ui-attachment/src/AttachmentRail.module.css */
+.rssh-native-rail-root {
+  position: relative;
+  min-width: 0;
+}
+
+.rssh-native-rail-rail {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Edge arrows page the overflow; the scrollbar stays hidden (both engines). */
+  scrollbar-width: none;
+  /* The rail scrolls on the composer's elevated input surface: bind the l2
+     pair (ui-theme styles/scrollbar.rssh-native-rail-css rebinding contract) so anything that
+     does draw a thumb here matches the surface. */
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.rssh-native-rail-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.rssh-native-rail-item {
+  flex: none;
+  height: 64px;
+}
+
+.rssh-native-rail-thumbnail {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  overflow: hidden;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-interactive-bg-hover);
+  cursor: zoom-in;
+}
+
+.rssh-native-rail-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rssh-native-rail-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-inverted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.rssh-native-rail-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .rssh-native-rail-item:hover .rssh-native-rail-remove {
+    opacity: 1;
+  }
+}
+
+/* Touch surfaces have no hover to reveal the control. */
+@media (hover: none), (pointer: coarse) {
+  .rssh-native-rail-remove {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-rail-remove {
+    transition: none;
+  }
+}
+.rssh-native-rail-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-specific-input-major);
+  color: var(--dsw-alias-label-secondary);
+  box-shadow: var(--dsw-elevation-panel);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+@media (hover: hover) {
+  .rssh-native-rail-arrow:hover {
+    background: var(--dsw-alias-interactive-bg-hover-solid);
+  }
+}
+
+.rssh-native-rail-arrowLeft {
+  left: 4px;
+}
+
+.rssh-native-rail-arrowRight {
+  right: 4px;
+}
+
+/* dsh-client-ui-attachment/src/FileCard.module.css */
+.rssh-native-file-card {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 240px;
+  height: 64px;
+  padding: 0 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-specific-input-major, transparent);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.rssh-native-file-failed {
+  border-color: var(--dsw-alias-state-error-primary);
+}
+
+.rssh-native-file-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.rssh-native-file-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  corner-shape: round;
+  animation: rssh-native-file-card-spin 0.8s linear infinite;
+}
+
+@keyframes rssh-native-file-card-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rssh-native-file-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.rssh-native-file-retry {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rssh-native-file-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.rssh-native-file-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.rssh-native-file-metaFailed {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.rssh-native-file-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-inverted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.rssh-native-file-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .rssh-native-file-card:hover .rssh-native-file-remove {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .rssh-native-file-remove {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-file-remove {
+    transition: none;
+  }
+}
+
+.rssh-native-file-card:focus-within .rssh-native-file-name {
+  padding-right: 18px;
+}
+
+@media (hover: hover) {
+  .rssh-native-file-card:hover .rssh-native-file-name {
+    padding-right: 18px;
+  }
+}
+
+.rssh-native-file-removeFailed {
+  background: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-on-color);
+  opacity: 1;
+}
+
+.rssh-native-file-progressTrack {
+  position: absolute;
+  right: 12px;
+  bottom: 5px;
+  left: 12px;
+  overflow: hidden;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dsw-specific-file-upload-track);
+}
+
+.rssh-native-file-progressBar {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dsw-alias-brand-primary);
+  animation: rssh-native-file-card-progress 1.2s ease-in-out infinite alternate;
+}
+
+.rssh-native-file-progressBar[style] {
+  animation: none;
+}
+
+@keyframes rssh-native-file-card-progress {
+  from { transform: translateX(-70%); }
+  to { transform: translateX(220%); }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .rssh-native-file-remove {
+    opacity: 1;
+  }
+}
+
+/* dsh-client-ui-attachment/src/MessageImage.module.css */
+.rssh-native-image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 100%;
+}
+
+.rssh-native-image-gallery[data-align='end'] {
+  justify-content: flex-end;
+  align-self: flex-end;
+}
+
+.rssh-native-image-gallery[data-align='start'] {
+  justify-content: flex-start;
+  align-self: flex-start;
+}
+
+.rssh-native-image-frame {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  overflow: hidden;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-interactive-bg-hover);
+  cursor: zoom-in;
+}
+
+.rssh-native-image-frame[data-variant='tile'] {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  min-height: 64px;
+}
+
+.rssh-native-image-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rssh-native-image-loading,
+.rssh-native-image-error {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.rssh-native-image-error {
+  max-width: 240px;
+  padding: 10px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  cursor: pointer;
+}
+
+/* A failed tile keeps the 64px grid cell instead of growing to its copy. */
+.rssh-native-image-error[data-variant='tile'] {
+  width: 64px;
+  height: 64px;
+  padding: 4px;
+  overflow: hidden;
+  border-radius: var(--dsw-radius-xl);
+}
+
+.rssh-native-image-frame[data-variant='thumbnail'],
+.rssh-native-image-error[data-variant='thumbnail'] {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 2px;
+  overflow: hidden;
+  border-radius: var(--dsw-radius-lg);
+}
+
+.rssh-native-image-frame[data-variant='thumbnail'] img {
+  object-fit: contain;
+}
+
+.rssh-native-image-spinner {
+  animation: rssh-native-spinner-rotate 0.9s linear infinite;
+}
+
+@keyframes rssh-native-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-image-spinner {
+    animation: none;
+  }
+}
+
+.rssh-native-image-frame:focus-visible,
+.rssh-native-image-error:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+/* dsh-client-ui-attachment/src/client/ComposerAttachments.module.css */
+.rssh-native-draft-rail {
+  min-width: 0;
+  padding: 2px 10px 0;
+  /* The card's flex gap (12px) separates every row pair; the thumbnails sit
+     closer to the draft text than the other rows, so pull back 6 here. */
+  margin-bottom: -6px;
+}
+
+.rssh-native-draft-imageItem {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.rssh-native-draft-thumbnail {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  overflow: hidden;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-interactive-bg-hover);
+  cursor: zoom-in;
+}
+
+.rssh-native-draft-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rssh-native-draft-thumbnailFailed {
+  border-color: var(--dsw-alias-state-error-primary);
+  cursor: pointer;
+}
+
+.rssh-native-draft-thumbnailFailed img {
+  opacity: 0.4;
+}
+
+.rssh-native-draft-thumbnailRefused {
+  cursor: default;
+}
+
+.rssh-native-draft-failureGlyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.rssh-native-draft-progressTrack {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  left: 8px;
+  overflow: hidden;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dsw-specific-file-upload-track);
+  pointer-events: none;
+}
+
+.rssh-native-draft-progressBar {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dsw-alias-brand-primary);
+  animation: rssh-native-image-upload-progress 1.2s ease-in-out infinite alternate;
+}
+
+.rssh-native-draft-progressBar[style] {
+  animation: none;
+}
+
+@keyframes rssh-native-image-upload-progress {
+  from { transform: translateX(-70%); }
+  to { transform: translateX(220%); }
+}
+
+.rssh-native-draft-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-inverted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.rssh-native-draft-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .rssh-native-draft-imageItem:hover .rssh-native-draft-remove {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .rssh-native-draft-remove {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-draft-remove {
+    transition: none;
+  }
+
+  .rssh-native-draft-progressBar {
+    animation: none;
+  }
+}
+
+/* UserContent.tsx attachment subtree: MessageItem.module.css:308–360. */
+.rssh-native-sent-attachmentRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  gap: 8px;
+}
+
+.rssh-native-sent-fileCard {
+  display: inline-flex;
+  flex: 0 0 240px;
+  align-items: center;
+  gap: 10px;
+  width: 240px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-specific-input-major, transparent);
+  box-sizing: border-box;
+}
+
+.rssh-native-sent-fileIcon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.rssh-native-sent-fileContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rssh-native-sent-fileName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.rssh-native-sent-fileMeta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 15px;
+}

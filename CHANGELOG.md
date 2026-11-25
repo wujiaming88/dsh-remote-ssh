@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.15 — native conversation presentation with remote adapters
+
+- Copy the complete conversation presentation layer from installed DSH 0.2.2-rc.5 source: user/assistant message seats and actions, ToolRow/DisclosureRow/TextShimmer, InputBar, AttachmentRail, FileCard and MessageImage. Feed these local views through ACP/draft/configuration adapters, rather than importing private Host stores or duplicating remote execution logic.
+- Replace 60/40 tool-row columns with intrinsic action titles and adjoining summaries, use structured-kind native icons, avoid duplicate file paths, and keep full original titles, commands, diagnostics and result bodies in details. File actions use original structured paths through the existing authorization boundary; display-only line numbers are not appended to file targets.
+- Seat attachments before the user bubble; adopt the native composer overlay/editor/control/dock structure and 64px attachment rail. Retain IME, file intake, retry/ACK state, send/stop, remote permission/configuration and attachment lifecycles. Adapt multiple selectors and proportional image sizing to narrow panels without overriding inherited Host width axes.
+- Hide the generic “Waiting for Agent progress” row while a confirmed running footer already supplies turn status. Keep the real timer, connection/intervention notices and feedback for unconfirmed turns; do not invent progress or hide user-action requests.
+- Give the execution-process header its own copied native checklist/step-list icon instead of reusing the hash-shaped code icon. Preserve hover/focus disclosure affordances, running indicators and fold behavior; tool-row icons now follow their own structured action kinds.
+
 ## 3.0.0-rc.14 — native UI adaptations and remote file attachments
 
 - Remove the repeated active command/subagent title below the execution process when the running footer is available. Keep the process summary and details, root-turn status/timing, and actual concurrent-operation count in the footer. Connection, permission, question and unconfirmed-turn feedback remain visible; elapsed ticks stay outside live announcements.

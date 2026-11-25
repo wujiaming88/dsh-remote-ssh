@@ -158,7 +158,9 @@ test('owned disclosure bodies are lazy, keys stable, native details unified and 
   assert.match(cards,/props\.onDismiss\(permission\)/);
   assert.match(cards,/role: "group", "aria-label": t\("acp.permissionTitle"\)/);
   assert.doesNotMatch(cards,/role: "alertdialog"|aria-modal|showModal|focusTrap/);
-  assert.match(cards,/summary:processRowSummary\(model\.summary,props\.showProcessSummary,model\.failed,model\.error\)/);
+  assert.match(cards,/summary=processRowSummary\(header\.summary,props\.showProcessSummary,model\.failed,model\.error\)/);
+  assert.match(cards,/toolHeaderPresentation\(\{\.\.\.model,rawInput:tool\.rawInput\},\{subagent:!!sub\}\)/);
+  assert.match(cards,/compact\?model\.title:header\.labelKey\?t\(header\.labelKey\):header\.title/);
   assert.match(cards,/summary:processRowSummary\(sub\.description\|\|summary,props\.showProcessSummary,failed/);
   assert.match(css,/min-height: calc\(24px \+ var\(--dsh-content-font-delta/);
   assert.match(css,/prefers-reduced-motion: reduce/);

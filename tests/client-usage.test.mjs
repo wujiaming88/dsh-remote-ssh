@@ -94,7 +94,9 @@ test('session statistics pill is a click-open dock entry beside the context mete
   assert.match(usage,/sessionStats\(state\)/);assert.match(usage,/formatElapsed\(elapsedMs\)/);
   assert.match(usage,/setInterval\(\(\)=>setNow\(Date.now\(\)\),30000\)/);
   assert.match(usage,/if \(stats.completed===0 && stats.running===0\) return null/);
-  assert.match(chat,/h\('div',\{className:'rssh-compose-dock'\},h\(SessionStatsPill,\{state\}\),h\(UsagePill,\{state\}\),h\(UsageMeter,\{state\}\)\)/);
+  assert.match(chat,/dock: h\(React.Fragment,null,h\(SessionStatsPill,\{state\}\),h\(UsagePill,\{state\}\),h\(UsageMeter,\{state\}\)\)/);
+  const view=readFileSync(new URL('../src/client/native-composer-view.js',import.meta.url),'utf8');
+  assert.match(view,/h\('div', \{className: 'rssh-native-composer-dock', 'data-composer-dock': ''\}, dock\)/);
 });
 
 

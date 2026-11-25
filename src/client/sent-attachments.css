@@ -1,16 +1,11 @@
-/* COPY: ui-attachment MessageImage.module.css gallery/frame visual treatment.
-   ADAPTATION: fixed remote preview aspect, captions and horizontal overflow remain;
-   loading/error are real remote states, not native image-service instances. */
+/* Native UserContent attachmentRow/FileCard and MessageImage gallery/frame
+   live in native-attachment-view.css; only remote-state/accessibility adapters here. */
 .rssh-sent-attachments { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; max-width: 100%; }
-.rssh-sent-attachment-list { display: flex; align-items: flex-start; gap: 10px; min-width: 0; max-width: 100%; padding: 4px; overflow-x: auto; }
-.rssh-sent-image { flex: none; width: 160px; max-width: 100%; margin: 0; color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size-secondary, 13px); }
-.rssh-sent-image-button { position: relative; display: grid; place-items: center; appearance: none; width: 100%; height: 112px; min-width: 44px; min-height: 44px; padding: 0; border: .5px solid var(--dsw-alias-border-l2-darkmode-thin); border-radius: var(--dsw-radius-xl); background: var(--dsw-alias-interactive-bg-hover); color: inherit; font: inherit; cursor: zoom-in; overflow: hidden; }
-.rssh-sent-image-button:disabled { cursor: default; }
-.rssh-sent-image-button[data-failed] { cursor: pointer; }
-.rssh-sent-image-retry { display: block; margin-top: 4px; text-decoration: underline; }
-.rssh-sent-image-button:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; }
-.rssh-sent-image-button img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.rssh-sent-image-placeholder { padding: 8px; overflow-wrap: anywhere; }
-.rssh-sent-image-loading { position: absolute; inset-inline: 4px; bottom: 4px; padding: 4px; border-radius: 4px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); pointer-events: none; }
-.rssh-sent-image figcaption { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
-.rssh-sent-attachment-list > .rssh-message-attachment { flex: none; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rssh-native-image-frame:disabled { cursor: default; }
+.rssh-native-image-frame { font: inherit; }
+/* Unknown remote dimensions use native preview's 240px square, then natural
+   dimensions resolve on image load. Keep very narrow remote panels bounded. */
+.rssh-native-image-frame[data-variant='single'] { max-width: 100%; height: auto; }
+.rssh-native-image-frame[data-variant='single'] img { min-width: 0; min-height: 0; }
+.rssh-native-image-gallery, .rssh-native-sent-attachmentRow { min-width: 0; max-width: 100%; }
+.rssh-native-sent-fileCard { min-width: 0; max-width: 100%; flex-basis: min(240px, 100%); }

@@ -6,6 +6,10 @@ The local native UI adapters, SVG icon geometry, and associated view styling in
 the local native UI modules, selected page styles, and the generated [client bundle](lib/client.js)
 include material adapted from **DeepSeek Harness 0.2.2-rc.5**, distributed as
 `@deepseek-ai/dsh-web-frontend` and the corresponding DSH UI packages.
+The conversation view copies also use distributed TSX/CSS from
+`@deepseek-ai/dsh-client-ui-chat`, `@deepseek-ai/dsh-client-ui-tool`,
+`@deepseek-ai/dsh-client-ui-conversation`, and
+`@deepseek-ai/dsh-client-ui-attachment` in that same installation.
 
 Upstream: https://github.com/deepseek-ai/deepseek-harness
 

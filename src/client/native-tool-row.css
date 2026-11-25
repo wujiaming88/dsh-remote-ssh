@@ -1,0 +1,89 @@
+/* COPY/ADAPT: DSH 0.2.2-rc.5 ToolRow.module.css (row/summary/fileLink,
+   bodyWrap, ioCard/Section/Label/Divider/Text, terminalBody), and installed
+   native.css TextShimmer _1rdzk 218–301 / DisclosureRow _l4nv8 303–389.
+   Native class hashes are replaced by local names, never imported at runtime.
+   Local adaptations: focus/touch disclosure affordance, compact long titles,
+   retained mounted bodies, safe ACP Markdown inside OUT, and owned scroll state.
+   Native role-button row + child file button preserves click/keyboard isolation. */
+.rssh-native-tool-header { display: flex; align-items: center; min-width: 0; }
+.rssh-native-tool-header[hidden] { display: none; }
+.rssh-native-tool-row {
+  flex: 1 1 auto; position: relative; overflow: hidden; display: flex; align-items: center;
+  min-height: calc(24px + var(--dsh-content-font-delta, 0px)); min-width: 0;
+  color: var(--dsw-alias-label-tertiary); transition: color .1s ease; cursor: pointer;
+}
+.rssh-native-tool-row:focus-visible,
+.rssh-native-tool-file-link:focus-visible,
+.rssh-native-tool-io-section:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; border-radius: 4px;
+}
+.rssh-native-tool-leading {
+  position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: calc(16px + var(--dsh-content-font-delta, 0px)); height: calc(16px + var(--dsh-content-font-delta, 0px));
+  margin-right: 6px; padding: 0; border: none; background: none; color: inherit;
+}
+.rssh-native-tool-leading svg:not([data-state]) {
+  flex: none; margin: 0; width: calc(14px + var(--dsh-content-font-delta, 0px)); height: calc(14px + var(--dsh-content-font-delta, 0px));
+}
+.rssh-native-tool-icon-idle { display: inline-flex; opacity: 1; transition: opacity .1s ease; }
+.rssh-native-tool-leading .rssh-native-tool-chevron-hover { position: absolute; inset: 0; margin: auto; opacity: 0; transition: opacity .1s ease; }
+.rssh-native-tool-title { flex: none; font-weight: 400; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); color: inherit; white-space: nowrap; }
+.rssh-native-tool-sep { flex: none; width: 2px; height: 2px; border-radius: 1px; margin: 0 8px; background: var(--dsw-alias-label-caption); }
+.rssh-native-tool-summary { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); }
+.rssh-native-tool-file-link {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin: 0; padding: 0; border: none; background: none; font: inherit; text-align: left;
+  font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); color: inherit;
+  text-decoration: underline dotted; text-decoration-color: currentColor; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer;
+}
+.rssh-native-tool-error-summary, .rssh-native-tool-error-detail { color: var(--dsw-alias-state-error-primary); }
+.rssh-native-tool-error-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Compact mode intentionally retains informative ACP title rather than a bare
+   action label. It is the only case allowed to shrink/truncate the title. */
+.rssh-native-tool-row[data-compact] .rssh-native-tool-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rssh-native-tool-row[data-compact] .rssh-native-tool-error-summary { flex: 1 0 35%; }
+.rssh-native-tool-shimmer { position: relative; display: inline-grid; width: max-content; max-width: calc(100% - 22px - var(--dsh-content-font-delta, 0px)); min-width: 0; vertical-align: top; color: inherit; }
+.rssh-native-tool-content { display: flex; align-items: center; min-width: 0; }
+.rssh-native-tool-decoration { position: absolute; inset: 0; overflow: clip; pointer-events: none; user-select: none; }
+.rssh-native-tool-sweep { position: absolute; inset: 0; overflow: hidden; color: var(--dsw-alias-label-shimmer); mask-image: linear-gradient(105deg, transparent 0%, black 40% 60%, transparent 100%); transform: translate(-100%); animation-name: rssh-native-tool-shimmer-sweep; }
+.rssh-native-tool-sweep * { color: inherit !important; }
+.rssh-native-tool-sweep [data-shimmer-decoration] { background: currentColor; }
+.rssh-native-tool-highlight { width: 100%; height: 100%; transform: translate(100%); animation-name: rssh-native-tool-shimmer-highlight; }
+.rssh-native-tool-sweep, .rssh-native-tool-highlight { animation-duration: 1.5s; animation-delay: .3s; animation-timing-function: steps(48, end); animation-iteration-count: infinite; }
+@keyframes rssh-native-tool-shimmer-sweep { 0% { transform: translate(-100%); } 66.6667%, to { transform: translate(100%); } }
+@keyframes rssh-native-tool-shimmer-highlight { 0% { transform: translate(100%); } 66.6667%, to { transform: translate(-100%); } }
+@media (hover: hover) {
+  .rssh-native-tool-row:hover { color: var(--dsw-alias-label-secondary); }
+  .rssh-native-tool-row:hover .rssh-native-tool-icon-idle { opacity: 0; }
+  .rssh-native-tool-row:hover .rssh-native-tool-chevron-hover { opacity: 1; }
+}
+.rssh-native-tool-row:focus-visible .rssh-native-tool-icon-idle { opacity: 0; }
+.rssh-native-tool-row:focus-visible .rssh-native-tool-chevron-hover { opacity: 1; }
+@media (hover: none), (pointer: coarse) {
+  .rssh-native-tool-icon-idle { opacity: 0; }
+  .rssh-native-tool-leading .rssh-native-tool-chevron-hover { opacity: 1; }
+}
+@media (pointer: coarse) { .rssh-native-tool-row { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-tool-row, .rssh-native-tool-icon-idle, .rssh-native-tool-leading .rssh-native-tool-chevron-hover { transition: none; }
+  .rssh-native-tool-decoration { display: none; }
+  .rssh-native-tool-sweep, .rssh-native-tool-highlight { animation: none; }
+}
+/* Native body is a column, aligned 4px below the row, not an extra card shell. */
+.rssh-tool-flow > .rssh-flow-body { display: flex; flex-direction: column; padding-inline-start: 4px; margin: 4px 0; }
+.rssh-tool-flow > .rssh-flow-body[hidden] { display: none; }
+.rssh-native-tool-io-card { display: flex; flex-direction: column; min-width: 0; margin: 4px 0; border: .5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-lg); background: var(--dsw-alias-markdown-code-block); font: var(--dsw-font-markdown-code-block-small); }
+.rssh-native-tool-io-section { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 14px; align-items: baseline; padding: 12px 16px; max-height: 150px; overflow-y: auto; }
+.rssh-native-tool-io-section::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: padding-box; border-radius: var(--dsw-radius-sm); }
+.rssh-native-tool-io-section::-webkit-scrollbar-track { margin: 6px 0; }
+.rssh-native-tool-io-label { position: sticky; top: 0; align-self: start; color: var(--dsw-alias-label-caption); }
+.rssh-native-tool-io-divider { flex: none; height: .5px; background: var(--dsw-alias-border-l2); }
+.rssh-native-tool-io-text { min-width: 0; white-space: pre-wrap; word-break: break-word; color: var(--dsw-alias-label-secondary); }
+.rssh-native-tool-io-text[data-error] { color: var(--dsw-alias-state-error-primary); }
+.rssh-native-tool-io-text .rssh-native-markdown { white-space: normal; color: inherit; }
+.rssh-tool-flow .rssh-native-tool-terminal-body { --rssh-native-terminal-output-max-height: 224px; border: .5px solid var(--dsw-alias-border-l1); }
+.rssh-tool-flow .rssh-native-tool-terminal-body .rssh-native-terminal-output { max-height: var(--rssh-native-terminal-output-max-height); overflow-y: auto; }
+.rssh-tool-flow :is(.rssh-native-tool-terminal-body,.rssh-native-tool-diff-body,.rssh-native-tool-read-body) { margin: 4px 0; }
+/* Owned bounded process lists remain the single vertical reading viewport.
+   Standalone cards retain native caps; nested cards do not steal tail gestures. */
+.rssh-process-disclosure[data-scroll-body] :is(.rssh-native-tool-io-section, .rssh-native-tool-terminal-body .rssh-native-terminal-output) { max-height: none; overflow-y: visible; }

@@ -119,50 +119,48 @@ test('image validation is memoized and URL creation/cleanup belong to the compon
   const model=read('attachments-model.js');
   assert.match(model,/globalThis.atob\(data\)/);assert.match(model,/globalThis.URL.createObjectURL\(blob\)/);assert.match(model,/globalThis.URL.revokeObjectURL\(url\)/);
 });
-test('preview and removal are separate controls, preserve failure feedback and reuse the existing modal',()=>{
-  const source=read('attachments.js'),chat=read('chat.js');
-  for(const name of ['attachments.js','attachments-model.js','chat.js'])parse(read(name),{ecmaVersion:'latest',sourceType:'module'});
-  assert.match(source,/className:'rssh-attachment-thumbnail',disabled:!loaded/);
-  assert.match(source,/onClick:\(\)=>setOpened\(true\)/);assert.match(source,/onClick:\(\)=>onRemove\(file.id\)/);
-  assert.match(source,/className:'rssh-attachment-remove',disabled:sending/);
-  assert.match(source,/h\(ui.Modal,\{open:true,[^\n]*closeLabel:t\('acp.close'\),onClose\}/);
-  assert.match(source,/h\(ImagePreviewModal,\{src:url,name,t,onClose:\(\)=>setOpened\(false\)/);
-  assert.match(source,/const safeSource=safeImagePreviewURL\(src\)/);
-  assert.match(source,/onError:\(\)=>setFailedURL\(url\)/);assert.match(source,/acp.imageAttachmentRetained/);
-  assert.match(chat,/if\(!composer.getSnapshot\(\).sending\)setAttachments\(old=>removeAttachmentById\(old,id\)\)/);
-  assert.doesNotMatch(chat,/file.name, ' ×'|position !== index/);
+test('preview and removal stay separate controls with retained failure feedback and secure modal',()=>{
+  const source=read('attachments.js'),chat=read('chat.js'),view=read('native-attachment-view.js');
+  for(const name of ['attachments.js','native-attachment-view.js','chat.js'])parse(read(name),{ecmaVersion:'latest',sourceType:'module'});
+  assert.ok(source.includes("className:'rssh-native-draft-thumbnail',disabled:!loaded"));
+  assert.ok(source.includes('onClick:()=>setOpened(true)'));assert.ok(source.includes('onClick:()=>onRemove(file.id)'));
+  assert.ok(source.includes("className:'rssh-native-draft-remove',disabled:sending"));
+  assert.ok(source.includes("h(ui.Modal,{open:true,className:'rssh-image-preview',title:name,closeLabel:t('acp.close'),onClose}"));
+  assert.ok(source.includes('const safeSource=safeImagePreviewURL(src)'));
+  assert.ok(source.includes('onError:()=>setFailedURL(url)'));assert.ok(source.includes('acp.imageAttachmentRetained'));
+  assert.ok(chat.includes('if(!composer.getSnapshot().sending)setAttachments(old=>removeAttachmentById(old,id))'));
+  assert.ok(view.includes("name:'attachment-remove',size:12"));
 });
-test('attachment strip stays single-row, contains images without cropping, and exposes persistent keyboard controls',async()=>{
-  const css=read('attachments.css');assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
-  assert.match(css,/\.rssh-attachments \{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto/);
-  assert.match(css,/\.rssh-attachment-thumbnail \{[^}]*width: 64px; height: 64px/);assert.match(css,/object-fit: contain/);
-  assert.match(css,/ComposerAttachments\.module\.css/);assert.match(css,/FileCard\.module\.css/);
-  assert.match(css,/\.rssh-attachment-name \{[^}]*text-overflow: ellipsis/);
-  assert.match(css,/\.rssh-attachment-remove:focus-visible \{[^}]*outline: 2px solid var\(--dsw-alias-state-info-primary\)/);
-  assert.match(css,/\.rssh-image-preview-stage img \{[^}]*max-height: min\(720px, 70dvh\)/);
-  assert.match(css,/pointer: coarse/);
-  assert.match(css,/\.rssh-attachment-remove:focus-visible \{ opacity: 1; \}/);
-  assert.match(css,/\.rssh-attachment:hover \.rssh-attachment-remove,[^}]*opacity: 1/);
-  assert.match(css,/@media \(hover: none\), \(pointer: coarse\) \{ \.rssh-attachment-remove \{ opacity: 1/);
-  assert.match(css,/@media \(pointer: coarse\) \{ \.rssh-attachment-remove \{ width: 32px; height: 32px/);
-  assert.match(css,/prefers-reduced-motion: reduce/);
-  assert.doesNotMatch(css,/display:\s*none/);
-  const index=read('index.js');assert.match(index,/import attachmentCss from '.\/attachments.css'/);assert.match(index,/filesCss \+ "\\n" \+ attachmentCss/);
+test('full native rail replaces captioned list with 64px items, paging and one horizontal scrollport',async()=>{
+  const css=read('native-attachment-view.css'),view=read('native-attachment-view.js'),source=read('attachments.js');
+  assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
+  for(const name of ['AttachmentRail','ComposerAttachments','FileCard','MessageImage'])assert.ok(css.includes(name+'.module.css'));
+  assert.match(css,/\.rssh-native-rail-rail \{[^}]*overflow-x: auto;[^}]*overflow-y: hidden;[^}]*scrollbar-width: none/s);
+  assert.match(css,/\.rssh-native-rail-item \{[^}]*flex: none;[^}]*height: 64px/s);
+  assert.match(css,/\.rssh-native-draft-thumbnail img \{[^}]*object-fit: cover/s);
+  assert.ok(source.includes('h(NativeAttachmentRail,{items:attachments'));
+  assert.ok(view.includes('new ResizeObserver(updateEdges)'));assert.ok(view.includes("el.addEventListener('wheel',onWheel,{passive:false})"));
+  assert.ok(view.includes("el.removeEventListener('wheel',onWheel)"));assert.ok(view.includes('observer?.disconnect()'));
+  assert.ok(view.includes('countRef.current!==null&&items.length>countRef.current'));
+  assert.ok(view.includes("role:'group','aria-label':labels.group"));
+  assert.doesNotMatch(source,/figcaption|rssh-attachment-caption|h\('ul'/);
+  for(const name of ['rail-arrow','draft-remove','file-remove'])assert.ok(css.includes('.rssh-native-'+name));
+  assert.match(css,/@media \(hover: none\), \(pointer: coarse\)/);
+  assert.match(css,/\.rssh-native-draft-remove:focus-visible \{\s*opacity: 1/);
+  assert.match(read('attachments.css'),/prefers-reduced-motion: reduce/);
 });
-test('ordinary files retain compact non-clickable labels with separate removal',()=>{
-  const source=read('attachments.js'),css=read('attachments.css');
-  const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
-  const node=ast.body.find(node=>node.type==='FunctionDeclaration'&&node.id.name==='FileAttachment');
-  const fileBody=source.slice(node.start,node.end);
-  assert.match(fileBody,/className:'rssh-attachment-file'/);
-  assert.match(fileBody,/h\(RemoveAttachment,\{file,sending,onRemove,t\}\)/);
-  assert.match(fileBody,/className:'rssh-attachment-name',title:name/);
-  assert.doesNotMatch(fileBody,/onClick|rssh-attachment-thumbnail/);
-  assert.match(css,/\.rssh-attachment-file \{[^}]*width: 240px; max-width: 100%; height: 64px/);
-  assert.match(css,/\.rssh-attachment-file > svg \{[^}]*width: 28px; height: 28px/);
-  assert.doesNotMatch(css,/\.rssh-attachment-file \{[^}]*height: 72px|\.rssh-attachment-thumbnail, \.rssh-attachment-file/);
+test('FileCard keeps the original icon/body/name/meta/remove/progress tree without per-file upload action',()=>{
+  const source=read('attachments.js'),view=read('native-attachment-view.js'),css=read('native-attachment-view.css');
+  assert.ok(source.includes('draftFilePresentation(file,upload,t)'));
+  assert.ok(source.includes('h(NativeFileCard,{...view,disabled:sending'));
+  assert.ok(source.includes('onRemove:()=>onRemove(file.id)'));
+  assert.doesNotMatch(source,/onRetry:|uploadFile|sendDraft|fetch\(/);
+  for(const name of ['card','icon','body','name','meta','remove','progressTrack','progressBar'])assert.ok(view.includes('rssh-native-file-'+name));
+  assert.match(css,/\.rssh-native-file-card \{[^}]*width: 240px;[^}]*height: 64px;[^}]*padding: 0 12px/s);
+  assert.match(css,/\.rssh-native-file-icon \{[^}]*width: 28px;[^}]*height: 28px/s);
+  assert.match(css,/\.rssh-native-file-meta \{[^}]*line-height: 15px/s);
 });
-test('image preview, removal and fallback feedback have both locale labels',()=>{
-  const keys=['acp.attachment','acp.attachments','acp.imageAttachment','acp.fileAttachment','acp.remoteFileAttachment','acp.previewImage','acp.imagePreviewLoading','acp.imagePreviewUnavailable','acp.imageAttachmentRetained','acp.removeAttachment','acp.close'];
+test('image preview, removal and rail paging have both locale labels',()=>{
+  const keys=['acp.attachment','acp.attachments','acp.imageAttachment','acp.fileAttachment','acp.remoteFileAttachment','acp.previewImage','acp.imagePreviewLoading','acp.imagePreviewUnavailable','acp.imageAttachmentRetained','acp.removeAttachment','acp.close','acp.attachmentsScrollLeft','acp.attachmentsScrollRight'];
   for(const locale of [zh,en])for(const key of keys)assert.ok(locale[key],key);
 });

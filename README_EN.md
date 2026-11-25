@@ -2,9 +2,11 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.14** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.15** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
+
+**rc.15 highlights**: copy the complete conversation presentation layer from the same installed DSH release and feed it through remote-data adapters: message seats/actions, tool rows/details, composer, attachment rail and file/image cards. Remove 60/40 tool columns and repeated paths, use native action-specific icons, and omit redundant “Waiting for Agent progress” while the real running footer is present. Preserve SSH/ACP, permission, upload, reconnect and file-access boundaries. 765 automated tests and 76-module build pass; actual GUI visual acceptance is not claimed. The editor remains a controlled textarea, not a copy of private Host Lexical/stores. See [sources and adaptation boundaries](./docs/NATIVE_UI.md).
 
 **rc.14 highlights**: base controls, 47 SVG icon shapes, and matching chat/file/settings views are copied and locally adapted from the actual DSH 0.2.2-rc.5 release. Remote-specific controls follow the same style. These are not runtime imports of native UI packages or claims that local controls are Host instances. Ordinary files upload on Send and provide verified remote-path references (64 MiB each, 256 MiB combined), retaining existing text/image behavior. Remove the repeated command below the process group while preserving turn status, timing and concurrency counts. 724 automated tests pass; real GUI and live SSH end-to-end acceptance remain pending. See [sources and adaptation boundaries](./docs/NATIVE_UI.md).
 

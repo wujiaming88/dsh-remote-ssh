@@ -123,6 +123,8 @@ export default {
   "acp.failed": "Failed",
   "acp.done": "Done",
   "acp.noOutput": "(no output)",
+  "acp.attachmentsScrollLeft": "Scroll attachments left",
+  "acp.attachmentsScrollRight": "Scroll attachments right",
   "acp.readWindow": "Showing {shown} of {total} lines",
   "acp.subagent": "Subagent",
   "acp.subagentAgent": "agent",

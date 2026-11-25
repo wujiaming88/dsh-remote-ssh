@@ -72,7 +72,8 @@ test('native single-seat disclosure swaps icon for chevron with keyboard, hover 
   assert.match(css,/\[aria-expanded=true\] > \.rssh-disclosure-leading \.rssh-disclosure-chevron \{ transform: rotate\(0deg\)/);
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.match(css,/\.rssh-flow-title \{[^}]*max-width: 100%/);
-  assert.match(css,/\.rssh-flow\[data-summary\] > \.rssh-flow-toggle \.rssh-flow-title \{[^}]*min-width: min\(14ch, 40%\)/);
+  assert.match(css,/\.rssh-flow-title \{[^}]*flex: 0 1 auto;[^}]*min-width: 0/);
+  assert.doesNotMatch(css,/flex: 1 1 60%|flex: 0 1 40%|min-width: min\(14ch, 40%\)/);
   assert.doesNotMatch(css+thoughtCss,/rssh-(?:flow|thought)-chevron/);
 });
 test('bounded process lists open at the correct edge and respect readers leaving the live tail',()=>{

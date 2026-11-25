@@ -22,6 +22,198 @@ function freeze(value) {
 }
 
 export const NATIVE_ICON_DATA = freeze({
+  "browse-outline": [
+    "svg",
+    {
+      "xmlns": "http://www.w3.org/2000/svg",
+      "viewBox": "0 0 16 16",
+      "fill": "none",
+      "strokeWidth": "$stroke"
+    },
+    [
+      [
+        "path",
+        {
+          "d": "M4.9375 5.90295H11.0625",
+          "stroke": "currentColor"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M4.9375 9.02991H8.27841",
+          "stroke": "currentColor"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M12.5 1.32617C13.3039 1.32617 14 1.95171 14 2.77637V13.2246C13.9996 14.0489 13.3036 14.6738 12.5 14.6738H3.5C2.69637 14.6738 2.00042 14.0489 2 13.2246V2.77637C2 1.95171 2.69613 1.32617 3.5 1.32617H12.5ZM3.5 2.32617C3.1993 2.32617 3 2.55186 3 2.77637V13.2246C3.00044 13.4489 3.19963 13.6738 3.5 13.6738H12.5C12.8004 13.6738 12.9996 13.4489 13 13.2246V2.77637C13 2.55186 12.8007 2.32617 12.5 2.32617H3.5Z",
+          "fill": "currentColor"
+        },
+        []
+      ]
+    ]
+  ],
+  "api-outline": [
+    "svg",
+    {
+      "xmlns": "http://www.w3.org/2000/svg",
+      "viewBox": "0 0 16 16",
+      "fill": "none",
+      "strokeWidth": "$stroke"
+    },
+    [
+      [
+        "path",
+        {
+          "d": "M3 4L7 8L3 12",
+          "stroke": "currentColor"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M9 12H13",
+          "stroke": "currentColor"
+        },
+        []
+      ]
+    ]
+  ],
+  "sparkle": [
+    "svg",
+    {
+      "xmlns": "http://www.w3.org/2000/svg",
+      "viewBox": "0 0 16 16",
+      "fill": "none",
+      "strokeWidth": "$stroke"
+    },
+    [
+      [
+        "path",
+        {
+          "d": "M5.875 3C5.875 6.33333 7.54167 8 10.875 8C7.54167 8 5.875 9.66667 5.875 13C5.875 9.66667 4.20833 8 0.875 8C4.20833 8 5.875 6.33333 5.875 3Z",
+          "stroke": "currentColor"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M12.375 1.55823C12.375 3.39156 13.2917 4.30823 15.125 4.30823C13.2917 4.30823 12.375 5.22489 12.375 7.05823C12.375 5.22489 11.4583 4.30823 9.625 4.30823C11.4583 4.30823 12.375 3.39156 12.375 1.55823Z",
+          "stroke": "currentColor"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M12.375 10.4418C12.375 11.7751 13.0417 12.4418 14.375 12.4418C13.0417 12.4418 12.375 13.1084 12.375 14.4418C12.375 13.1084 11.7083 12.4418 10.375 12.4418C11.7083 12.4418 12.375 11.7751 12.375 10.4418Z",
+          "stroke": "currentColor"
+        },
+        []
+      ]
+    ]
+  ],
+  "close-fill": [
+    "svg",
+    {
+      "xmlns": "http://www.w3.org/2000/svg",
+      "viewBox": "0 0 16 16",
+      "fill": "none",
+      "strokeWidth": "$stroke"
+    },
+    [
+      [
+        "path",
+        {
+          "d": "M3.5 3.5L12.5 12.5",
+          "stroke": "currentColor"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M12.5 3.5L3.5 12.5",
+          "stroke": "currentColor"
+        },
+        []
+      ]
+    ]
+  ],
+  "composer-send": [
+    "svg",
+    {
+      "viewBox": "0 0 16 16"
+    },
+    [
+      [
+        "path",
+        {
+          "d": "M8.3125 0.980183C8.66767 1.0531 8.97902 1.20418 9.2627 1.43233C9.48724 1.61297 9.73029 1.85793 9.97949 2.10714L14.707 6.83468L13.293 8.24874L9 3.95577V15.0417H7V3.95577L2.70703 8.24874L1.29297 6.83468L6.02051 2.10714C6.26971 1.85793 6.51277 1.61297 6.7373 1.43233C6.97662 1.23986 7.28445 1.04402 7.6875 0.980183C7.8973 0.947006 8.1031 0.95516 8.3125 0.980183Z",
+          "fill": "currentColor"
+        },
+        []
+      ]
+    ]
+  ],
+  "composer-stop": [
+    "svg",
+    {
+      "viewBox": "0 0 16 16"
+    },
+    [
+      [
+        "rect",
+        {
+          "x": "3",
+          "y": "3",
+          "width": "10",
+          "height": "10",
+          "rx": "3",
+          "fill": "currentColor"
+        },
+        []
+      ]
+    ]
+  ],
+  "composer-sending": [
+    "svg",
+    {
+      "viewBox": "0 0 16 16"
+    },
+    [
+      [
+        "circle",
+        {
+          "cx": "8",
+          "cy": "8",
+          "r": "6",
+          "fill": "none",
+          "stroke": "currentColor",
+          "strokeOpacity": "0.35",
+          "strokeWidth": "2"
+        },
+        []
+      ],
+      [
+        "path",
+        {
+          "d": "M8 2a6 6 0 0 1 6 6",
+          "fill": "none",
+          "stroke": "currentColor",
+          "strokeWidth": "2",
+          "strokeLinecap": "round"
+        },
+        []
+      ]
+    ]
+  ],
   "send-outline": [
     "svg",
     {
@@ -579,6 +771,21 @@ export const NATIVE_ICON_DATA = freeze({
         },
         []
       ]
+    ]
+  ],
+  "checklist-outline": [
+    "svg",
+    {
+      "xmlns": "http://www.w3.org/2000/svg",
+      "viewBox": "0 0 16 16",
+      "fill": "none",
+      "strokeWidth": "$stroke"
+    },
+    [
+      ["path", {"d": "M3.75 6.25C4.7165 6.25 5.5 5.4665 5.5 4.5C5.5 3.5335 4.7165 2.75 3.75 2.75C2.7835 2.75 2 3.5335 2 4.5C2 5.4665 2.7835 6.25 3.75 6.25Z", "stroke": "currentColor"}, []],
+      ["path", {"d": "M7.5 4.5H13.5", "stroke": "currentColor"}, []],
+      ["path", {"d": "M3.75 13.25C4.7165 13.25 5.5 12.4665 5.5 11.5C5.5 10.5335 4.7165 9.75 3.75 9.75C2.7835 9.75 2 10.5335 2 11.5C2 12.4665 2.7835 13.25 3.75 13.25Z", "stroke": "currentColor"}, []],
+      ["path", {"d": "M7.5 11.5H13.5", "stroke": "currentColor"}, []]
     ]
   ],
   "plan-outline": [
@@ -1506,6 +1713,13 @@ export const NATIVE_ICON_DATA = freeze({
 });
 
 export const NATIVE_ICON_SOURCES = freeze({
+  "read": {"key": "browse-outline", "symbol": "ICON_SYMBOLS[dsw-icon-browse-outline-regular]", "compiled": "Vw / M (RU)", "line": 17312},
+  "terminal": {"key": "api-outline", "symbol": "ICON_SYMBOLS[dsw-icon-api-outline-regular]", "compiled": "Vw / M (IF)", "line": 17312},
+  "composer-add": {"key": "plus-outline", "symbol": "IconPlusOutlineMedium", "compiled": "Vw / M", "line": 17312, "note": "InputBar plus uses weight medium (1.3)."},
+  "attachment-remove": {"key": "close-fill", "symbol": "IconCloseFillRegular", "compiled": "Vw / M", "line": 17312},
+  "composer-send": {"key": "composer-send", "symbol": "InputBar send SVG", "compiled": "InputBar.tsx", "line": 586},
+  "composer-stop": {"key": "composer-stop", "symbol": "InputBar stop SVG", "compiled": "InputBar.tsx", "line": 556},
+  "composer-sending": {"key": "composer-sending", "symbol": "InputBar sendingSpinner SVG", "compiled": "InputBar.tsx", "line": 579},
   "send": {
     "key": "send-outline",
     "symbol": "ICON_SYMBOLS[dsw-icon-send-outline-regular]",
@@ -1621,9 +1835,9 @@ export const NATIVE_ICON_SOURCES = freeze({
     "line": 17312
   },
   "tool": {
-    "key": "code-outline",
-    "symbol": "ICON_SYMBOLS[dsw-icon-code-outline-regular]",
-    "compiled": "Vw / M",
+    "key": "sparkle",
+    "symbol": "ICON_SYMBOLS[dsw-icon-sparkle-regular]",
+    "compiled": "Vw / M (dV)",
     "line": 17312
   },
   "agent": {
@@ -1643,6 +1857,13 @@ export const NATIVE_ICON_SOURCES = freeze({
     "symbol": "ICON_SYMBOLS[dsw-icon-check-circle-outline-regular]",
     "compiled": "Vw / M",
     "line": 17312
+  },
+  "process": {
+    "key": "checklist-outline",
+    "symbol": "ICON_SYMBOLS[dsw-icon-checklist-outline-regular]",
+    "compiled": "Vw / M (oV)",
+    "line": 17312,
+    "note": "Step-list shape for process groups; not the hash-shaped code icon or a completion indicator."
   },
   "plan": {
     "key": "plan-outline",

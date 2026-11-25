@@ -82,6 +82,25 @@ test('current activity comes from structured records, not invented analysis phas
   const activity=conversationActivity(s);assert.equal(activity.kind,'activity');assert.equal(actionLabel(activity.item,key=>key),'Run regression tests');
   assert.equal(view(s).seconds,12);
 });
+test('generic progress waiting is omitted once a real running footer is available',()=>{
+  const s=state(),v=view(s);
+  assert.equal(conversationActivity(s).kind,'working');
+  assert.equal(v.showActivity,false);assert.equal(v.footer,true);
+  assert.equal(v.seconds,12);assert.equal(v.clock,true);assert.equal(v.activeCount,null);
+  const unknownTime=view(state({turns:{[scope]:{status:'running',startSeq:1}}}));
+  assert.equal(unknownTime.showActivity,false);assert.equal(unknownTime.footer,true);
+  assert.equal(unknownTime.seconds,null);assert.equal(unknownTime.clock,false);
+});
+test('progress gaps stay quiet while intervention and reconnect feedback return without resetting the clock',()=>{
+  const s=state();
+  assert.equal(view(s).showActivity,false);
+  for(const patch of [{permissions:[{}]},{elicitations:[{}]},{connected:false,everConnected:true}]){
+    assert.equal(view({...s,...patch}).showActivity,true);
+    assert.equal(view(s,19000).showActivity,false);assert.equal(view(s,19000).seconds,18);
+  }
+  const pending=view(state({turns:{}}));
+  assert.equal(pending.showActivity,true);assert.equal(pending.footer,false);assert.equal(pending.seconds,null);
+});
 test('duplicate command summary is omitted while the real footer and turn clock remain',()=>{
   const s=reduceEvent(state(),event(3,{type:'tool_call',toolCallId:'t',status:'in_progress',title:'cd workspace && git diff HEAD'}));
   const activity=conversationActivity(s),v=view(s);

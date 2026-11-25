@@ -5,6 +5,7 @@ import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
 import {toolFlowModel,toolRowStatus,toolBodyParts,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
 import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
+import {toolHeaderPresentation} from './tool-header-model.js';
 const UiButton=ui.Button, UiInput=ui.Input;
 function AcpMarkdown(props) { return h(ui.MarkdownText, {text:props.text,labels:props.labels}); }
 function payloadItem(props,type,payload) {
@@ -23,6 +24,11 @@ export function AcpNativeDetails(props) {
   var [open,setOpen]=React.useState(false);
   var payload=props.payload||{native:props.native,nativeMeta:props.nativeMeta};
   var entries=rawDetailEntries(payload);
+  // ACP has additional top-level evidence not in the shared raw model's fields.
+  // Preserve original titles, complete errors and exit metadata in this view.
+  for(const key of ['title','name','command','errorMessage','error','exitStatus','exitCode']) {
+    if(payload[key]!==undefined&&payload[key]!==null&&payload[key]!=='')entries.push({key,value:payload[key]});
+  }
   if(!entries.length)return null;
   return h('details',{className:'rssh-flow-raw',open,onToggle:event=>setOpen(event.currentTarget.open)},
     h('summary',null,props.t('acp.rawDetails')),
@@ -135,36 +141,50 @@ export function AcpNestedItem(props) {
   }
 }
 function AcpResultText({text,labels}) {
-  const [expanded,setExpanded]=React.useState(false),lines=String(text||'').split('\n'),limited=lines.length>20;
-  return h('div',{className:'rssh-flow-result'},h(AcpMarkdown,{text:expanded?text:lines.slice(0,20).join('\n'),labels:labels.markdown}),
-    limited?h(UiButton,{variant:'ghost',size:'sm','aria-expanded':expanded,onClick:()=>setExpanded(value=>!value)},expanded?labels.read.collapse:labels.read.expand(lines.length-20)):null);
+  // Full Markdown stays syntactically intact; the native body surface bounds
+  // scrolling rather than truncating a fenced block/table at an arbitrary line.
+  return h('div',{className:'rssh-flow-result'},h(AcpMarkdown,{text,labels:labels.markdown}));
 }
-function AcpToolBody({model,labels}) {
-  const counts={};
-  return h(React.Fragment,null,toolBodyParts(model).map(part=>{
+function AcpToolBody({model,labels,t,rawInput}) {
+  const counts={},parts=toolBodyParts(model),generic=model.body==='generic';
+  const input=generic&&rawInput!=null?fullPayloadText(rawInput):null;
+  const outputs=parts.filter(part=>part.kind==='text');
+  return h(React.Fragment,null,parts.filter(part=>part.kind!=='text').map(part=>{
     const key=part.kind+':'+(counts[part.kind]=(counts[part.kind]||0)+1);
     switch(part.kind) {
-      case 'diff':return h(ui.DiffBlock,{key,diffs:part.diffs.map(d=>({path:String(d.path||''),oldText:d.oldText==null?null:String(d.oldText),newText:String(d.newText||'')})),labels:labels.diff,maxLines:20});
-      case 'terminal':return h(ui.TerminalBlock,{key,...part,labels:labels.terminal,maxLines:20});
-      case 'read':return h(ui.ReadBlock,{key,label:part.label,lines:part.text.split('\n').map((text,i)=>({number:i+1,text})),totalLines:part.text.split('\n').length,labels:labels.read,maxLines:20});
-      default:return h(AcpResultText,{key,text:part.text,labels});
+      case 'diff':return h(ui.DiffBlock,{key,className:'rssh-native-tool-diff-body',diffs:part.diffs.map(d=>({path:String(d.path||''),oldText:d.oldText==null?null:String(d.oldText),newText:String(d.newText||'')})),labels:labels.diff,maxLines:20});
+      case 'terminal':return h(ui.TerminalBlock,{key,...part,className:'rssh-native-tool-terminal-body',labels:labels.terminal,maxLines:Number.MAX_SAFE_INTEGER});
+      case 'read':return h(ui.ReadBlock,{key,className:'rssh-native-tool-read-body',label:part.label,lines:part.text.split('\n').map((text,i)=>({number:i+1,text})),totalLines:part.text.split('\n').length,labels:labels.read,maxLines:20});
+      default:return null;
     }
-  }));
+  }),input!==null||outputs.length?h('div',{className:'rssh-native-tool-io-card'},
+    input!==null?h('div',{className:'rssh-native-tool-io-section',tabIndex:0},h('span',{className:'rssh-native-tool-io-label'},t('flow.toolInput')),h('span',{className:'rssh-native-tool-io-text'},input)):null,
+    outputs.map((part,index)=>h(React.Fragment,{key:index},
+      input!==null||index>0?h('span',{className:'rssh-native-tool-io-divider','aria-hidden':true}):null,
+      h('div',{className:'rssh-native-tool-io-section',tabIndex:0},h('span',{className:'rssh-native-tool-io-label'},t('flow.toolOutput')),
+        h('div',{className:'rssh-native-tool-io-text','data-error':model.failed||undefined},h(AcpResultText,{text:part.text,labels})))))):null);
 }
 export function AcpToolCard(props) {
   var tool=props.tool||{},t=props.t,model=toolFlowModel(tool),item=payloadItem(props,'tool',tool);
   var sub=tool.subagent&&typeof tool.subagent==='object'?acpSubagentFromTool(tool):null;
   var statusKey=toolRowStatus(model,tool),status=statusKey?t(statusKey):undefined;
-  return h(React.Fragment,null,h(Disclosure,{className:'rssh-tool-flow',icon:h(FlowIcon,{kind:sub?'agent':'tool'}),title:model.title||t('acp.tool'),
-    summary:processRowSummary(model.summary,props.showProcessSummary,model.failed,model.error),running:model.running,failed:model.failed,status,children:()=>h(React.Fragment,null,
+  var header=toolHeaderPresentation({...model,rawInput:tool.rawInput},{subagent:!!sub});
+  var compact=props.showProcessSummary===false;
+  var title=(compact?model.title:header.labelKey?t(header.labelKey):header.title)||model.title||t('acp.tool');
+  var summary=processRowSummary(header.summary,props.showProcessSummary,model.failed,model.error);
+  var originalTitles=[...new Set([tool.title,model.title,model.description].filter(value=>typeof value==='string'&&value.trim()))];
+  var fullError=acpContentText(tool.errorMessage||tool.error||'');
+  return h(React.Fragment,null,h(Disclosure,{className:'rssh-tool-flow',icon:h(FlowIcon,{kind:header.icon}),title,
+    summary,running:model.running,failed:model.failed,status,nativeTool:{path:header.path,pathLabel:header.pathLabel,onOpenOutput:props.onOpenOutput,compact},children:()=>h(React.Fragment,null,
       sub?h(AcpSubagentMeta,{...props,subagent:sub}):null,
-      model.description&&model.description!==model.title?h('div',{className:'rssh-flow-text'},model.description):null,
+      originalTitles.map((value,index)=>h('div',{key:index,className:'rssh-flow-text'},value)),
+      fullError?h('div',{className:'rssh-native-tool-error-detail',role:model.failed?'alert':undefined},fullError):null,
       model.command&&!model.terminals.length&&model.body!=='terminal'&&model.kind!=='execute'?h('div',null,
         h('pre',{className:'rssh-flow-command'},h('code',null,model.command)),
         h(ui.CopyButton,{text:model.command,labels:{copy:t('flow.copyCommand'),copied:t('flow.copied'),copyFailed:t('flow.copyFailed')}})):null,
       model.locations.length?h('div',{className:'rssh-flow-locations'},model.locations.map((loc,i)=>h(UiButton,{key:JSON.stringify([loc.path,loc.line,i]),variant:'ghost',size:'sm',
         onClick:()=>props.onOpenOutput?.(String(loc.path||''))},String(loc.path||'')+(loc.line==null?'':':'+loc.line)))):null,
-      h(AcpToolBody,{model,labels:props.labels}),h(AcpNativeDetails,{t,payload:tool}),nested(props,item))}),
+      h(AcpToolBody,{model,labels:props.labels,t,rawInput:tool.rawInput}),h(AcpNativeDetails,{t,payload:tool}),nested(props,item))}),
       h(AcpSourceFallback,{item,t,fallback:props.sourceFallback}));
 }
 export function AcpPlanCard(props) {

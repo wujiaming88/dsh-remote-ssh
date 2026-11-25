@@ -3,9 +3,10 @@
 .rssh-flow-toggle { appearance: none; display: flex; align-items: center; width: 100%; min-width: 0; min-height: calc(24px + var(--dsh-content-font-delta, 0px)); padding: 0; margin: 0; border: none; background: transparent; color: inherit; font-family: inherit; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); text-align: left; cursor: pointer; transition: color 100ms ease; }
 .rssh-flow-toggle:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; border-radius: 4px; }
 .rssh-flow-icon { flex: none; width: 14px; height: 14px; margin-right: 6px; }
-.rssh-flow-title { flex: 1 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: inherit; }
-.rssh-flow[data-summary] > .rssh-flow-toggle .rssh-flow-title { flex: 1 1 60%; min-width: min(14ch, 40%); max-width: 75%; }
-.rssh-flow-summary { flex: 0 1 40%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); color: var(--dsw-alias-label-tertiary); }
+/* Disclosure titles take intrinsic width, never a 60/40 column allocation.
+   Tool rows own the complete copied structure in native-tool-row.css. */
+.rssh-flow-title { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: inherit; }
+.rssh-flow-summary { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); color: var(--dsw-alias-label-tertiary); }
 /* The group label is short; its current-activity summary needs the remaining space. */
 .rssh-process-disclosure[data-summary] > .rssh-flow-toggle .rssh-flow-title { flex: 0 0 auto; min-width: 0; max-width: 60%; }
 .rssh-process-disclosure > .rssh-flow-toggle .rssh-flow-summary { flex: 1 1 auto; }

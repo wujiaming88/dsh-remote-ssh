@@ -123,6 +123,8 @@ export default {
   "acp.failed": "失败",
   "acp.done": "完成",
   "acp.noOutput": "（无输出）",
+  "acp.attachmentsScrollLeft": "向左滚动附件",
+  "acp.attachmentsScrollRight": "向右滚动附件",
   "acp.readWindow": "显示 {shown} / {total} 行",
   "acp.subagent": "子 Agent",
   "acp.subagentAgent": "agent",

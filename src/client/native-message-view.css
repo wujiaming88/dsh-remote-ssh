@@ -1,0 +1,30 @@
+/* COPY: DSH 0.2.2-rc.5 MessageItem.module.css userRow/userStack;
+   AssistantMarkdown.module.css root/body/stopped/actions;
+   MessageIconActions.module.css actions/action + hover/focus rules;
+   published UserMessageBubble _bubble_1sgyj (native.css 109-118).
+   ADAPTATION: namespaced selectors, safe plain user text and Markdown slots,
+   optional local copy-turn action, no unavailable Host clock/fork/usage controls.
+   Copyright (c) 2026 DeepSeek. MIT: see THIRD_PARTY_NOTICES.md. */
+.rssh-native-user { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.rssh-native-user-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0; max-width: min(calc(var(--dsh-chat-content-width, 748px) * 0.702), 82%); }
+.rssh-native-user-bubble { max-width: 100%; padding: 10px 16px; border-radius: var(--dsw-radius-xl); background: var(--dsw-specific-bubble); color: var(--dsw-alias-label-primary); font-size: var(--dsh-content-font-size, 14px); line-height: calc(22px + var(--dsh-content-font-delta, 0px)); white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+.rssh-native-assistant { display: flex; flex-direction: column; font-size: var(--dsh-content-font-size, 14px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); color: var(--dsw-alias-label-primary); }
+.rssh-native-assistant-body { --dsh-assistant-block-gap: 16px; display: flex; flex-direction: column; gap: var(--dsh-assistant-block-gap); min-width: 0; }
+.rssh-native-assistant-stopped { align-self: flex-start; padding: 0 6px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 18px; }
+.rssh-native-assistant-footer { margin-top: 16px; margin-left: -6px; }
+.rssh-native-message-actions { display: flex; align-items: center; gap: 8px; min-height: calc(28px + var(--dsh-content-font-delta, 0px)); flex-wrap: wrap; }
+/* Native action geometry overrides the reused CopyButton's small-control size.
+   Keep its asynchronous clipboard failure/success announcements and lifecycle. */
+.rssh-native-message-actions .rssh-native-message-action { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: none; width: calc(28px + var(--dsh-content-font-delta, 0px)); height: calc(28px + var(--dsh-content-font-delta, 0px)); min-height: 0; padding: 6px; border: none; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
+.rssh-native-message-action svg { width: calc(15px + var(--dsh-content-font-delta, 0px)); height: calc(15px + var(--dsh-content-font-delta, 0px)); }
+.rssh-native-message-actions[data-clock='end'] .rssh-native-message-action svg { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
+.rssh-native-message-actions .rssh-native-message-extra { color: var(--dsw-alias-label-tertiary); }
+@media (hover: hover) {
+  :is(.rssh-native-user,.rssh-native-assistant)[data-actions-reveal='hover'] .rssh-native-message-actions { opacity: 0; transition: opacity 80ms ease; }
+  :is(.rssh-native-user,.rssh-native-assistant)[data-actions-reveal='hover']:hover .rssh-native-message-actions,
+  :is(.rssh-native-user,.rssh-native-assistant)[data-actions-reveal='hover']:focus-within .rssh-native-message-actions { opacity: 1; }
+  .rssh-native-message-actions .rssh-native-message-action:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.rssh-native-user,.rssh-native-assistant) .rssh-native-message-actions { transition: none; }
+}

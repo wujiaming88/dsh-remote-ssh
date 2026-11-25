@@ -31,23 +31,23 @@ test('Stop is not gated on a send failure and Send waits for pending attachment 
 test('icon buttons use native geometry, accessibility and cancel wiring without text or draft mutation',()=>{
   const controls=readFileSync(new URL('../src/client/composer-controls.js',import.meta.url),'utf8');
   const chat=readFileSync(new URL('../src/client/chat.js',import.meta.url),'utf8');
-  const css=readFileSync(new URL('../src/client/styles.css',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../src/client/native-composer-view.css',import.meta.url),'utf8');
   parse(controls,{ecmaVersion:'latest',sourceType:'module'});
   const native=readFileSync(new URL('../src/client/native-icons.js',import.meta.url),'utf8');
-  const nativeCss=readFileSync(new URL('../src/client/native-controls.css',import.meta.url),'utf8');
-  assert.match(controls,/h\(NativeIcon,\{name:'stop',size:16\}\)/);
-  assert.match(controls,/h\(NativeIcon,\{name:'send',size:16\}\)/);
+
+  assert.match(controls,/h\(NativeIcon,\{name:'composer-stop',size:16\}\)/);
+  assert.match(controls,/h\(NativeIcon,\{name:'composer-send',size:16\}\)/);
   assert.match(native,/"stop":\s*\{\s*"key": "stop-fill"/);
   assert.match(native,/M12\.5 2\.5H3\.5C2\.94772 2\.5 2\.5 2\.94772 2\.5 3\.5/);
   assert.match(native,/M7\.97571 14\.5732L8\.02421 2\.34139/);
-  assert.match(controls,/h\(ui\.StateDot,\{state:'ongoing',size:16\}\)/);
+  assert.match(controls,/name:'composer-sending',size:16,className:'rssh-native-composer-sendingSpinner'/);
   assert.match(controls,/'aria-label':t\(controls.label\)/);assert.match(controls,/'aria-busy':/);assert.match(controls,/onMouseDown:keepFocus/);
   assert.match(controls,/onClick:controls.primaryStops\?props.onStop:props.onSend/);
   assert.doesNotMatch(controls,/setDraft|setAttachments|dangerouslySetInnerHTML|@deepseek-ai/);
   assert.match(chat,/onStop:\(\)=>action\('acpCancel'\),onSend:send/);
   assert.doesNotMatch(chat,/state.running \? h\(ui.Button[^\n]+acpCancel/);
-  assert.match(css,/\.ra-acp-send\s*\{[^}]*width: 34px;[^}]*height: 34px;/);
+  assert.match(css,/\.rssh-native-composer-primary\s*\{[^}]*width: 34px;[^}]*height: 34px;/);
   assert.match(css,/background: var\(--dsw-alias-button-info-fill\)/);
-  assert.match(nativeCss,/\.rssh-native-spinner-motion\s*\{[^}]*animation: rssh-native-state-dot-spin/);
-  assert.match(nativeCss,/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.rssh-native-spinner-arc\s*\{\s*animation: none/);
+  assert.match(css,/animation: rssh-native-input-sending 800ms linear infinite/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration: 2400ms/);
 });

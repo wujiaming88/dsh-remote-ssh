@@ -8,12 +8,14 @@ import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
+import {NativeUserMessage,NativeAssistantMessage,NativeMessageActions,NativeMessageCopy} from './native-message-view.js';
 import {runningTailPresentation,formatTurnElapsed,subscribeRunningClock} from './running-tail-model.js';
 import {activeRootScope,actionLabel,conversationActivity,responseCopyParts,processTreeSummary} from './stream-view-model.js';
 
 export const messages={
   zh:{'flow.you':'你的消息','flow.agent':'Agent 回复','flow.copy':'复制','flow.copied':'已复制','flow.copyFailed':'复制失败，请选中文字手动复制。',
     'flow.copyCommand':'复制命令','flow.categoryTool':'工具','flow.categoryRead':'读取','flow.categoryEdit':'编辑','flow.categoryExecute':'命令','flow.categorySearch':'搜索','flow.categoryThought':'思考','flow.categoryPlan':'计划','flow.categoryAgent':'子任务','flow.categoryOther':'其他类型','flow.copyPart':'复制这段回复','flow.copyTurn':'复制本轮回复','flow.process':'执行过程','flow.processCount':'项记录','flow.stopped':'已停止','flow.interrupted':'已中断',
+    'flow.toolRead':'读取','flow.toolEdit':'编辑','flow.toolSearch':'搜索','flow.toolExecute':'运行命令','flow.toolFetch':'获取内容','flow.toolDelete':'删除','flow.toolMove':'移动','flow.toolThink':'思考','flow.toolOther':'工具','flow.toolInput':'输入','flow.toolOutput':'输出',
     'flow.ended':'已结束','flow.hadFailures':'含失败记录','flow.thinking':'思考中','flow.runningCount':'项进行中',
     'flow.permissionRecorded':'权限确认已处理','flow.permissionAllowed':'已允许此操作','flow.permissionDenied':'已拒绝此操作','flow.questionRecorded':'提问已处理','flow.questionDeclined':'已跳过此问题','flow.permissionCancelled':'权限确认已取消','flow.questionCancelled':'提问已取消',
     'flow.runStatus':'运行状态','flow.turnRunning':'本轮进行中','flow.turnWaiting':'等待你的操作','flow.turnElapsed':'本轮用时','flow.elapsedHint':'从本轮实际开始执行时计算，包含等待和连接中断时间，不代表模型推理耗时。','flow.hour':'小时','flow.minute':'分','flow.second':'秒',
@@ -21,6 +23,7 @@ export const messages={
     'flow.working':'等待 Agent 进展','flow.connecting':'正在连接','flow.connection':'正在恢复连接','flow.source':'来源未关联'},
   en:{'flow.you':'Your message','flow.agent':'Agent response','flow.copy':'Copy','flow.copied':'Copied','flow.copyFailed':'Copy failed. Select the text and copy manually.',
     'flow.copyCommand':'Copy command','flow.categoryTool':'Tools','flow.categoryRead':'Reads','flow.categoryEdit':'Edits','flow.categoryExecute':'Commands','flow.categorySearch':'Searches','flow.categoryThought':'Reasoning','flow.categoryPlan':'Plans','flow.categoryAgent':'Agents','flow.categoryOther':'other types','flow.copyPart':'Copy this response','flow.copyTurn':'Copy turn responses','flow.process':'Activity','flow.processCount':'records','flow.stopped':'Stopped','flow.interrupted':'Interrupted',
+    'flow.toolRead':'Read','flow.toolEdit':'Edit','flow.toolSearch':'Search','flow.toolExecute':'Run command','flow.toolFetch':'Fetch','flow.toolDelete':'Delete','flow.toolMove':'Move','flow.toolThink':'Reasoning','flow.toolOther':'Tool','flow.toolInput':'Input','flow.toolOutput':'Output',
     'flow.ended':'Ended','flow.hadFailures':'Includes failed steps','flow.thinking':'Thinking','flow.runningCount':'active',
     'flow.permissionRecorded':'Permission request handled','flow.permissionAllowed':'Operation allowed','flow.permissionDenied':'Operation denied','flow.questionRecorded':'Question handled','flow.questionDeclined':'Question skipped','flow.permissionCancelled':'Permission request cancelled','flow.questionCancelled':'Question cancelled',
     'flow.runStatus':'Run status','flow.turnRunning':'Turn in progress','flow.turnWaiting':'Awaiting your action','flow.turnElapsed':'Turn elapsed','flow.elapsedHint':'Time since this turn actually started, including waits and connection interruptions; not model reasoning time.','flow.hour':'h','flow.minute':'m','flow.second':'s',
@@ -34,6 +37,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
   const built=acpBuildChildMap(items);
   const top=items.filter(item=>!built.parents[acpItemId(item)]);
   const entries=transcriptEntries(top,{turns});
+  const latestUser=entries.findLast(entry=>entry.item?.type==='user')?.item;
   const activeScope=running?activeRootScope(turns,rootSessionId):null;
   const copyLabels={copy:t('flow.copy'),copied:t('flow.copied'),copyFailed:t('flow.copyFailed')};
   // Child conversations reuse the same filtering, message roles and copy rules.
@@ -47,25 +51,25 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
     const common={key:item.key||id,item,t,labels,childMap:built.map,fallbacks:built.fallbacks,sourceFallback:fallback,
       onOpenOutput:openFile,ancestors,running,turns,showProcessSummary:policy.showProcessSummary,transcriptItems:items,renderFactorySlot,renderNested};
     switch(item.type){
-      case 'user': return h('article',{key:item.key,className:'rssh-message rssh-message-user','aria-label':t('flow.you')},
-        h('div',{className:'rssh-user-stack'},String(item.text||'').trim()?h('div',{className:'rssh-user-bubble'},item.text):null,
-          item.attachments?.length?h(SentAttachments,{item,t,
-            context:!ancestors.length&&(!item.rootSessionId||item.rootSessionId===item.sessionId)?attachmentContext:null,
-            phase:JSON.stringify([item.delivery,turns[transcriptScope(item)]?.startSeq,turns[transcriptScope(item)]?.endSeq,turns[transcriptScope(item)]?.status])}):null,
-          ['queued','cancelled'].includes(item.delivery)?h('span',{className:'rssh-message-delivery'},t(item.delivery==='queued'?'acp.steerQueued':'acp.inputCancelled')):null,
-          String(item.text||'').trim()?h('div',{className:'rssh-message-actions rssh-user-actions'},h(ui.CopyButton,{text:item.text,labels:copyLabels,iconOnly:true})):null),
-        fallback?h(AcpSourceFallback,{item,fallback,t}):null);
+      case 'user': return h(NativeUserMessage,{key:item.key||id,label:t('flow.you'),
+        text:String(item.text||'').trim()?item.text:'',latest:item===latestUser,pending:item.delivery==='queued',
+        attachments:item.attachments?.length?h(SentAttachments,{item,t,
+          context:!ancestors.length&&(!item.rootSessionId||item.rootSessionId===item.sessionId)?attachmentContext:null,
+          phase:JSON.stringify([item.delivery,turns[transcriptScope(item)]?.startSeq,turns[transcriptScope(item)]?.endSeq,turns[transcriptScope(item)]?.status])}):null,
+        delivery:['queued','cancelled'].includes(item.delivery)?t(item.delivery==='queued'?'acp.steerQueued':'acp.inputCancelled'):null,
+        actions:String(item.text||'').trim()?h(NativeMessageActions,{clock:'start'},h(NativeMessageCopy,{text:item.text,labels:copyLabels})):null,
+        source:fallback?h(AcpSourceFallback,{item,fallback,t}):null});
       case 'assistant': {
         const turn=entry.turn||turns[transcriptScope(item)];
         const streaming=running&&transcriptScope(item)===activeScope&&entry.responseTail===true&&(!turn||turn.status==='running');
         const copy=responseCopyParts(item,entry);
-        return h('article',{key:item.key,className:'rssh-message rssh-message-assistant','aria-label':t('flow.agent'),'data-streaming':streaming?'':undefined},
-          fallback?h(AcpSourceFallback,{item,fallback,t}):null,
-          h(ui.MarkdownText,{text:item.text,labels:labels.markdown}),
-          h('div',{className:'rssh-message-actions rssh-assistant-actions'},
-            h(ui.CopyButton,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')},iconOnly:true}),
-            copy.turn&&!streaming?h(ui.CopyButton,{text:copy.turn,labels:{...copyLabels,copy:t('flow.copyTurn')}}):null,
-            entry.responseTail&&(turn?.status==='cancelled'||turn?.status==='interrupted')?h('span',{className:'rssh-interrupted'},t(turn.status==='cancelled'?'flow.stopped':'flow.interrupted')):null));
+        return h(NativeAssistantMessage,{key:item.key||id,label:t('flow.agent'),streaming,tail:entry.responseTail===true,
+          source:fallback?h(AcpSourceFallback,{item,fallback,t}):null,
+          body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown}),
+          actions:h(NativeMessageActions,{clock:'end'},
+            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}}),
+            copy.turn&&!streaming?h(NativeMessageCopy,{text:copy.turn,labels:{...copyLabels,copy:t('flow.copyTurn')},iconOnly:false}):null),
+          interrupted:entry.responseTail&&(turn?.status==='cancelled'||turn?.status==='interrupted')?t(turn.status==='cancelled'?'flow.stopped':'flow.interrupted'):null});
       }
       case 'thought': return h(React.Fragment,{key:item.key},fallback?h(AcpSourceFallback,{item,fallback,t}):null,
         h(AcpThought,{...common,showPreview:policy.showSettledReasoning,running:thoughtIsStreaming(item,items,running)}));
@@ -97,7 +101,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
     // reading pins the group open, so finishing never removes the focused child.
     return h('div',{key:entry.key,className:'rssh-process-group','data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':'process'},
       h(Disclosure,{className:'rssh-process-disclosure',title:t('flow.process'),summary,
-        icon:h(FlowIcon,{kind:'tool'}),...presentation,
+        icon:h(FlowIcon,{kind:'process'}),...presentation,
         onOpenChange:open=>setManual(previous=>({...previous,[entry.key]:{open}})),
         onRead:()=>setManual(previous=>{
           const saved=previous[entry.key],readingFlat=!!(saved?.readingFlat||presentation.flat);
