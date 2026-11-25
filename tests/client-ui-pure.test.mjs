@@ -10,7 +10,7 @@ test('one bundle factory owns UI and only imports Host React',()=>{
  const bundle=readFileSync(new URL('../lib/client.js',import.meta.url),'utf8');
  assert.equal((bundle.match(/window\.__ModuleLoader__\.load\(/g)||[]).length,1);
  const imports=[...bundle.matchAll(/\brequire\(['"]([^'"]+)['"]\)/g)].map(match=>match[1]);
- assert.ok(imports.length>0);assert.ok(imports.every(name=>name==='react'));
+ assert.ok(imports.includes('react'));assert.ok(imports.every(name=>name==='react'));
  assert.doesNotMatch(source,/dangerouslySetInnerHTML|\.innerHTML\b|document\.body|ReactDOM|https?:\/\/cdn/);
  assert.match(source,/dialog\.showModal\(\)/);assert.match(source,/panel\.showPopover\(\)/);
  assert.match(source,/props\.autoFocus !== false/);

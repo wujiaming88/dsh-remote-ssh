@@ -18,9 +18,9 @@ test('ACP command-as-title is displayed once without modifying full input or out
 test('an actual command description can replace a raw-command title, without inventing one',()=>{
   const command='git status',description='Check repository status';
   const described=toolFlowModel({title:command,rawInput:{command,description},kind:'execute'});
-  assert.equal(described.title,description);assert.equal(described.summary,command);
+  assert.equal(described.title,description);assert.equal(described.summary,'');assert.equal(described.command,command);
   const custom=toolFlowModel({title:'Custom Agent title',rawInput:{command,description},kind:'execute'});
-  assert.equal(custom.title,'Custom Agent title');assert.equal(custom.summary,description);
+  assert.equal(custom.title,'Custom Agent title');assert.equal(custom.summary,'');assert.equal(custom.description,description);
   const truncated=toolFlowModel({title:command,rawInput:{truncated:true,command,description},kind:'execute'});
   assert.equal(truncated.title,command);assert.equal(truncated.summary,'');
 });
@@ -33,9 +33,11 @@ test('path titles are not repeated, while distinct titles and metadata remain vi
   const terminal=toolFlowModel({title:'pwd',terminals:[{command:'pwd',output:'/remote'}]});
   assert.equal(terminal.summary,'');assert.equal(terminal.command,'pwd');assert.equal(terminal.output,'/remote');
 });
-test('deduplication does not equate different command case or quoted whitespace',()=>{
-  assert.equal(toolFlowModel({title:'echo "a b"',rawInput:{command:'echo "a  b"'}}).summary,'echo "a  b"');
-  assert.equal(toolFlowModel({title:'Echo HELLO',rawInput:{command:'echo hello'}}).summary,'echo hello');
+test('quiet row summaries never rewrite distinct command case or quoted whitespace',()=>{
+  for(const [title,command] of [['echo "a b"','echo "a  b"'],['Echo HELLO','echo hello']]){
+    const model=toolFlowModel({title,rawInput:{command}});
+    assert.equal(model.title,title);assert.equal(model.command,command);assert.equal(model.summary,'');
+  }
 });
 test('deduplication and compact mode never suppress real error details',()=>{
   const model=toolFlowModel({title:'run',kind:'execute',terminals:[{command:'run',output:'Permission denied\nFull diagnostic',exitStatus:1}]});
@@ -66,7 +68,7 @@ test('row sizing and permanent disclosure affordances respect focus and reduced 
   assert.match(css,/\[aria-expanded=true\] > \.rssh-disclosure-leading \.rssh-disclosure-chevron \{ transform: rotate\(0deg\)/);
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.match(css,/\.rssh-flow-title \{[^}]*max-width: 100%/);
-  assert.match(css,/\.rssh-flow\[data-summary\] > \.rssh-flow-toggle \.rssh-flow-title \{ max-width: 60%/);
+  assert.match(css,/\.rssh-flow\[data-summary\] > \.rssh-flow-toggle \.rssh-flow-title \{[^}]*min-width: min\(14ch, 40%\)/);
   assert.doesNotMatch(css+thoughtCss,/rssh-(?:flow|thought)-chevron/);
 });
 test('bounded process lists open at the correct edge and respect readers leaving the live tail',()=>{
@@ -80,14 +82,16 @@ test('bounded process lists open at the correct edge and respect readers leaving
   assert.equal(followsTranscriptTail(metrics),false);
   assert.equal(followsTranscriptTail({...metrics,scrollTop:500}),true);
 });
-test('grouped processes share the outer reading scrollport and preserve child state',()=>{
+test('only explicitly bounded groups own a keyboard scrollport and preserve child state',()=>{
   const css=read('tool-stream.css'),disclosure=read('disclosure.js'),transcript=read('transcript.js');
   const group=css.match(/\.rssh-process-disclosure > \.rssh-flow-body \{([^}]*)\}/)?.[1];
   assert.ok(group);assert.doesNotMatch(group,/max-height|overflow-y|scrollbar-gutter/);
   assert.match(css,/\.rssh-process-disclosure\[data-open\] > \.rssh-flow-toggle \{ padding-bottom: 8px/);
   assert.match(css,/\.rssh-process-rows > [^\n]*\{ margin-top: 4px/);
   assert.match(transcript,/className:'rssh-process-disclosure'/);
-  assert.doesNotMatch(disclosure,/tabIndex:scrollBody|role:scrollBody|following.current|processBodyScrollTop/);
+  assert.match(css,/\.rssh-process-disclosure\[data-scroll-body\] > \.rssh-flow-body \{[^}]*max-height: min\(400px, 50vh\);[^}]*overflow-y: auto/);
+  assert.match(disclosure,/role:bounded\?'region':undefined,tabIndex:bounded\?0:undefined/);
+  assert.match(disclosure,/hidden:flat/);
   assert.match(disclosure,/onRead/);assert.match(disclosure,/open\|\|mounted\?/);
   assert.match(disclosure,/requestReadingIntent\(event.currentTarget\)/);
 });

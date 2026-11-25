@@ -10,6 +10,8 @@ import {Transcript,RunningTail} from './transcript.js';
 import {useTranscriptScroll} from './transcript-scroll.js';
 import {visibleTranscriptItem} from './transcript-model.js';
 import {ConversationStatus,PrepareRuntimeDialog} from './status.js';
+import {AttachmentList} from './attachments.js';
+import {removeAttachmentById} from './attachments-model.js';
 
 function useClient(backend,clients) {
   const [client,setClient]=React.useState(()=>clients.peek(backend));
@@ -207,7 +209,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
                 scroll.history.error?t(scroll.history.error.code==='history_no_progress'?'acp.historyNoProgress':'acp.historyFailed'):
                 scroll.history.loading?t('acp.historyLoading'):state.hasEarlier?t('acp.historyScrollHint'):hasVisibleContent?t('acp.historyStart'):''),
               scroll.history.error?h(ui.Button,{variant:'ghost',size:'sm',onClick:scroll.retryHistory},t('acp.historyRetry')):null),
-            hasVisibleContent?h(Transcript,{items:state.items,running:state.running,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId}):null,
+            hasVisibleContent?h(Transcript,{items:state.items,running:state.running,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId,attachmentContext:{id:state.binding.id,dshSessionId:sid}}):null,
             !hasVisibleContent&&!state.running&&!waiting&&state.connected?h('div',{className:'ra-acp-empty-state'},t('acp.emptyHint')):null,
             h(RunningTail,{state,t}))),
         scroll.showLatest?h(ui.Button,{variant:'outline',className:'rssh-jump-latest','aria-label':t('flow.latest'),title:t('flow.latest'),onClick:()=>{
@@ -236,8 +238,9 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
         onDrop: event => { if (event.dataTransfer.files.length) { event.preventDefault(); receiveFiles([...event.dataTransfer.files]); } } },
         h('input',{ref:attachmentInput,type:'file',hidden:true,multiple:true,disabled:sending||readingFiles,
           onChange:event=>{const files=[...event.target.files];event.target.value='';receiveFiles(files);}}),
-        attachments.length ? h('div', { className: 'ra-acp-attachments' }, attachments.map((file, index) => h(ui.Button, { key: index, size: 'sm', disabled: sending,
-          'aria-label': `${t('acp.removeAttachment')}: ${file.name}`, onClick: () => setAttachments(old => old.filter((_, position) => position !== index)) }, file.name, ' ×'))) : null,
+        h(AttachmentList,{attachments,sending,t,onRemove:id=>{
+          if(!composer.getSnapshot().sending)setAttachments(old=>removeAttachmentById(old,id));
+        }}),
         h('textarea', { className: 'ra-acp-textarea', value: draft, rows: 1, readOnly: sending, 'aria-label': t('acp.composerPlaceholder'), placeholder: t('acp.composerPlaceholder'),
           onChange: event => input(event.target.value), onPaste: event => { if (event.clipboardData.files.length) { event.preventDefault(); receiveFiles([...event.clipboardData.files]); } },
           onKeyDown: event => {

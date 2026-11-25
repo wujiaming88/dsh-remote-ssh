@@ -7,7 +7,7 @@ export function transcriptScope(item) {
 }
 export function transcriptPolicy(preferences={},defaultMode='detailed') {
   const mode=['compact','standard','detailed','verbose'].includes(preferences.transcriptView)?preferences.transcriptView:defaultMode;
-  return {mode,stepGrouping:mode==='verbose'?'none':mode==='detailed'?'history':'collapsed',foldCompleted:mode!=='verbose',showProcessSummary:mode!=='compact',showSettledReasoning:mode!=='compact',
+  return {mode,stepGrouping:mode==='verbose'?'none':mode==='detailed'?'history':'collapsed',foldCompleted:mode!=='verbose',showProcessSummary:mode!=='compact',showSettledReasoning:mode==='detailed'||mode==='verbose',
     collapseTiming:preferences.collapseTiming==='next-input'?'next-input':'completion',
     foldedReplies:preferences.foldedReplies==='final'?'final':'all'};
 }
@@ -72,8 +72,18 @@ export function processGroupSummary(entry) {
   }
   return {runningItem,failedCount,count:items.length};
 }
+export function processGroupPresentation(entry,policy,manual) {
+  const flat=policy.stepGrouping==='none'||policy.stepGrouping==='history'&&
+    (!entry.settled||policy.collapseTiming==='next-input'&&!entry.laterInput);
+  const requested=typeof manual==='object'?manual?.open:manual;
+  const open=flat||requested===true;
+  // Never crop a reader's already-open flat content when the turn ends.
+  // A deliberate close/reopen clears this exception and restores the normal cap.
+  const scrollBody=!flat&&!(open&&manual?.readingFlat);
+  return {flat,open,scrollBody};
+}
 export function processGroupOpen(entry,policy,manual) {
-  return manual ?? (!policy.foldCompleted||!entry.settled||entry.interrupted||policy.collapseTiming==='next-input'&&!entry.laterInput);
+  return processGroupPresentation(entry,policy,manual).open;
 }
 // A bounded process list opens at the live tail or at the start of history.
 // Subsequent updates preserve a reader's scroll position unless they follow the tail.

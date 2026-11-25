@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.0.0-rc.11 — process density, image previews and sidebar status
+
+- Verification: 572 automated tests pass (113 new regressions), including offline checks against the installed DSH attachment/query APIs; the client build contains 55 modules. These are not real-browser visual or interaction acceptance results.
+
+- Default the remote view to standard when no explicit presentation mode is supplied. Standard/compact start with grouped activity closed; detailed keeps live activity flat and groups history according to completion/next-input timing; verbose stays flat. Existing selected preferences are respected, and every record remains available.
+- Restore the native-style `min(400px, 50vh)` scrollport only for explicitly expanded grouped processes. Keep the same disclosure/body identity across mode changes. A reader who interacted with flat content keeps its full height on completion until deliberately closing/reopening; raw diagnostics inside a bounded group do not add another vertical scrollport.
+- Prioritize supplied action titles and short target metadata. Long commands and results live in expandable details, with literal command fallback when no title is supplied. Normal tool/agent/terminal success is quiet; running, pending and failure states remain explicit. Standard/compact suppress settled thought excerpts without removing their content.
+- Summarize inactive groups using actual supplied activity categories and retain historical failure counts. Do not label the last completed tool as currently running, infer command intent from shell text, or trim the history to the latest N records.
+- Replace composer image-name chips with a compact, single-row thumbnail strip: preserve image proportions, separate preview from removal, retain ordinary file chips, support the existing modal, and release local Blob URLs on removal/unmount. Validate local raster payloads and keep preview state out of submission/retry data.
+- Render sent images from DSH's existing durable attachment references through public SessionQuery/Attachments services. This also restores old rc.10 images where native references exist; missing records remain explicitly unavailable. Preserve new image filenames without changing ACP wire image semantics, and remove empty text bubbles/copy buttons from image-only messages.
+- Use a session-scoped metadata RPC and authenticated image endpoint, not arbitrary event URLs, digests or Host paths. Check native message membership, fork boundaries and permissions, including conflicting Session aliases and revocation during reads. Pending previews belong only to the target active/queued turn and have a manual retry; successful previews survive turn completion without remounting.
+- Add remote sidebar status through the public leading slot and plugin-owned, theme-aware status glyphs, without importing Harness Client UI packages. A single authorized metadata overview reports actual running, approval/question waits, completion, stopping, errors and disconnection; it never opens a per-row ACP connection. Disconnects become unknown, revocation removes data, and cold history does not invent a successful outcome. Preserve native status priority: blank/archived rows, search results and rows already displaying a native status do not expose this leading slot.
+- Real-browser image loading/refresh, sidebar alignment/animation, focus, selection, nested-scroll behavior, narrow-screen layout and themes still require acceptance. Automated and independent source-level reviews are not visual acceptance.
+
 ## 3.0.0-rc.10 — coherent stream reading and process presentation
 
 - Release verification: 459 automated tests pass (49 new regressions); independent source-level UI/UX review completed, including fixes found during integration. Real-browser focus, scroll anchoring, narrow-screen typography and dark/light visual acceptance remain unverified.

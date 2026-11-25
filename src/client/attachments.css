@@ -1,0 +1,25 @@
+/* Local composer attachments: one compact, keyboard-reachable horizontal strip. */
+.rssh-attachments { box-sizing: border-box; display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 10px; min-width: 0; max-width: 100%; margin: 0; padding: 4px 14px 6px; overflow-x: auto; list-style: none; }
+.rssh-attachment { flex: 0 0 88px; min-width: 0; color: var(--dsw-alias-label-secondary); }
+.rssh-attachment-thumbnail { box-sizing: border-box; position: relative; display: flex; align-items: center; justify-content: center; width: 88px; height: 72px; padding: 0; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg, 8px); background: var(--dsw-specific-input-major); color: var(--dsw-alias-label-secondary); font: inherit; }
+.rssh-attachment-thumbnail { appearance: none; cursor: zoom-in; overflow: hidden; }
+.rssh-attachment-thumbnail:disabled { cursor: default; }
+.rssh-attachment-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; }
+.rssh-attachment-thumbnail img[data-loaded] { opacity: 1; }
+.rssh-attachment-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px; font-size: 10px; line-height: 14px; color: var(--dsw-alias-label-tertiary); }
+.rssh-attachment-placeholder[data-failed] { color: var(--dsw-alias-state-warn-label); }
+.rssh-attachment-file { box-sizing: border-box; display: flex; flex: none; align-items: center; gap: 6px; min-width: 0; max-width: min(240px, 100%); min-height: 32px; padding: 3px 6px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg, 8px); background: var(--dsw-specific-input-major); color: var(--dsw-alias-label-secondary); }
+.rssh-attachment-file > svg { flex: none; }
+.rssh-attachment-caption { display: flex; align-items: center; gap: 2px; min-width: 0; min-height: 28px; }
+.rssh-attachment-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: 20px; }
+.rssh-attachment-remove { appearance: none; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; margin: 0; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+.rssh-attachment-remove:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.rssh-attachment-remove:disabled { color: var(--dsw-alias-label-caption); cursor: default; }
+.rssh-attachment-thumbnail:focus-visible, .rssh-attachment-remove:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 1px; }
+.rssh-attachment-note { display: block; font-size: 10px; line-height: 14px; color: var(--dsw-alias-label-tertiary); }
+.rssh-image-preview { width: min(960px, calc(100vw - 32px)); }
+.rssh-image-preview .rsui-modal-title { overflow-wrap: anywhere; }
+.rssh-image-preview-stage { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 120px; border-radius: var(--dsw-radius-lg, 8px); background: var(--dsw-alias-markdown-code-block); }
+.rssh-image-preview-stage img { display: block; max-width: 100%; max-height: min(720px, 70dvh); object-fit: contain; }
+.rssh-image-preview-stage p { padding: 16px; color: var(--dsw-alias-label-secondary); }
+@media (pointer: coarse) { .rssh-attachment-remove { width: 32px; height: 32px; } }

@@ -2,7 +2,7 @@ import React from "react";
 import {ui, h} from "./shared.js";
 import {acpNativeName, acpContentText, acpNormalizeExit, acpNativeState, acpSubagentFromTool, acpItemId, acpChildrenFor, acpQuestionField, acpQuestionAnswersValid} from "./presentation.js";
 import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
-import {toolFlowModel,toolBodyParts,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
+import {toolFlowModel,toolRowStatus,toolBodyParts,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
 import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 const UiButton=ui.Button, UiInput=ui.Input;
@@ -50,7 +50,7 @@ export function AcpSubagentCard(props) {
   var failed=state.key==='acp.toolFailed';
   return h(React.Fragment,null,h(Disclosure,{className:'rssh-subagent-flow',icon:h(FlowIcon,{kind:'agent'}),
     title:String(sub.title||t('acp.subagent')),summary:processRowSummary(sub.description||summary,props.showProcessSummary,failed,acpContentText(sub.errorMessage||sub.error||(failed?summary:''))),
-    running:state.dot==='ongoing',failed,status:t(state.key),children:()=>h(React.Fragment,null,
+    running:state.dot==='ongoing',failed,status:state.dot==='done'?undefined:t(state.key),children:()=>h(React.Fragment,null,
       h(AcpSubagentMeta,props),summary?h(AcpMarkdown,{text:summary,labels:props.labels.markdown}):null,
       h(AcpNativeDetails,{t,payload:sub}),nested(props,item))}),h(AcpSourceFallback,{item,t,fallback:props.sourceFallback}));
 }
@@ -73,7 +73,7 @@ export function AcpTerminalEventCard(props) {
   var item=props.item||{},t=props.t,exit=acpNormalizeExit(item.exitStatus);
   var failed=exit.exitCode!==undefined&&exit.exitCode!==0||!!exit.signal;
   return h(React.Fragment,null,h(Disclosure,{icon:h(FlowIcon),title:t('acp.terminalEvent'),summary:String(item.command||item.cwd||item.terminalId||''),
-    running:exit.running,failed,status:t(failed?'acp.failed':exit.running?'acp.running':'acp.done'),children:()=>h(React.Fragment,null,
+    running:exit.running,failed,status:failed?t('acp.failed'):exit.running?t('acp.running'):undefined,children:()=>h(React.Fragment,null,
       h(ui.TerminalBlock,{command:String(item.command||''),cwd:String(item.cwd||''),output:String(item.output??''),...exit,labels:props.labels.terminal,maxLines:20}),
       h(AcpNativeDetails,{t,payload:item}),nested(props,item))}),h(AcpSourceFallback,{item,t,fallback:props.sourceFallback}));
 }
@@ -154,10 +154,14 @@ function AcpToolBody({model,labels}) {
 export function AcpToolCard(props) {
   var tool=props.tool||{},t=props.t,model=toolFlowModel(tool),item=payloadItem(props,'tool',tool);
   var sub=tool.subagent&&typeof tool.subagent==='object'?acpSubagentFromTool(tool):null;
-  var status=t(model.failed?'acp.toolFailed':model.running?'acp.toolRunning':tool.status==='completed'?'acp.toolDone':'acp.toolPending');
+  var statusKey=toolRowStatus(model,tool),status=statusKey?t(statusKey):undefined;
   return h(React.Fragment,null,h(Disclosure,{className:'rssh-tool-flow',icon:h(FlowIcon,{kind:sub?'agent':'tool'}),title:model.title||t('acp.tool'),
     summary:processRowSummary(model.summary,props.showProcessSummary,model.failed,model.error),running:model.running,failed:model.failed,status,children:()=>h(React.Fragment,null,
       sub?h(AcpSubagentMeta,{...props,subagent:sub}):null,
+      model.description&&model.description!==model.title?h('div',{className:'rssh-flow-text'},model.description):null,
+      model.command&&!model.terminals.length&&model.body!=='terminal'&&model.kind!=='execute'?h('div',null,
+        h('pre',{className:'rssh-flow-command'},h('code',null,model.command)),
+        h(ui.CopyButton,{text:model.command,labels:{copy:t('flow.copyCommand'),copied:t('flow.copied'),copyFailed:t('flow.copyFailed')}})):null,
       model.locations.length?h('div',{className:'rssh-flow-locations'},model.locations.map((loc,i)=>h(UiButton,{key:JSON.stringify([loc.path,loc.line,i]),variant:'ghost',size:'sm',
         onClick:()=>props.onOpenOutput?.(String(loc.path||''))},String(loc.path||'')+(loc.line==null?'':':'+loc.line)))):null,
       h(AcpToolBody,{model,labels:props.labels}),h(AcpNativeDetails,{t,payload:tool}),nested(props,item))}),

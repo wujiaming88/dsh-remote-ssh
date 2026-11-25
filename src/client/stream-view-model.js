@@ -16,6 +16,21 @@ export function actionLabel(item,t,active=true) {
   if(item?.type==='terminal_event')return String(value.command||t('acp.terminalEvent'));
   return t(item?.type==='thought'?(active?'flow.thinking':'acp.thought'):(active?'flow.working':'flow.process'));
 }
+// Aggregate supplied event/tool categories, never infer intent from shell strings.
+export function processCategorySummary(entry,t) {
+  const counts=new Map();
+  const tools={read:'Read',edit:'Edit',execute:'Execute',search:'Search'};
+  const types={thought:'Thought',plan:'Plan',subagent:'Agent',terminal_event:'Execute'};
+  for(const item of entry.items||[]){
+    const kind=String(item.tool?.kind||'').toLowerCase();
+    const category=item.type==='tool'?(Object.hasOwn(tools,kind)?tools[kind]:'Tool'):
+      Object.hasOwn(types,item.type)?types[item.type]:'Tool';
+    counts.set(category,(counts.get(category)||0)+1);
+  }
+  const labels=[...counts].slice(0,3).map(([category,count])=>`${t('flow.category'+category)} × ${count}`);
+  if(counts.size>3)labels.push(`+${counts.size-3} ${t('flow.categoryOther')}`);
+  return labels.join(' · ');
+}
 export function processTreeSummary(entry,childMap={}) {
   const seen=new Set(),items=[],stack=[...(entry.items||[])];
   while(stack.length){

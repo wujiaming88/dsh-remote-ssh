@@ -3,9 +3,12 @@
 .rssh-flow-toggle { appearance: none; display: flex; align-items: center; width: 100%; min-width: 0; min-height: calc(24px + var(--dsh-content-font-delta, 0px)); padding: 0; margin: 0; border: none; background: transparent; color: inherit; font-family: inherit; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); text-align: left; cursor: pointer; transition: color 100ms ease; }
 .rssh-flow-toggle:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; border-radius: 4px; }
 .rssh-flow-icon { flex: none; width: 14px; height: 14px; margin-right: 6px; }
-.rssh-flow-title { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
-.rssh-flow[data-summary] > .rssh-flow-toggle .rssh-flow-title { max-width: 60%; }
-.rssh-flow-summary { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); }
+.rssh-flow-title { flex: 1 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: var(--dsw-alias-label-secondary); }
+.rssh-flow[data-summary] > .rssh-flow-toggle .rssh-flow-title { flex: 1 1 60%; min-width: min(14ch, 40%); max-width: 75%; }
+.rssh-flow-summary { flex: 0 1 40%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); color: var(--dsw-alias-label-tertiary); }
+/* The group label is short; its current-activity summary needs the remaining space. */
+.rssh-process-disclosure[data-summary] > .rssh-flow-toggle .rssh-flow-title { flex: 0 0 auto; min-width: 0; max-width: 60%; }
+.rssh-process-disclosure > .rssh-flow-toggle .rssh-flow-summary { flex: 1 1 auto; }
 .rssh-flow-separator { flex: none; width: 2px; height: 2px; margin: 0 8px; border-radius: 1px; background: var(--dsw-alias-label-caption); }
 /* Both the disclosure affordance and category remain legible without hover. */
 .rssh-disclosure-leading { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: calc(32px + var(--dsh-content-font-delta, 0px)); margin-right: 8px; }
@@ -19,15 +22,19 @@
 .rssh-flow-failure { flex: none; margin-left: 8px; font-size: var(--dsh-content-font-size-secondary, 13px); color: var(--dsw-alias-state-error-primary); }
 .rssh-flow[data-failed] > .rssh-flow-toggle .rssh-flow-summary { color: var(--dsw-alias-state-error-primary); }
 .rssh-flow-body { min-width: 0; margin: 8px 0; padding-inline-start: calc(40px + var(--dsh-content-font-delta, 0px)); color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size, 14px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); overflow-wrap: anywhere; }
-.rssh-flow-body[hidden] { display: none; }
+.rssh-flow-body[hidden], .rssh-flow-toggle[hidden] { display: none; }
 .rssh-process-disclosure > .rssh-flow-toggle { font-size: var(--dsh-content-font-size, 14px); }
 .rssh-process-disclosure[data-open] > .rssh-flow-toggle { padding-bottom: 8px; }
 .rssh-process-disclosure > .rssh-flow-body { margin: 0 0 8px; padding-inline-start: 0; }
+.rssh-process-disclosure[data-scroll-body] > .rssh-flow-body { max-height: min(400px, 50vh); overflow-y: auto; scrollbar-gutter: stable; }
+.rssh-process-disclosure[data-scroll-body] > .rssh-flow-body:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; border-radius: 4px; }
+.rssh-process-disclosure[data-flat] > .rssh-flow-body { margin: 0; }
 .rssh-process-disclosure > .rssh-flow-body > :not([hidden]):not(:empty) ~ :not([hidden]):not(:empty),
 .rssh-process-rows > :not([hidden]):not(:empty) ~ :not([hidden]):not(:empty) { margin-top: 4px; }
 .rssh-flow[data-secondary] > .rssh-flow-toggle { font-size: var(--dsh-content-font-size-secondary, 13px); }
 .rssh-flow-children { min-width: 0; margin-top: 8px; padding-inline-start: 16px; }
 .rssh-flow-text { min-width: 0; margin: 4px 0; }
+.rssh-flow-command { min-width: 0; max-width: 100%; margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--ds-font-family-code, monospace); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); }
 .rssh-flow-plan-row { display: flex; align-items: baseline; gap: 8px; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); }
 .rssh-flow-agent-meta { font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); margin-bottom: 4px; }
 .rssh-flow-source { min-width: 0; margin: 2px 0; color: var(--dsw-alias-label-tertiary); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); overflow-wrap: anywhere; }
@@ -37,6 +44,8 @@
 .rssh-flow-raw > summary:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; }
 .rssh-flow-raw-label { margin-top: 6px; color: var(--dsw-alias-label-tertiary); }
 .rssh-flow-raw-text { margin: 2px 0 6px; padding: 8px 12px; border: .5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-lg, 8px); background: var(--dsw-alias-markdown-code-block); color: var(--dsw-alias-label-secondary); font-family: var(--ds-font-family-code, monospace); font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px)); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+/* A bounded group owns the only vertical scrollport; raw stays bounded elsewhere. */
+.rssh-process-disclosure[data-scroll-body] .rssh-flow-raw-text { max-height: none; overflow: visible; }
 .rssh-flow-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 /* Activity is static text/mark, never a competing whole-title shimmer. */
 @media (hover: hover) { .rssh-flow-toggle:hover { color: var(--dsw-alias-label-secondary); } }

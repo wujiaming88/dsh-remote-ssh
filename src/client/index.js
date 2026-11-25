@@ -4,6 +4,8 @@ import { createBackendRouter, knownRemoteBlank } from './router.js';
 import {REMOTE_SESSION_PROJECTION_KEY} from '../../lib/protocol.js';
 import { ChatPane } from './chat.js';
 import {SessionClientPool} from './session-pool.js';
+import {SessionStatusStore} from './session-status-store.js';
+import {installSessionStatus,messages as sessionStatusMessages} from './session-status.js';
 import { SessionSetup, messages as setupMessages } from './session-setup.js';
 import { NewRemoteSession } from './new-session.js';
 import { RemoteFilesSidebar, assertFileCloseAllowed, messages as fileMessages } from './files.js';
@@ -19,6 +21,8 @@ import en from './en.js';
 import css from './styles.css';
 import uiCss from './ui.css';
 import toolCss from './tool-stream.css';
+import attachmentCss from './attachments.css';
+import sentAttachmentCss from './sent-attachments.css';
 
 function RemoteConversation(props) {
   const t = useT();
@@ -45,15 +49,18 @@ export function apply(ctx) {
   const clients=new SessionClientPool();
   ctx.effect(()=>()=>clients.dispose());
   ctx.effect(() => ctx.locale.register(NAMESPACE, {
-    zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...setupMessages.zh, ...sessionActionMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh, ...fileMessages.zh },
-    en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...setupMessages.en, ...sessionActionMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en, ...fileMessages.en },
+    zh: { ...zh, ...settingsMessages.zh, ...workspaceMessages.zh, ...setupMessages.zh, ...sessionActionMessages.zh, ...sessionStatusMessages.zh, ...usageMessages.zh, ...flowMessages.zh, ...statusMessages.zh, ...fileMessages.zh },
+    en: { ...en, ...settingsMessages.en, ...workspaceMessages.en, ...setupMessages.en, ...sessionActionMessages.en, ...sessionStatusMessages.en, ...usageMessages.en, ...flowMessages.en, ...statusMessages.en, ...fileMessages.en },
   }));
   locale.t = ctx.locale.bind(NAMESPACE);
   locale.subscribe = listener => ctx.locale.subscribe(listener);
   locale.getSnapshot = () => ctx.locale.getSnapshot();
   installSessionActions(ctx);
+  const sessionStatuses=new SessionStatusStore();
+  installSessionStatus(ctx,sessionStatuses);
+  ctx.effect(()=>{sessionStatuses.start();return ()=>sessionStatuses.dispose();});
   ctx.effect(() => {
-    const style = document.createElement('style'); style.textContent = uiCss + "\n" + toolCss + "\n" + css + "\n" + filesCss; document.head.appendChild(style);
+    const style = document.createElement('style'); style.textContent = uiCss + "\n" + toolCss + "\n" + css + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss; document.head.appendChild(style);
     return () => style.remove();
   });
 

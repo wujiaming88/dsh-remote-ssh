@@ -38,15 +38,15 @@ test('next-input collapse recognizes queued input execution by real start/end se
   const laterScope=transcriptScope(item('user','queued',{turnId:'next'}));
   const items=[item('user','user',{text:'initial'}),item('user','queued',{turnId:'next',delivery:'accepted',text:'next'}),
     item('thought','thought',{text:'thinking'}),item('assistant','after',{text:'Answer'})];
-  const policy=transcriptPolicy({transcriptView:'standard',collapseTiming:'next-input'});
+  const policy=transcriptPolicy({transcriptView:'detailed',collapseTiming:'next-input'});
   const before=transcriptEntries(items,{turns:closed}).find(entry=>entry.kind==='process');
   assert.equal(processGroupOpen(before,policy),true);
   const after=transcriptEntries(items,{turns:{...closed,[laterScope]:{status:'running',startSeq:11}}}).find(entry=>entry.kind==='process');
   assert.equal(after.laterInput,true);assert.equal(processGroupOpen(after,policy),false);
 });
-test('interrupted process remains visible and preference changes do not invent success',()=>{
+test('interrupted process retains its interruption fact without forcing compact history open',()=>{
   const entries=transcriptEntries([item('thought','thought',{text:'thinking'})],{turns:{[scope]:{status:'cancelled',endSeq:3}}});
-  assert.equal(entries[0].interrupted,true);assert.equal(processGroupOpen(entries[0],transcriptPolicy({transcriptView:'compact'})),true);
+  assert.equal(entries[0].interrupted,true);assert.equal(processGroupOpen(entries[0],transcriptPolicy({transcriptView:'compact'})),false);
 });
 test('positional final-only preference never hides prose without a reliable final marker',()=>{
   const items=[item('assistant','before',{text:'First response'}),item('thought','thought',{text:'reasoning'}),item('assistant','after',{text:'Final response'})];

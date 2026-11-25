@@ -42,10 +42,13 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     viewport.scrollTop=expectedScroll.current;lastScrollTop.current=viewport.scrollTop;
     measureTail(viewport);
   };
+  function pauseReading() {
+    interaction.current++;scrollIntent.current=false;pagerRef.current.pause();setFollow(false);
+  }
   function captureReading(anchor) {
     const viewport=viewportRef.current,content=contentRef.current;
     if(!live.current||!viewport||!content||anchor?.nodeType!==1||!content.contains(anchor))return;
-    interaction.current++;scrollIntent.current=false;pagerRef.current.pause();setFollow(false);
+    pauseReading();
     readingAnchor.current={anchor,viewport,content,lifetime:lifetime.current,interaction:interaction.current,
       offset:anchor.getBoundingClientRect().top-viewport.getBoundingClientRect().top};
     schedule();

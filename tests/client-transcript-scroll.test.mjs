@@ -9,7 +9,7 @@ const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
 const hook = ast.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'useTranscriptScroll').declaration;
 // Exercise the actual numeric scroll callbacks with a deterministic frame queue.
 // This does not mount React or emulate/render a DOM or browser.
-const names = ['setFollow', 'measureTail', 'writeScroll', 'schedule', 'onScroll', 'onWheel', 'onKeyDown', 'onPointerDown', 'latest', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'captureReading', 'restoreReadingAnchor', 'onReadingIntent', 'onReadingClick'];
+const names = ['setFollow', 'measureTail', 'writeScroll', 'schedule', 'onScroll', 'onWheel', 'onKeyDown', 'onPointerDown', 'latest', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'pauseReading', 'captureReading', 'restoreReadingAnchor', 'onReadingIntent', 'onReadingClick'];
 const declarations = hook.body.body.filter(node =>
   node.type === 'VariableDeclaration' && node.declarations.some(value => names.includes(value.id.name)) ||
   node.type === 'FunctionDeclaration' && names.includes(node.id.name));
@@ -37,6 +37,16 @@ function fixture(metrics = { scrollHeight: 1000, scrollTop: 600, clientHeight: 4
     flush() { for (const callback of frames.splice(0)) callback(); }, pendingFrames: () => frames.length };
 }
 
+test('the shared reading-intent pause stops outer follow and pagination before later stream growth',()=>{
+  const f=fixture();f.latest();f.flush();
+  f.environment.scrollIntent.current=true;
+  f.pauseReading();
+  assert.equal(f.state.following,false);assert.equal(f.environment.scrollIntent.current,false);
+  assert.equal(f.state.historyRequests.length,0);assert.ok(f.state.paused>0);
+  f.viewport.scrollHeight=1500;f.schedule();f.flush();
+  assert.equal(f.viewport.scrollTop,600);assert.equal(f.state.following,false);
+  assert.match(source,/function captureReading\(anchor\)[\s\S]*?pauseReading\(\)/);
+});
 test('pointer selection and upward wheel at the bottom pause following without showing a button', () => {
   const f = fixture();
   f.onPointerDown({ button: 0, target: { closest: () => null } });

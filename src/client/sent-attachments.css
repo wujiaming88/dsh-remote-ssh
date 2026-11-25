@@ -1,0 +1,13 @@
+.rssh-sent-attachments { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; max-width: 100%; }
+.rssh-sent-attachment-list { display: flex; align-items: flex-start; gap: 8px; min-width: 0; max-width: 100%; padding: 4px; overflow-x: auto; }
+.rssh-sent-image { flex: none; width: 160px; max-width: 100%; margin: 0; color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size-secondary, 13px); }
+.rssh-sent-image-button { position: relative; display: flex; align-items: center; justify-content: center; appearance: none; width: 100%; height: 112px; padding: 4px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; cursor: zoom-in; overflow: hidden; }
+.rssh-sent-image-button:disabled { cursor: default; }
+.rssh-sent-image-button[data-failed] { cursor: pointer; }
+.rssh-sent-image-retry { display: block; margin-top: 4px; text-decoration: underline; }
+.rssh-sent-image-button:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; }
+.rssh-sent-image-button img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.rssh-sent-image-placeholder { padding: 8px; overflow-wrap: anywhere; }
+.rssh-sent-image-loading { position: absolute; inset-inline: 4px; bottom: 4px; padding: 4px; border-radius: 4px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); pointer-events: none; }
+.rssh-sent-image figcaption { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
+.rssh-sent-attachment-list > .rssh-message-attachment { flex: none; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

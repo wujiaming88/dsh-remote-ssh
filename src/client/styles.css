@@ -962,3 +962,7 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+/* Sidebar glyphs are plugin-owned, using the shared theme and motion rules. */
+.rssh-session-status-dot { width: 10px; height: 10px; vertical-align: middle; }
+.rssh-session-status-dot[data-state=ongoing] { width: 14px; height: 14px; }
+.rssh-session-status-dot[data-state=idle] { background: transparent; border: 1px solid var(--dsw-alias-label-tertiary); }

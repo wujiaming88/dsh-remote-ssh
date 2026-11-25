@@ -24,9 +24,11 @@ test('disclosure and reasoning bodies are initially lazy but stay mounted after 
   }
 });
 test('only user interactions lock an owning process group, not programmatic focus',()=>{
-  assert.match(disclosure,/function read\(event\) \{ if\(event.isTrusted\)onRead\?\.\(event\); \}/);
-  assert.match(disclosure,/onPointerDown:event=>\{if\(event.button===0\)read\(event\);\}/);
-  assert.match(disclosure,/onClick:read,onKeyDown:read/);
+  assert.match(disclosure,/function read\(event\)[\s\S]*?event.isTrusted[\s\S]*?onRead\?\.\(event\)/);
+  assert.match(disclosure,/onPointerDown:bodyPointerDown/);
+  assert.match(disclosure,/function bodyPointerDown\(event\)[\s\S]*?if\(event.button!==0\)return;[\s\S]*?read\(event\)/);
+  assert.match(disclosure,/onClick:read,onKeyDown:bodyKeyDown/);
+  assert.match(disclosure,/if\(onRead&&bounded\)requestReadingIntent\(bodyRef.current\)/);
   assert.match(disclosure,/if\(open&&event.key==='Tab'\)read\(event\)/);
   assert.doesNotMatch(disclosure,/onFocus/);
 });
@@ -65,11 +67,13 @@ test('reading restoration uses trigger geometry and the same generation guard as
   assert.match(scroll,/const canApply=\(\)=>live.current&&lifetime.current===epoch/);
   assert.doesNotMatch(scroll,/scrollIntoView|document\.querySelector|nextHeight|previousHeight/);
 });
-test('process groups no longer introduce an independently scrolling reading region',()=>{
-  assert.doesNotMatch(disclosure,/processBodyScrollTop|following.current|tabIndex:scrollBody|onScroll:/);
+test('only bounded groups introduce a scroll region; raw diagnostics do not nest another',()=>{
+  assert.match(disclosure,/const bounded=scrollBody&&!flat/);
+  assert.match(disclosure,/role:bounded\?'region':undefined,tabIndex:bounded\?0:undefined/);
   const groupRule=css.match(/\.rssh-process-disclosure > \.rssh-flow-body \{([^}]*)\}/)?.[1];
   assert.ok(groupRule);assert.doesNotMatch(groupRule,/max-height|overflow-y|scrollbar-gutter/);
   assert.match(css,/\.rssh-flow-raw-text[^}]*max-height: 260px/);
+  assert.match(css,/\.rssh-process-disclosure\[data-scroll-body\] \.rssh-flow-raw-text \{ max-height: none; overflow: visible;/);
 });
 test('affordances, activity and focus are visible without hover or animation',()=>{
   assert.match(css,/\.rssh-disclosure-chevron \{[^}]*transform: rotate\(-90deg\)/);

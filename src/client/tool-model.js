@@ -6,7 +6,7 @@ export function fullPayloadText(value) {
 }
 export function rawDetailEntries(payload={}) {
   const entries=[];
-  for(const key of ['rawInput','rawOutput','native','sessionUpdate','nativeMeta','content','diffs','terminals','attachments','event']) {
+  for(const key of ['rawInput','rawOutput','native','sessionUpdate','nativeMeta','content','diffs','terminals','attachments','event','summary','description']) {
     if(payload[key]!==undefined&&payload[key]!==null&&payload[key]!=='')entries.push({key,value:payload[key]});
   }
   if(payload.output!==undefined&&payload.output!==null&&payload.output!=='')entries.push({key:'output',value:payload.output});
@@ -19,6 +19,9 @@ const firstLine=value=>String(value||'').split(/\r?\n/,1)[0].trim();
 export function processRowSummary(summary,showProcessSummary,failed,error) {
   if(failed&&error)return firstLine(error);
   return showProcessSummary===false?undefined:firstLine(summary);
+}
+export function toolRowStatus(model,tool={}) {
+  return model.failed?'acp.toolFailed':model.running?'acp.toolRunning':tool.status==='completed'?undefined:'acp.toolPending';
 }
 export function toolFlowModel(tool={}) {
   const content=Array.isArray(tool.content)?tool.content:[];
@@ -51,12 +54,16 @@ export function toolFlowModel(tool={}) {
   const description=typeof tool.description==='string'?tool.description:
     raw&&!raw.truncated&&typeof raw.description==='string'?raw.description:'';
   // Use an actual supplied description, never a guessed interpretation of shell text.
-  const title=description&&(!suppliedTitle.trim()||suppliedTitle.trim()===resolvedCommand.trim())?description:suppliedTitle;
-  const preview=firstLine(description&&firstLine(description)!==firstLine(title)?description:
-    locations[0]?.path||resolvedCommand||tool.summary||resolvedOutput);
+  const explicitTitle=String(tool.title||'').trim()?String(tool.title):'';
+  const title=description.trim()&&(!explicitTitle||suppliedTitle.trim()===resolvedCommand.trim())?description:
+    explicitTitle||(resolvedCommand.trim()?resolvedCommand:String(tool.name||''));
+  // A row describes the action; commands and result prose belong in its details.
+  // Only a short, supplied object/summary may accompany the primary title.
+  const suppliedSummary=firstLine(locations[0]?.path||tool.summary);
+  const preview=suppliedSummary.length<=96&&suppliedSummary!==firstLine(resolvedCommand)?suppliedSummary:'';
   // ACP adapters often use the command/path as the title too. Show it only once.
   const summary=preview===firstLine(title)?'':preview;
-  return {title,summary,body,diffs,terminals,locations,command:resolvedCommand,cwd:String(terminal.cwd||tool.cwd||''),
+  return {title,summary,description,body,diffs,terminals,locations,command:resolvedCommand,cwd:String(terminal.cwd||tool.cwd||''),
     output:resolvedOutput,textOutput:output,textOutputs,kind,exit,failed,running,name,
     error:firstLine(tool.errorMessage||tool.error||terminalFailure?.output|| (failed?resolvedOutput:''))};
 }
