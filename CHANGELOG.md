@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.0-rc.16 — single response copy action
+
+- Remove the extra “Copy turn responses” button from assistant messages. Keep the single icon that copies the current response segment, without changing user-message copying or streaming/interruption state.
+
 ## 3.0.0-rc.15 — native conversation presentation with remote adapters
 
 - Copy the complete conversation presentation layer from installed DSH 0.2.2-rc.5 source: user/assistant message seats and actions, ToolRow/DisclosureRow/TextShimmer, InputBar, AttachmentRail, FileCard and MessageImage. Feed these local views through ACP/draft/configuration adapters, rather than importing private Host stores or duplicating remote execution logic.

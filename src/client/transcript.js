@@ -67,8 +67,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
           source:fallback?h(AcpSourceFallback,{item,fallback,t}):null,
           body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown}),
           actions:h(NativeMessageActions,{clock:'end'},
-            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}}),
-            copy.turn&&!streaming?h(NativeMessageCopy,{text:copy.turn,labels:{...copyLabels,copy:t('flow.copyTurn')},iconOnly:false}):null),
+            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}})),
           interrupted:entry.responseTail&&(turn?.status==='cancelled'||turn?.status==='interrupted')?t(turn.status==='cancelled'?'flow.stopped':'flow.interrupted'):null});
       }
       case 'thought': return h(React.Fragment,{key:item.key},fallback?h(AcpSourceFallback,{item,fallback,t}):null,

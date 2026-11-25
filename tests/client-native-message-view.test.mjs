@@ -19,7 +19,10 @@ test('copied user content places attachments before the bubble and actions outsi
 });
 test('assistant view keeps keyed streaming content and interrupted marker separate from actions',()=>{
   assert.match(adapter,/h\(NativeAssistantMessage,\{key:item.key\|\|id/);
-  assert.match(adapter,/copy.turn&&!streaming\?h\(NativeMessageCopy/);
+  const assistant=adapter.split("case 'assistant': {")[1].split("case 'thought':")[0];
+  assert.equal((assistant.match(/h\(NativeMessageCopy,/g)||[]).length,1);
+  assert.match(assistant,/h\(NativeMessageCopy,\{text:copy.part,labels:\{\.\.\.copyLabels,copy:t\('flow.copyPart'\)\}\}\)/);
+  assert.doesNotMatch(assistant,/copy\.turn|flow\.copyTurn|iconOnly:false/);
   assert.match(view,/h\('div',\{className:'rssh-native-assistant-body'\},body,/);
   assert.match(view,/interrupted\?h\('span',\{className:'rssh-native-assistant-stopped'\}/);
   assert.match(css,/--dsh-assistant-block-gap: 16px/);
