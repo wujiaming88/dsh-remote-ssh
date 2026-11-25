@@ -8,6 +8,7 @@ import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
+import {runningTailPresentation,formatTurnElapsed,subscribeRunningClock} from './running-tail-model.js';
 import {activeRootScope,actionLabel,conversationActivity,responseCopyParts,processTreeSummary} from './stream-view-model.js';
 
 export const messages={
@@ -15,12 +16,14 @@ export const messages={
     'flow.copyCommand':'复制命令','flow.categoryTool':'工具','flow.categoryRead':'读取','flow.categoryEdit':'编辑','flow.categoryExecute':'命令','flow.categorySearch':'搜索','flow.categoryThought':'思考','flow.categoryPlan':'计划','flow.categoryAgent':'子任务','flow.categoryOther':'其他类型','flow.copyPart':'复制这段回复','flow.copyTurn':'复制本轮回复','flow.process':'执行过程','flow.processCount':'项记录','flow.stopped':'已停止','flow.interrupted':'已中断',
     'flow.ended':'已结束','flow.hadFailures':'含失败记录','flow.thinking':'思考中','flow.runningCount':'项进行中',
     'flow.permissionRecorded':'权限确认已处理','flow.permissionAllowed':'已允许此操作','flow.permissionDenied':'已拒绝此操作','flow.questionRecorded':'提问已处理','flow.questionDeclined':'已跳过此问题','flow.permissionCancelled':'权限确认已取消','flow.questionCancelled':'提问已取消',
+    'flow.runStatus':'运行状态','flow.turnRunning':'本轮进行中','flow.turnWaiting':'等待你的操作','flow.turnElapsed':'本轮用时','flow.elapsedHint':'从本轮实际开始执行时计算，包含等待和连接中断时间，不代表模型推理耗时。','flow.hour':'小时','flow.minute':'分','flow.second':'秒',
     'flow.latest':'回到最新消息','flow.replying':'正在生成回复','flow.waitingPermission':'等待权限确认','flow.waitingQuestion':'等待你的回答',
     'flow.working':'等待 Agent 进展','flow.connecting':'正在连接','flow.connection':'正在恢复连接','flow.source':'来源未关联'},
   en:{'flow.you':'Your message','flow.agent':'Agent response','flow.copy':'Copy','flow.copied':'Copied','flow.copyFailed':'Copy failed. Select the text and copy manually.',
     'flow.copyCommand':'Copy command','flow.categoryTool':'Tools','flow.categoryRead':'Reads','flow.categoryEdit':'Edits','flow.categoryExecute':'Commands','flow.categorySearch':'Searches','flow.categoryThought':'Reasoning','flow.categoryPlan':'Plans','flow.categoryAgent':'Agents','flow.categoryOther':'other types','flow.copyPart':'Copy this response','flow.copyTurn':'Copy turn responses','flow.process':'Activity','flow.processCount':'records','flow.stopped':'Stopped','flow.interrupted':'Interrupted',
     'flow.ended':'Ended','flow.hadFailures':'Includes failed steps','flow.thinking':'Thinking','flow.runningCount':'active',
     'flow.permissionRecorded':'Permission request handled','flow.permissionAllowed':'Operation allowed','flow.permissionDenied':'Operation denied','flow.questionRecorded':'Question handled','flow.questionDeclined':'Question skipped','flow.permissionCancelled':'Permission request cancelled','flow.questionCancelled':'Question cancelled',
+    'flow.runStatus':'Run status','flow.turnRunning':'Turn in progress','flow.turnWaiting':'Awaiting your action','flow.turnElapsed':'Turn elapsed','flow.elapsedHint':'Time since this turn actually started, including waits and connection interruptions; not model reasoning time.','flow.hour':'h','flow.minute':'m','flow.second':'s',
     'flow.latest':'Jump to latest','flow.replying':'Generating a response','flow.waitingPermission':'Awaiting permission','flow.waitingQuestion':'Awaiting your answer',
     'flow.working':'Waiting for Agent progress','flow.connecting':'Connecting','flow.connection':'Reconnecting','flow.source':'Unlinked source'},
 };
@@ -106,11 +109,34 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
   });
 }
 
+function RunningGlyph({kind}) {
+  if(kind==='activity')return h(FlowIcon,{kind:'tool'});
+  if(kind==='replying')return h(FlowIcon,{kind:'message'});
+  const waiting=['permission','question'].includes(kind);
+  return h('svg',{className:'rssh-running-glyph',width:16,height:16,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
+    kind==='mark'?h('path',{d:'M8 1.5 9.8 6.2 14.5 8 9.8 9.8 8 14.5 6.2 9.8 1.5 8 6.2 6.2Z'}):
+    waiting?h('path',{d:'M6 4v8m4-8v8'}):
+    kind==='thinking'?h(React.Fragment,null,h('ellipse',{cx:8,cy:8,rx:7,ry:3,transform:'rotate(45 8 8)'}),h('ellipse',{cx:8,cy:8,rx:7,ry:3,transform:'rotate(-45 8 8)'}),h('circle',{cx:8,cy:8,r:.7,fill:'currentColor',stroke:'none'})):
+    h(React.Fragment,null,h('circle',{cx:8,cy:8,r:6}),h('path',{d:'M8 4v4l3 2'})));
+}
+
 export function RunningTail({state,t}) {
   const activity=conversationActivity(state);
-  if(activity.kind==='idle')return null;
+  const presentation=runningTailPresentation(state,activity);
+  const [,tick]=React.useState(0);
+  React.useEffect(()=>presentation?.clock?subscribeRunningClock(()=>tick(value=>value+1)):undefined,[presentation?.clock,presentation?.scope,presentation?.startedAt]);
+  if(!presentation)return null;
   const keys={connecting:'flow.connecting',reconnecting:'flow.connection',permission:'flow.waitingPermission',question:'flow.waitingQuestion',replying:'flow.replying',thinking:'flow.thinking',working:'flow.working'};
   const label=activity.kind==='activity'?[actionLabel(activity.item,t),activity.count>1?`${activity.count} ${t('flow.runningCount')}`:null].filter(Boolean).join(' · '):t(keys[activity.kind]);
-  const waiting=['permission','question'].includes(activity.kind);
-  return h('div',{className:'rssh-running-tail',role:'status'},h(ui.StateDot,{state:waiting?'warning':activity.kind==='working'?'idle':'ongoing'}),h('span',null,label));
+  const elapsed=formatTurnElapsed(presentation.seconds,t);
+  return h('div',{className:'rssh-running-tail',role:'group','aria-label':t('flow.runStatus'),'data-phase':presentation.phase},
+    h('div',{className:'rssh-running-activity',role:'status','aria-live':'polite','aria-atomic':true},
+      h(RunningGlyph,{kind:activity.kind}),h('span',{className:'rssh-running-activity-text',title:label},label)),
+    presentation.footer?h('div',{className:'rssh-running-footer','aria-live':'off'},
+      h(RunningGlyph,{kind:presentation.phase==='waiting'?activity.kind:'mark'}),
+      h('div',{className:'rssh-running-caption'},
+        h('span',null,t(presentation.phase==='waiting'?'flow.turnWaiting':'flow.turnRunning')),
+        elapsed!==null?h('span',{className:'rssh-running-elapsed',role:'timer','aria-live':'off',title:t('flow.elapsedHint')},
+          ' · ',t('flow.turnElapsed'),' ',h('time',{dateTime:`PT${presentation.seconds}S`},elapsed)):null,
+        presentation.animate?h('span',{className:'rssh-running-dots','aria-hidden':true},...[0,1,2].map(key=>h('span',{key},'·'))):null)):null);
 }

@@ -816,14 +816,48 @@
 }
 .rssh-running-tail {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 28px;
-  margin-top: 12px;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 16px;
+  padding-bottom: 8px;
   color: var(--dsw-alias-label-secondary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
 }
+.rssh-running-activity, .rssh-running-footer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.rssh-running-glyph, .rssh-running-activity > .rssh-flow-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  margin-right: 0;
+}
+.rssh-running-activity-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rssh-running-footer {
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  padding-top: 12px;
+  color: var(--dsw-alias-state-business-primary);
+}
+.rssh-running-tail[data-phase=waiting] .rssh-running-footer { color: var(--dsw-alias-state-warn-label); }
+.rssh-running-caption { min-width: 0; overflow-wrap: anywhere; }
+.rssh-running-elapsed { font-variant-numeric: tabular-nums; }
+.rssh-running-dots { display: inline-flex; margin-left: 6px; gap: 2px; }
+.rssh-running-dots > span { animation: rssh-running-dot 1.8s ease-in-out infinite; }
+.rssh-running-dots > span:nth-child(2) { animation-delay: .2s; }
+.rssh-running-dots > span:nth-child(3) { animation-delay: .4s; }
+@keyframes rssh-running-dot { 0%, 80%, 100% { opacity: .35; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rssh-running-dots > span { animation: none; opacity: 1; } }
 .rssh-jump-latest {
   position: absolute;
   bottom: 12px;
@@ -965,4 +999,3 @@
 /* Sidebar glyphs are plugin-owned, using the shared theme and motion rules. */
 .rssh-session-status-dot { width: 10px; height: 10px; vertical-align: middle; }
 .rssh-session-status-dot[data-state=ongoing] { width: 14px; height: 14px; }
-.rssh-session-status-dot[data-state=idle] { background: transparent; border: 1px solid var(--dsw-alias-label-tertiary); }

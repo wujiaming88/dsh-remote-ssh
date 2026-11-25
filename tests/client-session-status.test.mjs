@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parse } from 'acorn';
+import {SessionStatusStore} from '../src/client/session-status-store.js';
+import {CompletionReceipts} from '../src/client/session-completion.js';
 
 const source = readFileSync(new URL('../src/client/session-status.js', import.meta.url), 'utf8');
 const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
@@ -22,13 +24,8 @@ const cases = [
   ['waiting', 'elicitation', 'warning', 'elicitation'],
   ['waiting', undefined, 'warning', 'waiting'],
   ['waiting', 'future-interaction', 'warning', 'waiting'],
-  ['idle', undefined, 'idle', 'idle'],
   ['error', undefined, 'error', 'error'],
-  ['disconnected', undefined, 'idle', 'disconnected'],
   ['completed', undefined, 'done', 'completed'],
-  ['stopped', undefined, 'idle', 'stopped'],
-  ['unknown', undefined, 'idle', 'unknown'],
-  ['future-status', undefined, 'idle', 'unknown'],
 ];
 
 test('remote status mapping preserves waiting reasons and terminal distinctions', () => {
@@ -39,9 +36,27 @@ test('remote status mapping preserves waiting reasons and terminal distinctions'
   }
 });
 
-test('read completions and completions without a confirmed unread identity return to idle',()=>{
-  for(const completionUnread of [false,undefined])assert.deepEqual(presentation(entry('completed',{completionUnread}),'remote'),{state:'idle',label:'sessionStatus.idle'});
+test('read completions and completions without a confirmed unread identity have no glyph',()=>{
+  for(const completionUnread of [false,undefined,null,1,'true'])assert.equal(presentation(entry('completed',{completionUnread}),'remote'),null);
   assert.equal(presentation(entry('completed',{completionUnread:true}),'remote').state,'done');
+});
+
+test('idle, stopped, disconnected and unknown states never leave an empty-circle placeholder',()=>{
+  for(const status of ['idle','stopped','disconnected','unknown','future-status']){
+    assert.equal(presentation(entry(status),'remote'),null);
+    assert.equal(presentation(entry(status,{completionUnread:true}),'remote'),null);
+  }
+});
+
+test('view acknowledgement removes the glyph entirely and the next unseen completion restores green',()=>{
+  const store=new SessionStatusStore({receipts:new CompletionReceipts({storage:()=>null})});
+  const complete=id=>store.receive({type:'upsert',session:entry('completed',{completionId:id.repeat(64)})});
+  const glyph=()=>presentation(store.getSnapshot().byId.remote,'remote');
+  complete('a');assert.equal(glyph().state,'done');
+  const leave=store.watchView('remote',()=>true);
+  assert.equal(glyph(),null);assert.equal(store.getSnapshot().byId.remote.status,'completed');
+  leave();complete('a');assert.equal(glyph(),null);
+  complete('b');assert.equal(glyph().state,'done');store.dispose();
 });
 
 test('local, unavailable and mismatched rows never borrow the selected remote state', () => {
@@ -54,9 +69,7 @@ test('local, unavailable and mismatched rows never borrow the selected remote st
 
 test('lost overview becomes unknown instead of retaining a spinner or claiming completion', () => {
   assert.equal(presentation(entry('running'), 'remote').state, 'ongoing');
-  assert.deepEqual(presentation(entry('unknown', { waitingFor: 'permission' }), 'remote'), {
-    state: 'idle', label: 'sessionStatus.unknown',
-  });
+  assert.equal(presentation(entry('unknown', { waitingFor: 'permission' }), 'remote'), null);
   // Authorization reset clears the entry rather than presenting unknown local rows.
   assert.equal(presentation(undefined, 'remote'), null);
 });
@@ -104,6 +117,7 @@ test('component uses owned themed status glyphs with textual accessible status',
   const css=readFileSync(new URL('../src/client/styles.css',import.meta.url),'utf8');
   assert.match(css,/\.rssh-session-status-dot \{ width: 10px; height: 10px/);
   assert.match(css,/\.rssh-session-status-dot\[data-state=ongoing\] \{ width: 14px; height: 14px/);
+  assert.doesNotMatch(css,/\.rssh-session-status-dot\[data-state=idle\]/);
   const component = exported('RemoteSessionStatus');
   assert.match(component, /useRemoteSessionStatuses\(snapshot => snapshot\.byId\[sessionId\]\)/);
   assert.match(component, /if \(!presentation\) return null/);

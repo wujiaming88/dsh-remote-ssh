@@ -2,9 +2,11 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.12** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.13** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
+
+**rc.13 highlights**: two-line running feedback combines muted current activity with a blue turn-status and factual elapsed-time footer, plus subtle animated dots. User-input waits remain static and settled turns clear the running indicator. Missing turn-start records never fall back to Session age or invented zero-second timing. Sidebar indicators appear only for running, waiting, unread completion and confirmed errors; idle/read states leave no empty circle. 617 tests pass; real GUI visual and interaction acceptance remains pending.
 
 **rc.12 highlights**: green sidebar markers now mean completed but not yet viewed; opening the foreground conversation acknowledges that turn, while later background completions can notify again. Reconnects preserve read receipts. Remove reasoning/command category counts from process headers without hiding steps, live activity or failures. 598 tests pass; real GUI interaction acceptance remains pending.
 

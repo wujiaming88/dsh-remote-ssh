@@ -6,24 +6,16 @@ export const messages = {
     'sessionStatus.permission': '远端等待审批',
     'sessionStatus.elicitation': '远端等待回答',
     'sessionStatus.waiting': '远端等待用户操作',
-    'sessionStatus.idle': '远端空闲',
     'sessionStatus.error': '远端会话出错',
-    'sessionStatus.disconnected': '远端未连接',
     'sessionStatus.completed': '远端已完成，尚未查看',
-    'sessionStatus.stopped': '远端已停止',
-    'sessionStatus.unknown': '远端状态未知',
   },
   en: {
     'sessionStatus.running': 'Remote session running',
     'sessionStatus.permission': 'Remote session waiting for approval',
     'sessionStatus.elicitation': 'Remote session waiting for an answer',
     'sessionStatus.waiting': 'Remote session waiting for user input',
-    'sessionStatus.idle': 'Remote session idle',
     'sessionStatus.error': 'Remote session error',
-    'sessionStatus.disconnected': 'Remote session disconnected',
     'sessionStatus.completed': 'Remote session completed, not yet viewed',
-    'sessionStatus.stopped': 'Remote session stopped',
-    'sessionStatus.unknown': 'Remote session status unknown',
   },
 };
 
@@ -35,12 +27,11 @@ export function sessionStatusPresentation(entry, sessionId) {
     case 'waiting': return { state: 'warning', label: entry.waitingFor === 'permission'
       ? 'sessionStatus.permission' : entry.waitingFor === 'elicitation'
         ? 'sessionStatus.elicitation' : 'sessionStatus.waiting' };
-    case 'completed': return entry.completionUnread===true?{ state: 'done', label: 'sessionStatus.completed' }:{ state: 'idle', label: 'sessionStatus.idle' };
+    case 'completed': return entry.completionUnread===true?{ state: 'done', label: 'sessionStatus.completed' }:null;
     case 'error': return { state: 'error', label: 'sessionStatus.error' };
-    case 'idle': return { state: 'idle', label: 'sessionStatus.idle' };
-    case 'stopped': return { state: 'idle', label: 'sessionStatus.stopped' };
-    case 'disconnected': return { state: 'idle', label: 'sessionStatus.disconnected' };
-    default: return { state: 'idle', label: 'sessionStatus.unknown' };
+    // Quiet/unknown states have no decoration, not an empty-circle placeholder.
+    // A disconnected overview is not proof that the remote turn failed.
+    default: return null;
   }
 }
 

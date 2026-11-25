@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.13 — two-line running feedback and quiet sidebar states
+
+- Replace the single-dot running tail with a muted current-activity row and a blue turn-in-progress footer, separated by a quiet rule. Use plugin-owned line icons and softly animated trailing dots; preserve real concurrent-operation counts and full activity titles. Normal completion, cancellation and fatal termination remove the tail.
+- Show elapsed time only from the current root turn's observed Host turn_start timestamp, never Session age, queued input time or component mount time. Reconnect/replay preserve that start. Missing, invalid or future timestamps omit the stopwatch; a history window without the original start remains an explicitly unknown-progress state rather than inventing a start time. Elapsed time includes waits and connection interruptions, not pure model reasoning time.
+- Permissions and questions use static warning feedback. Connection uncertainty and queued/unknown execution stay neutral without an execution animation or timer. Hidden tabs stop ticking and catch up on return; timers and visibility listeners are disposed with the tail. Keep per-second time outside live announcements, use theme tokens and wrapping text, and honor reduced-motion preferences.
+- Show sidebar indicators only for running, waiting for user input, unread completion and confirmed errors. Idle, read completion and stopped states render nothing instead of an empty-circle placeholder; disconnected or unknown metadata also stays quiet rather than claiming a remote failure. Reading a completion removes its glyph entirely, without changing execution state; a later unread turn can light it again.
+- Verification: 617 automated tests pass (19 new regressions); client build contains 57 modules. Source/controller and independent UX review do not establish real-browser animation, light/dark contrast, narrow-screen layout or screen-reader acceptance.
+
 ## 3.0.0-rc.12 — completion unread acknowledgement and quieter process headers
 
 - Treat the green sidebar marker as a completed turn not yet viewed, rather than a permanent execution outcome. Opening its foreground conversation clears it; a completion while that conversation is visible and focused does not leave a green marker. A later background completion can light it again, even if an intermediate running update was missed.
