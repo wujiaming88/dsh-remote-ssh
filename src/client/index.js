@@ -1,5 +1,7 @@
 
+import {useEffect} from 'react';
 import { api, h, ui, useT, locale, NAMESPACE } from './shared.js';
+import {watchSessionCompletion} from './session-completion.js';
 import { createBackendRouter, knownRemoteBlank } from './router.js';
 import {REMOTE_SESSION_PROJECTION_KEY} from '../../lib/protocol.js';
 import { ChatPane } from './chat.js';
@@ -29,6 +31,9 @@ function RemoteConversation(props) {
   const routing = props.useRemoteBackend(value => value);
   const title = props.useSessions(value => value.byId[props.sessionId]?.displayTitle || '');
   const preferences=props.useChatPreferences(snapshot=>snapshot.value);
+  const conversationSelected=props.usePanelInfo(info=>info.activePanelId===null);
+  const viewing=conversationSelected&&routing.phase==='remote'&&routing.sessionId===props.sessionId;
+  useEffect(()=>viewing?props.trackSessionView(props.sessionId):undefined,[viewing,props.sessionId,props.trackSessionView]);
   if (routing.sessionId !== props.sessionId) return null;
   return h('main', { className: 'rssh-conversation' },
     h('header', { className: 'rssh-conversation-header', 'data-window-drag': '' },
@@ -66,6 +71,9 @@ export function apply(ctx) {
 
   let router, refreshRoute = () => {}, catalog = [], catalogVersion = 0, active = true;
   let catalogController;
+  const trackSessionView=sessionId=>watchSessionCompletion(sessionStatuses,sessionId,{canView:()=>
+    ctx.uiSession.adapter.current.getSnapshot().key===sessionId&&ctx.layout.panelInfo.getSnapshot().activePanelId===null
+    &&router?.getSnapshot().sessionId===sessionId&&router?.getSnapshot().phase==='remote'});
   async function loadCatalog() {
     const version=++catalogVersion;
     catalogController?.abort(); catalogController=new AbortController();
@@ -101,7 +109,7 @@ export function apply(ctx) {
       load: sessionId => api('sessionBackend', { sessionId }),
       show: active => {
         if (active && !disposeMain) disposeMain = slots.register({ name: 'main.conversation', priority: -100, locale: NAMESPACE,
-          inject: () => ({ clients, hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: () => router.refresh(),
+          inject: () => ({ clients, trackSessionView, hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: () => router.refresh(),
             beginNavigation: () => ctx.layout.beginNavigation(),
             createRemoteSession: options => ctx.sessions.create(options),
             openSession: id => ctx.uiWorkspace.openSession(id),

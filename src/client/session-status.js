@@ -9,7 +9,7 @@ export const messages = {
     'sessionStatus.idle': '远端空闲',
     'sessionStatus.error': '远端会话出错',
     'sessionStatus.disconnected': '远端未连接',
-    'sessionStatus.completed': '远端已完成',
+    'sessionStatus.completed': '远端已完成，尚未查看',
     'sessionStatus.stopped': '远端已停止',
     'sessionStatus.unknown': '远端状态未知',
   },
@@ -21,7 +21,7 @@ export const messages = {
     'sessionStatus.idle': 'Remote session idle',
     'sessionStatus.error': 'Remote session error',
     'sessionStatus.disconnected': 'Remote session disconnected',
-    'sessionStatus.completed': 'Remote session completed',
+    'sessionStatus.completed': 'Remote session completed, not yet viewed',
     'sessionStatus.stopped': 'Remote session stopped',
     'sessionStatus.unknown': 'Remote session status unknown',
   },
@@ -35,7 +35,7 @@ export function sessionStatusPresentation(entry, sessionId) {
     case 'waiting': return { state: 'warning', label: entry.waitingFor === 'permission'
       ? 'sessionStatus.permission' : entry.waitingFor === 'elicitation'
         ? 'sessionStatus.elicitation' : 'sessionStatus.waiting' };
-    case 'completed': return { state: 'done', label: 'sessionStatus.completed' };
+    case 'completed': return entry.completionUnread===true?{ state: 'done', label: 'sessionStatus.completed' }:{ state: 'idle', label: 'sessionStatus.idle' };
     case 'error': return { state: 'error', label: 'sessionStatus.error' };
     case 'idle': return { state: 'idle', label: 'sessionStatus.idle' };
     case 'stopped': return { state: 'idle', label: 'sessionStatus.stopped' };

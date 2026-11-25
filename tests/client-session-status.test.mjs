@@ -33,10 +33,15 @@ const cases = [
 
 test('remote status mapping preserves waiting reasons and terminal distinctions', () => {
   for (const [status, waitingFor, state, label] of cases) {
-    assert.deepEqual(presentation(entry(status, { waitingFor }), 'remote'), {
+    assert.deepEqual(presentation(entry(status, { waitingFor, completionUnread:status==='completed' }), 'remote'), {
       state, label: `sessionStatus.${label}`,
     });
   }
+});
+
+test('read completions and completions without a confirmed unread identity return to idle',()=>{
+  for(const completionUnread of [false,undefined])assert.deepEqual(presentation(entry('completed',{completionUnread}),'remote'),{state:'idle',label:'sessionStatus.idle'});
+  assert.equal(presentation(entry('completed',{completionUnread:true}),'remote').state,'done');
 });
 
 test('local, unavailable and mismatched rows never borrow the selected remote state', () => {

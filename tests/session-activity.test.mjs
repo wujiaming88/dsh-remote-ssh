@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { createHash } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,6 +68,90 @@ test('only authoritative submitted root stop becomes completed or stopped; next 
   f.activity.onEvent({ type: 'session' }, ready); await tick(); assert.equal(f.activity.snapshot()[0].status, 'idle'); // Resume may retain the same persisted generation.
   f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn' }, ready); await tick();
   f.data.states[0].generation = 'resumed'; f.activity.changed(); await tick(); assert.equal(f.activity.snapshot()[0].status, 'idle');
+});
+
+test('completion identity is stable across duplicate stop, refresh, heartbeat and reconnect', async () => {
+  const f = streamFixture();
+  const stop = { type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'private-turn-one' };
+  const expected = createHash('sha256').update(JSON.stringify(['acp', 'g', stop.turnId])).digest('hex');
+  f.activity.onEvent(stop, ready); await tick();
+  const row = { sessionId: 'native', status: 'completed', completionId: expected };
+  assert.deepEqual(f.activity.snapshot(), [row]);
+  f.open(); assert.deepEqual(f.res.frames[0], { type: 'snapshot', sessions: [row] });
+  const eventCount = f.events.length;
+  f.activity.onEvent({ ...stop, stopReason: 'completed' }, ready); await tick();
+  f.activity.refresh(); f.clock.fire();
+  assert.equal(f.events.length, eventCount);
+  assert.deepEqual(f.activity.snapshot(), [row]);
+  f.res.emit('close'); const next = response();
+  const close = f.stream(new EventEmitter(), next, () => true);
+  assert.deepEqual(next.frames[0], { type: 'snapshot', sessions: [row] });
+  assert.doesNotMatch(JSON.stringify(next.frames), /private-turn-one|generation|acp/);
+  close();
+});
+
+test('completion identity separates each turn, runtime generation and ACP instance', async () => {
+  const f = fixture(); const tokens = [];
+  for (const [id, generation, turnId] of [['acp', 'g', 'one'], ['acp', 'g', 'two'], ['acp', 'new-generation', 'two'], ['new-acp', 'new-generation', 'two']]) {
+    const state = { ...ready, id, generation }; f.data.states = [state];
+    f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId }, state); await tick();
+    const row = f.activity.snapshot()[0]; assert.equal(row.status, 'completed');
+    assert.match(row.completionId, /^[a-f0-9]{64}$/); tokens.push(row.completionId);
+  }
+  assert.equal(new Set(tokens).size, 4);
+});
+
+test('new completion is published when an entire busy transition coalesces between snapshots', async () => {
+  const f = fixture(); const state = f.data.states[0];
+  f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'first' }, state); await tick();
+  const first = f.activity.snapshot()[0].completionId; f.events.length = 0;
+  state.busy = true;
+  f.activity.onEvent({ type: 'turn_start', turnId: 'second' }, state);
+  state.busy = false;
+  f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'second' }, state);
+  await tick();
+  assert.equal(f.events.length, 1); assert.equal(f.events[0].type, 'upsert');
+  assert.equal(f.events[0].session.status, 'completed');
+  assert.notEqual(f.events[0].session.completionId, first);
+});
+
+test('child, inherited and unsubmitted stops cannot create or replace a root completion identity', async () => {
+  const f = fixture(); const stop = { type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'root-turn' };
+  f.activity.onEvent(stop, ready); await tick(); const root = f.activity.snapshot()[0];
+  for (const patch of [{ rootSessionId: 'remote', sessionId: 'child' }, { sessionId: 'child' }, { inherited: true }, { submitted: false }]) {
+    f.activity.onEvent({ ...stop, turnId: 'other-turn', ...patch }, ready); await tick();
+    assert.deepEqual(f.activity.snapshot()[0], root);
+    const blank = fixture(); blank.activity.onEvent({ ...stop, ...patch }, ready); await tick();
+    assert.deepEqual(blank.activity.snapshot(), [{ sessionId: 'native', status: 'idle' }]);
+  }
+});
+
+test('invalid identities and noncompleted outcomes never manufacture an unread token', async () => {
+  for (const turnId of [undefined, null, '', '   ', 123, {}]) {
+    const f = fixture(); f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId }, ready); await tick();
+    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status: 'completed' }]);
+  }
+  for (const field of ['id', 'generation']) {
+    const f = fixture(); const state = { ...ready, [field]: '' }; f.data.states = [state];
+    f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'turn' }, state); await tick();
+    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status: 'completed' }]);
+  }
+  for (const [stopReason, status] of [['cancelled', 'stopped'], ['error', 'error'], ['max_tokens', 'idle']]) {
+    const f = fixture(); f.activity.onEvent({ type: 'stop', submitted: true, stopReason, turnId: 'turn' }, ready); await tick();
+    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status }]);
+  }
+});
+
+test('state mapper allowlists terminal data and never trusts a stored runtime completion token', () => {
+  const token = 'a'.repeat(64);
+  const terminal = { generation: 'g', status: 'completed', completionId: token, text: 'SECRET', turnId: 'SECRET', attachment: {} };
+  assert.deepEqual(sessionActivityState(ready, terminal), { status: 'completed', completionId: token });
+  assert.deepEqual(sessionActivityState({ ...ready, completionId: token }), { status: 'idle' });
+  assert.deepEqual(sessionActivityState({ ...ready, detached: true, completionId: token }, terminal), { status: 'disconnected' });
+  for (const status of ['stopped', 'error', 'idle']) assert.deepEqual(sessionActivityState(ready, { ...terminal, status }), { status });
+  assert.deepEqual(sessionActivityState(ready, { ...terminal, status: 'SECRET' }), { status: 'idle' });
+  for (const completionId of ['', 'SECRET', 'a'.repeat(63), 'A'.repeat(64)]) assert.deepEqual(sessionActivityState(ready, { ...terminal, completionId }), { status: 'completed' });
+  assert.deepEqual(sessionActivityState({ ...ready, busy: true }, terminal), { status: 'running' });
 });
 
 test('token and historical tool errors never produce sidebar churn; state updates are coalesced', async () => {
@@ -170,7 +255,8 @@ test('real runtime background turns, permission/elicitation, terminal outcomes a
     const form = session.handleElicitationRequest({ mode: 'form', message: 'SECRET form', requestedSchema: { type: 'object', properties: {} } }, 'form');
     await tick(); assert.equal(activity.snapshot()[0].waitingFor, 'elicitation');
     await session.elicitation({ requestId: 'form', action: 'cancel' }); await form; await tick(); assert.equal(activity.snapshot()[0].status, 'running');
-    pending[0].resolve({ stopReason: 'end_turn' }); await turn; await tick(); assert.equal(activity.snapshot()[0].status, 'completed');
+    pending[0].resolve({ stopReason: 'end_turn' }); const completed = await turn; await tick();
+    assert.deepEqual(activity.snapshot()[0], { sessionId: 'native', status: 'completed', completionId: createHash('sha256').update(JSON.stringify([session.id, session.generation, completed.turnId])).digest('hex') });
     const next = session.prompt('next'); await tick(); assert.equal(activity.snapshot()[0].status, 'running');
     pending[1].reject(Error('SECRET failure')); await assert.rejects(next); await tick(); assert.equal(activity.snapshot()[0].status, 'error');
     await runtime.shutdownSession('acp', { reason: 'archived' }); await tick(); assert.equal(activity.snapshot()[0].status, 'disconnected');

@@ -8,7 +8,7 @@ import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
-import {activeRootScope,actionLabel,conversationActivity,responseCopyParts,processTreeSummary,processCategorySummary} from './stream-view-model.js';
+import {activeRootScope,actionLabel,conversationActivity,responseCopyParts,processTreeSummary} from './stream-view-model.js';
 
 export const messages={
   zh:{'flow.you':'你的消息','flow.agent':'Agent 回复','flow.copy':'复制','flow.copied':'已复制','flow.copyFailed':'复制失败，请选中文字手动复制。',
@@ -87,7 +87,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
     const current=facts.runningItem;
     const live=!!(running&&entry.scope===activeScope&&!entry.settled&&current&&
       (current.type!=='thought'||thoughtIsStreaming(current,items,running)));
-    const summary=[policy.showProcessSummary?(live?actionLabel(current,t):processCategorySummary(entry,t)):null,
+    const summary=[policy.showProcessSummary&&live?actionLabel(current,t):null,
       facts.failedCount?`${t('flow.hadFailures')} ${facts.failedCount}`:null].filter(Boolean).join(' · ');
     const presentation=processGroupPresentation(entry,policy,manual[entry.key]);
     // Keep this same parent type throughout streaming and completion. Explicit

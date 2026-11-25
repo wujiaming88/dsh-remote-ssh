@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.12 — completion unread acknowledgement and quieter process headers
+
+- Treat the green sidebar marker as a completed turn not yet viewed, rather than a permanent execution outcome. Opening its foreground conversation clears it; a completion while that conversation is visible and focused does not leave a green marker. A later background completion can light it again, even if an intermediate running update was missed.
+- Supply a stable, opaque completion identity only for real submitted root turns. Keep execution state separate from local read acknowledgement; errors, waits and running state are not dismissed by opening a conversation.
+- Use mounted conversation leases, public panel/current-session/router facts, and browser visibility/focus. Sample those facts again when a completion arrives so delayed cleanup cannot acknowledge another conversation or an inactive main panel. No native unread state is modified, and no per-row Agent or stream is created. Modal occlusion has no public observable in this installation and is not inferred through private DOM inspection.
+- Preserve acknowledgements across overview reconnects, transient resets and unsupported-API failures; unsupported endpoints still stop automatic retries without pretending access was revoked. Viewing during an outage can acknowledge only the last completion already observed, never future unseen turns. Same-tab reloads retain up to 4096 recent id-only receipts in sessionStorage; blocked or corrupt storage falls back to in-memory state. Session removal and authorization revocation clear affected receipts.
+- Remove category-count summaries such as “Reasoning × 2 · Commands × 2” from process headers. Keep the Activity title, disclosure controls, complete process contents, actual live activity and failure notices; empty summaries leave no separator behind.
+- Verification: 598 automated tests pass (26 new regressions); client build contains 56 modules. Source/controller checks do not establish real-browser focus, panel switching or visual acceptance.
+
 ## 3.0.0-rc.11 — process density, image previews and sidebar status
 
 - Verification: 572 automated tests pass (113 new regressions), including offline checks against the installed DSH attachment/query APIs; the client build contains 55 modules. These are not real-browser visual or interaction acceptance results.

@@ -75,6 +75,19 @@ test('category summary bounds labels only; full ordered records are never trimme
   const entries=transcriptEntries(items);assert.equal(entries.length,1);assert.equal(entries[0].items.length,25);
   assert.match(processCategorySummary(entries[0],key=>key),/\+2 flow.categoryOther/);
 });
+test('process header omits category counts without hiding live activity or failures',()=>{
+  const source=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
+  const expression=source.match(/const summary=([\s\S]*?);\n    const presentation/)?.[1];assert.ok(expression);
+  // Evaluate the production summary expression, not a React/DOM renderer.
+  const summary=new Function('policy','live','current','facts','t','actionLabel',`return ${expression};`);
+  const render=(live,failedCount=0,showProcessSummary=true)=>summary({showProcessSummary},live,{title:'Current operation'},{failedCount},key=>key,item=>item.title);
+  assert.equal(render(false),'');assert.equal(render(false,0,false),'');
+  assert.equal(render(true),'Current operation');assert.equal(render(true,0,false),'');
+  assert.equal(render(false,2),'flow.hadFailures 2');assert.equal(render(true,2),'Current operation · flow.hadFailures 2');
+  assert.match(source,/title:t\('flow.process'\),summary/);
+  assert.match(source,/children:\(\)=>entry.items.map\(item=>render\(item\)\)/);
+});
+
 test('rendering connects mode policy, quiet status, full command details and reading exceptions',()=>{
   const source=name=>readFileSync(new URL('../src/client/'+name,import.meta.url),'utf8');
   const transcript=source('transcript.js'),cards=source('cards.js');
@@ -82,7 +95,8 @@ test('rendering connects mode policy, quiet status, full command details and rea
   assert.match(transcript,/processGroupPresentation\(entry,policy,manual\[entry.key\]\)/);
   assert.match(transcript,/\.\.\.presentation/);assert.match(transcript,/readingFlat/);
   assert.doesNotMatch(transcript,/runningItem\|\|entry.items.at\(-1\)/);
-  assert.match(transcript,/processCategorySummary\(entry,t\)/);
+  assert.doesNotMatch(transcript,/processCategorySummary/);
+  assert.match(transcript,/policy.showProcessSummary&&live\?actionLabel\(current,t\):null/);
   assert.match(cards,/toolRowStatus\(model,tool\)/);
   assert.match(cards,/className:'rssh-flow-command'/);
   assert.match(cards,/text:model.command,labels:/);
