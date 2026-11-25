@@ -63,7 +63,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         const turn=entry.turn||turns[transcriptScope(item)];
         const streaming=running&&transcriptScope(item)===activeScope&&entry.responseTail===true&&(!turn||turn.status==='running');
         const copy=responseCopyParts(item,entry);
-        return h(NativeAssistantMessage,{key:item.key||id,label:t('flow.agent'),streaming,tail:entry.responseTail===true,
+        return h(NativeAssistantMessage,{key:item.key||id,label:t('flow.agent'),streaming,
           source:fallback?h(AcpSourceFallback,{item,fallback,t}):null,
           body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown}),
           actions:h(NativeMessageActions,{clock:'end'},

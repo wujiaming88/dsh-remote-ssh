@@ -23,9 +23,9 @@ export function NativeUserMessage({label,text,attachments,delivery,source,action
       delivery?h('span',{className:'rssh-message-delivery'},delivery):null),
     actions);
 }
-export function NativeAssistantMessage({label,streaming=false,source,body,actions,interrupted,tail=false}) {
+export function NativeAssistantMessage({label,streaming=false,source,body,actions,interrupted}) {
   return h('article',{className:'rssh-message rssh-native-assistant','aria-label':label,
-    'data-streaming':streaming?'':undefined,'data-actions-reveal':tail?'always':'hover'},
+    'data-streaming':streaming?'':undefined,'data-actions-reveal':'hover'},
     source,
     h('div',{className:'rssh-native-assistant-body'},body,
       interrupted?h('span',{className:'rssh-native-assistant-stopped'},interrupted):null),

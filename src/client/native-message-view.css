@@ -3,7 +3,8 @@
    MessageIconActions.module.css actions/action + hover/focus rules;
    published UserMessageBubble _bubble_1sgyj (native.css 109-118).
    ADAPTATION: namespaced selectors, safe plain user text and Markdown slots,
-   optional local copy-turn action, no unavailable Host clock/fork/usage controls.
+   local clipboard feedback, hover/focus actions for all assistant messages,
+   no unavailable Host clock/fork/usage controls.
    Copyright (c) 2026 DeepSeek. MIT: see THIRD_PARTY_NOTICES.md. */
 .rssh-native-user { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .rssh-native-user-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0; max-width: min(calc(var(--dsh-chat-content-width, 748px) * 0.702), 82%); }

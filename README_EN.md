@@ -2,29 +2,21 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.16** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.17** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
-**rc.16 highlights**: remove the extra “Copy turn responses” text button, keeping the single icon that copies the current response segment. User-message copying, streaming state and interruption markers remain unchanged. 765 automated tests and the 76-module build pass.
+## Current capabilities
 
-**rc.15 highlights**: copy the complete conversation presentation layer from the same installed DSH release and feed it through remote-data adapters: message seats/actions, tool rows/details, composer, attachment rail and file/image cards. Remove 60/40 tool columns and repeated paths, use native action-specific icons, and omit redundant “Waiting for Agent progress” while the real running footer is present. Preserve SSH/ACP, permission, upload, reconnect and file-access boundaries. 765 automated tests and 76-module build pass; actual GUI visual acceptance is not claimed. The editor remains a controlled textarea, not a copy of private Host Lexical/stores. See [sources and adaptation boundaries](./docs/NATIVE_UI.md).
+- **Remote Claude Code / Codex**: connect over SSH or Kerberos/GSSAPI and execute in the actual remote working directory, without taking over local DSH conversations.
+- **Native-style conversations**: locally adapt message, tool-row, composer and attachment views from distributed DSH 0.2.2-rc.5 source. Action names sit next to paths, and each assistant segment has one copy icon. Copy controls appear on hover or keyboard focus on hover-capable devices and stay visible on devices without hover support.
+- **Conversation controls**: streaming, permission and form requests, model/mode selection, send/stop, history loading, reconnect, and remote-session rename, pin and fork.
+- **Attachments and files**: text, images and ordinary files; ordinary files upload on Send and provide verified remote-path references. Remote file browsing, editing, upload/download and optional Git worktrees are also supported.
+- **Factual status**: turn status and elapsed time, context occupancy and unread-completion indicators, without inventing statistics absent from the protocol.
 
-**rc.14 highlights**: base controls, 47 SVG icon shapes, and matching chat/file/settings views are copied and locally adapted from the actual DSH 0.2.2-rc.5 release. Remote-specific controls follow the same style. These are not runtime imports of native UI packages or claims that local controls are Host instances. Ordinary files upload on Send and provide verified remote-path references (64 MiB each, 256 MiB combined), retaining existing text/image behavior. Remove the repeated command below the process group while preserving turn status, timing and concurrency counts. 724 automated tests pass; real GUI and live SSH end-to-end acceptance remain pending. See [sources and adaptation boundaries](./docs/NATIVE_UI.md).
+Version **3.0.0-rc.17** passes **766 automated tests** and the **76-module client build**. Real GUI visual and interaction acceptance remains pending.
 
-**rc.13 highlights**: two-line running feedback combines muted current activity with a blue turn-status and factual elapsed-time footer, plus subtle animated dots. User-input waits remain static and settled turns clear the running indicator. Missing turn-start records never fall back to Session age or invented zero-second timing. Sidebar indicators appear only for running, waiting, unread completion and confirmed errors; idle/read states leave no empty circle. 617 tests pass; real GUI visual and interaction acceptance remains pending.
-
-**rc.12 highlights**: green sidebar markers now mean completed but not yet viewed; opening the foreground conversation acknowledges that turn, while later background completions can notify again. Reconnects preserve read receipts. Remove reasoning/command category counts from process headers without hiding steps, live activity or failures. 598 tests pass; real GUI interaction acceptance remains pending.
-
-**rc.11 highlights**: native-style grouped process density with bounded expanded history; image thumbnails before submission and durable previews after sending; truthful remote sidebar activity via one authorized overview stream. Status glyphs are plugin-owned and theme-aware, with no Harness Client UI imports. 572 tests pass; real-browser acceptance remains pending.
-
-**rc.10 redesign**: preserve prose with explicit copy scope; use factual process summaries, stable plan snapshots, consistent child conversations and sanitized decision receipts. Reading pauses tail-following and preserves anchors; permanent chevrons, static status and long-output previews replace competing shimmer and nested process scrolling. 459 tests pass; live browser focus, scrolling, narrow screens and themes still require acceptance.
-
-**rc.9 highlights**: recognize bare HTTP/HTTPS URLs as clickable links without rewriting query strings; long links wrap and code remains literal. External links retain safe new-tab isolation; nothing is automatically fetched, opened or authorized.
-
-**rc.8 fix**: preserve the native browser timer receiver, fixing the rc.7 “Could not load remote session configuration / Illegal invocation” failure across remote conversations. Refresh the page after updating; no SSH configuration changes or session deletion are needed.
-
-**rc.7 highlights**: scroll up to load older history automatically; reuse recent session connections and recover interrupted subscriptions with heartbeats; retain drafts and acknowledgement state across views; use native-density, bounded process rows without repeated command titles or the extra token explanation.
+[Changelog](./CHANGELOG.md) · [Native UI sources and adaptation boundaries](./docs/NATIVE_UI.md)
 
 ## Principles
 
@@ -73,7 +65,8 @@ Local directories use native DSH and its native directory picker. Remote workspa
 
 ### Native stream and composer
 
-- One vertical scrollport; streaming follows the tail, scrolling up opts out, and history prepend keeps position via a stable anchor.
+- Streaming follows the transcript tail, scrolling up pauses following, and history prepend keeps position via a stable anchor. Expanded process history uses a bounded scroll area to keep long outputs from filling the page.
+- Compact tool rows place the native action icon and name next to the path/summary without repeating the path. Assistant text keeps only the icon that copies the current segment.
 - Thinking renders as a "think icon + single-line summary + chevron" with a soft shimmer while streaming; expanding shows the full content without resetting on stream updates.
 - Below the composer, a native ContextMeter-style context ring (click-open: percent, `~used / capacity` and a bar) plus a session-statistics pill (turn count, elapsed time); no hover icon and no session path/ID.
 - Tool/subagent/plan rows show only a summary when collapsed and mount Diff/Read/Terminal or a structured result when expanded; raw payloads sit in a secondary "Raw details" disclosure.
@@ -127,7 +120,7 @@ node build-client.mjs
 node --test tests/*.test.mjs
 ```
 
-`lib/client.js` is generated with one module factory. Install a candidate using DSH **Plugins → Add plugin → Local directory**; Git commits and version tags do not imply an npm release; this release operation does not publish to npm.
+`lib/client.js` is generated with one module factory. Install a candidate using DSH **Plugins → Add plugin → Local directory**; Git commits and version tags do not imply an npm release; verify the actual package source and version before installation.
 
 HTTP routes live under `/remote-ssh/v3/` and use one JSON envelope, current DSH authentication and resource authorization. The namespace is owner-only; old URLs, anonymous authorization and LiveShare fallbacks are not registered.
 
@@ -135,14 +128,10 @@ HTTP routes live under `/remote-ssh/v3/` and use one JSON envelope, current DSH 
 
 - Journal pages currently use sequential disk scans, without automatic permanent-history deletion.
 - Remote process survival after network/host failure depends on SSH and the CLI.
-- No passwords, audio, arbitrary URI attachments, old-data migration or automatic per-session worktree allocation.
+- No password authentication, native ACP audio content blocks, arbitrary URI attachments, old-data migration or automatic per-session worktree allocation. Audio/video files can upload as ordinary files, but remote parsing capabilities are not guaranteed.
 - ACP reports only `used/size/cost`: no system/tools/messages context breakdown, per-turn input/output/cache tokens, tokens-per-second or LLM/tool timing. The UI shows current-context tokens, a single occupancy segment, turn count and running state; session age appears in statistics details, not as execution time. Cost data is not displayed, and missing native metrics are not fabricated.
 - There is no public general-purpose Markdown factory, so body text uses the plugin's own safe Markdown subset (no HTML execution, no inline executable documents); full CommonMark is not claimed.
 - DSH has no verified composable early rejection hook for native prompts. Normal plugin UI keeps the remote backend, but Host-level prevention of an owner directly invoking native `session/prompt` is not claimed. No private patch or late fake guard is installed.
 - Real GUI dark/light theme, focus, keyboard and pixel-level appearance have not been manually verified.
 
 [MIT license](./LICENSE)
-
----
-
-Original repository: [dsh-remote-ssh](https://github.com/ZhangFengshun/dsh-remote-ssh)

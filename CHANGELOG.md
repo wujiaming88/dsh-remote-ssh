@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-rc.17 — contextual copy visibility and refreshed documentation
+
+- Reveal assistant copy actions only on message hover or keyboard focus on hover-capable devices, including the final response. Keep controls visible on touch-only devices and preserve footer space to avoid layout shifts; copying scope and stream/interruption states are unchanged.
+
+- Refresh both READMEs with current capabilities, link historical releases through the changelog, clarify bounded process scrolling and ordinary audio/video file uploads, and remove the original-repository footer. Preserve license and third-party notices.
+
 ## 3.0.0-rc.16 — single response copy action
 
 - Remove the extra “Copy turn responses” button from assistant messages. Keep the single icon that copies the current response segment, without changing user-message copying or streaming/interruption state.

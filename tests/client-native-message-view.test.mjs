@@ -28,6 +28,17 @@ test('assistant view keeps keyed streaming content and interrupted marker separa
   assert.match(css,/--dsh-assistant-block-gap: 16px/);
   assert.match(css,/rssh-native-assistant-footer \{ margin-top: 16px; margin-left: -6px/);
 });
+test('all assistant copy actions use hover or keyboard focus without hiding touch controls',()=>{
+  const assistant=view.split('export function NativeAssistantMessage')[1];
+  assert.match(assistant,/'data-actions-reveal':'hover'/);
+  assert.doesNotMatch(assistant,/\btail\b|'always'/);
+  assert.match(css,/@media \(hover: hover\)\s*\{\s*:is\(\.rssh-native-user,\.rssh-native-assistant\)\[data-actions-reveal='hover'\] \.rssh-native-message-actions \{ opacity: 0;/);
+  assert.match(css,/\[data-actions-reveal='hover'\]:hover \.rssh-native-message-actions,/);
+  assert.match(css,/\[data-actions-reveal='hover'\]:focus-within \.rssh-native-message-actions \{ opacity: 1;/);
+  // Preserve layout and keyboard reachability: no display/visibility hiding or tabindex removal.
+  assert.doesNotMatch(css,/display:\s*none|visibility:\s*hidden/);
+  assert.doesNotMatch(assistant,/tabIndex|aria-hidden/);
+});
 test('message chrome uses native action geometry without invented clocks or capabilities',()=>{
   assert.match(view,/h\(ui.CopyButton,\{text,labels,iconOnly/);
   assert.doesNotMatch(view,/Date\.now|onBranch|useSessions|useChat|@deepseek-ai\//);

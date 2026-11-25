@@ -30,7 +30,7 @@
 | 文件图标 | 同一图标库及 [兼容入口](../src/client/ui.js) | 普通文件采用原生 ReferenceIcon，图像与代码文件采用原生 FileTypeIcon 几何；分类仍为插件的后缀策略，不宣称实现原生全部语言/文件类型图标。 |
 | 运行标记 | 同一图标库及 [运行反馈](../src/client/transcript.js) | 使用原生静态 FishLogo；不冒称使用原生 Chat 的 APNG 动画。实际 turn 用时、等待与断线语义不变。 |
 | Read / Diff / Terminal / Code / Markdown | [文本视图](../src/client/native-text-controls.js)、[样式](../src/client/native-text-controls.css) | 原符号 GB / rW / ZB / Zb / Bp 等。复制原生 DOM/CSS 视图；继续使用现有安全 Markdown parser、diffLines、终端控制序列清理与可靠复制生命周期。没有接入私有高亮、数学/脚注/文件服务或 ANSI 彩色引擎。 |
-| 用户/助手消息及操作栏 | [消息展示层](../src/client/native-message-view.js)、[样式](../src/client/native-message-view.css) | 复制 MessageItem/UserContent 用户栈、AssistantMarkdown 正文与停止标记、MessageIconActions。附件位于气泡前，操作栏在内容栈外；最新用户消息操作常显、历史项 hover/focus 显示，触屏不依赖 hover。 |
+| 用户/助手消息及操作栏 | [消息展示层](../src/client/native-message-view.js)、[样式](../src/client/native-message-view.css) | 复制 MessageItem/UserContent 用户栈、AssistantMarkdown 正文与停止标记、MessageIconActions。附件位于气泡前，操作栏在内容栈外；最新用户消息操作常显，历史用户消息及所有助手回复（包括本轮末尾）的复制操作在 hover/focus 时显示；无 hover 能力设备保留可见入口，显隐不改变布局高度。 |
 | 工具行与详情 | [工具行](../src/client/native-tool-row.js)、[样式](../src/client/native-tool-row.css)、[适配模型](../src/client/tool-header-model.js) | 复制 ToolRow/DisclosureRow/TextShimmer 的结构与完整状态样式；取消 60/40 分栏，动作名称按内容宽度，摘要紧随其后。原生语义图标、IN/OUT、文件链接、Read/Diff/Terminal 使用原生展示组件。 |
 | 输入区 | [输入展示层](../src/client/native-composer-view.js)、[样式](../src/client/native-composer-view.css)、[配置适配](../src/client/native-composer-model.js) | 复制完整 InputBar 的 root/card/overlay/scroll/grow/row/modes/standardControls/dock 结构，slots 转为受控 props；保留真实远端 mode/model/reasoning 配置。 |
 | 草稿与已发送附件 | [附件展示层](../src/client/native-attachment-view.js)、[样式](../src/client/native-attachment-view.css)、[尺寸/滚动模型](../src/client/native-attachment-model.js) | 复制 AttachmentRail/FileCard/MessageImage/ComposerAttachments 与 UserContent 附件行；64px 草稿 rail、单图 fit、多图 tile、原生文件卡。上传/接收记录与资源生命周期继续由远端适配层拥有。 |
@@ -72,7 +72,7 @@ InputBar 源身份（同安装版直接读取）：TSX SHA-256 `6832d81a8c45e515
 
 ## 验证与后续升级
 
-当前源码验证：**765 项自动化测试通过，76 个客户端模块构建通过**。纯模型、AST 与源契约测试覆盖组件接线、原生图标映射、公开模块边界、完整数据保留及交互控制逻辑；构建仍限制 runtime imports 为 Host React。独立源码/UX 复核发现并修复了复制 CSS 时的 SVG xmlns 命名误替换、窄面板多配置项挤压发送按钮、图片收窄后仍使用固定高度，以及 Host 宽度轴被本地声明覆盖/消费 fallback 不全的问题；附加回归覆盖这些边界。第一轮全量的旧 dock 结构断言已更新为实际 NativeComposerView 插槽接线，最终全量通过。
+当前源码验证：**766 项自动化测试通过，76 个客户端模块构建通过**。纯模型、AST 与源契约测试覆盖组件接线、原生图标映射、公开模块边界、完整数据保留及交互控制逻辑；构建仍限制 runtime imports 为 Host React。独立源码/UX 复核发现并修复了复制 CSS 时的 SVG xmlns 命名误替换、窄面板多配置项挤压发送按钮、图片收窄后仍使用固定高度，以及 Host 宽度轴被本地声明覆盖/消费 fallback 不全的问题；附加回归覆盖这些边界。第一轮全量的旧 dock 结构断言已更新为实际 NativeComposerView 插槽接线，最终全量通过。
 
 这些检查**不能替代浏览器视觉、Tab 顺序、原生 top-layer、实际滚动及焦点恢复验收**。当前没有连接的浏览器控制工具，因此不声称已经验证像素一致或真实页面交互。
 
