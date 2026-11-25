@@ -1,4 +1,4 @@
-import { api, stream, responseError } from './api.js';
+import { api, stream, responseError, uploadFileAttachment } from './api.js';
 import { initialState, applySnapshot, reduceEvent, replay } from './events.js';
 import {ComposerSession} from './composer-session.js';
 
@@ -13,6 +13,7 @@ export class SessionClient {
     this.viewKey = ++clientSequence;
     this.api = dependencies.api || api;
     this.stream = dependencies.stream || stream;
+    this.uploadAttachment = dependencies.uploadAttachment || uploadFileAttachment;
     this.state = initialState();
     this.listeners = new Set();
     this.acknowledgements = new Set();
@@ -182,11 +183,55 @@ export class SessionClient {
     if (result.session) this.publish(applySnapshot(this.state, result.session));
     return result;
   }
+  async prepareUploads(request,attempt) {
+    if(!this.state.binding)throw new Error('Agent is not connected');
+    // Steering cannot carry attachments. Do not create remote files for a request
+    // which the existing steering contract will refuse.
+    if(request.kind==='steer')throw Object.assign(new Error('Keep attachments in the draft until the current turn ends'),{code:'steer_attachments_unsupported'});
+    const epoch=this.epoch,controller=this.controller();
+    const active=()=>!this.disposed&&!this.retryBlocked&&!controller.signal.aborted&&epoch===this.epoch&&
+      this.composer.pending?.requestId===request.requestId&&this.composer.attempt===attempt;
+    const check=()=>{if(!active())throw Object.assign(new Error('File upload interrupted; the draft was not sent'),{code:'cancelled'});};
+    try {
+      const result=[];
+      for(const file of request.attachments) {
+        check();
+        if(file.type!=='file_upload'){result.push(file);continue;}
+        let receipt=this.composer.getSnapshot().uploads[file.uploadId]?.receipt;
+        if(!receipt) {
+          this.composer.setUpload(file.uploadId,{status:'uploading'});
+          try {
+            receipt=await this.uploadAttachment(this.backend.sessionId,file,controller.signal);
+            check();
+            this.composer.setUpload(file.uploadId,{status:'uploaded',remotePath:receipt.remotePath,receipt});
+          } catch(error) {
+            // An evicted view keeps its composer. Clear a stale spinner even when
+            // the client is disposed, but never overwrite a newer attempt or clear.
+            if(this.composer.pending?.requestId===request.requestId&&this.composer.attempt===attempt)
+              this.composer.setUpload(file.uploadId,{status:'failed',error:error.message});
+            throw error;
+          }
+        }
+        result.push(receipt);
+      }
+      check();return result;
+    } catch(error) {
+      if(active()&&ACCESS_DENIED.has(error.code))this.onAccessDenied(error);
+      throw error;
+    } finally {this.controllers.delete(controller);}
+  }
   async sendDraft() {
     const {request,attempt}=this.composer.begin(this.state.running?'steer':'prompt');
     let failure;
     try {
-      const result=await this.submit(request);
+      let submission=request;
+      if(request.attachments.some(file=>file.type==='file_upload')) {
+        const attachments=await this.prepareUploads(request,attempt);
+        if(this.disposed||this.retryBlocked||this.composer.pending?.requestId!==request.requestId||this.composer.attempt!==attempt)
+          throw Object.assign(new Error('Conversation detached'),{code:'cancelled'});
+        submission={...request,attachments};
+      }
+      const result=await this.submit(submission);
       if(this.composer.pending?.requestId===request.requestId)throw Object.assign(new Error('Message acknowledgment is unknown. Retry will reuse the same request.'),{code:'acknowledgment_unknown'});
       return result;
     }

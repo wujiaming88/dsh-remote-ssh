@@ -170,6 +170,20 @@ if (!process.versions.electron) {
     assert.equal(native.session.deriveMessages()[0].content[0].text, 'admitted text');
   });
 
+  test('explicit file-reference text records exactly the ACP content without embeddedContext capability', async t => {
+    const f = await fixture(t), native = f.native('file-reference'), remote = await f.acp('acp-file-reference', native.session.id), recorder = await f.recorder();
+    recorder.attach(remote.session, native.session);
+    const options = { attachments: [{ type: 'text', name: 'archive.zip', remotePath: '/remote/work/.dsh-attachments/session/id/archive.zip', size: 123,
+      text: 'Uploaded file: archive.zip (123 bytes) at /remote/work/.dsh-attachments/session/id/archive.zip' }] };
+    const admitted = await recorder.prepare(remote.session, 'Inspect this file', options);
+    const pending = remote.session.prompt('Inspect this file', options); await recorder.flush();
+    assert.deepEqual(remote.calls[0], admitted);
+    assert.deepEqual(native.session.deriveMessages()[0].content, remote.calls[0]);
+    assert.equal(remote.session.bufferedEvents().find(event => event.type === 'user_message').attachments[0].remotePath, options.attachments[0].remotePath);
+    remote.pending[0].resolve({ stopReason: 'end_turn' }); await pending; await recorder.flush();
+    assert.equal(f.nativeCalls(), 0);
+  });
+
   test('existing nonblank native conversations are preserved and never rebound remotely', async t => {
     const f = await fixture(t), native = f.native('native-history'), remote = await f.acp('acp-foreign', native.session.id), recorder = await f.recorder();
     native.session.append([

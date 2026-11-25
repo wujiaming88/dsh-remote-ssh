@@ -82,14 +82,36 @@ test('current activity comes from structured records, not invented analysis phas
   const activity=conversationActivity(s);assert.equal(activity.kind,'activity');assert.equal(actionLabel(activity.item,key=>key),'Run regression tests');
   assert.equal(view(s).seconds,12);
 });
-test('concurrent active operations retain their factual count in the new activity row',()=>{
+test('duplicate command summary is omitted while the real footer and turn clock remain',()=>{
+  const s=reduceEvent(state(),event(3,{type:'tool_call',toolCallId:'t',status:'in_progress',title:'cd workspace && git diff HEAD'}));
+  const activity=conversationActivity(s),v=view(s);
+  assert.equal(activity.kind,'activity');assert.equal(actionLabel(activity.item,key=>key),'cd workspace && git diff HEAD');
+  assert.equal(v.showActivity,false);assert.equal(v.activeCount,null);
+  assert.equal(v.footer,true);assert.equal(v.seconds,12);assert.equal(v.clock,true);
+});
+test('concurrent active operations retain their factual count in the footer without a repeated title',()=>{
   const items=['Run tests','Read result'].map((title,index)=>({type:'tool',tool:{sessionId:'root',turnId:'turn',toolCallId:String(index),title,status:'in_progress',seq:10+index}}));
-  const activity=conversationActivity(state({items}));assert.equal(activity.count,2);
-  const source=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
-  const expression=source.slice(source.indexOf('export function RunningTail')).match(/const label=([^;\n]+);/)?.[1];assert.ok(expression);
-  const label=new Function('activity','actionLabel','t','keys',`return ${expression};`);
-  assert.equal(label(activity,actionLabel,key=>key==='flow.runningCount'?'项进行中':key,{}),'Read result · 2 项进行中');
-  assert.equal(label({...activity,count:1},actionLabel,key=>key,{}),'Read result');
+  const s=state({items});assert.equal(conversationActivity(s).count,2);
+  assert.equal(view(s).showActivity,false);assert.equal(view(s).activeCount,2);
+  assert.equal(view(state({items:items.slice(0,1)})).activeCount,null);
+  const tail=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8').split('export function RunningTail')[1];
+  assert.match(tail,/presentation\.showActivity\?h\('div',\{className:'rssh-running-activity'/);
+  assert.match(tail,/presentation\.activeCount!==null\?` · \$\{presentation\.activeCount\} \$\{t\('flow.runningCount'\)\}/);
+});
+test('connection, intervention and unconfirmed execution feedback are not removed with the duplicate row',()=>{
+  for(const patch of [{connected:false},{connected:false,everConnected:true},{permissions:[{}]},{elicitations:[{}]},{turns:{}}]){
+    const v=view(state(patch));assert.equal(v.showActivity,true);assert.equal(v.activeCount,null);
+  }
+  assert.equal(view(state({turns:{}})).footer,false);
+});
+test('subagent titles are deduplicated without suppressing thinking or replying feedback',()=>{
+  const items=[{type:'subagent',subagent:{sessionId:'root',turnId:'turn',id:'child',title:'Inspect code',status:'running',seq:2}}];
+  assert.equal(conversationActivity(state({items})).kind,'activity');
+  assert.equal(view(state({items})).showActivity,false);
+  for(const type of ['thought','assistant']){
+    const v=view(state({items:[{type,sessionId:'root',turnId:'turn',text:'Live',seq:2}]}));
+    assert.equal(v.showActivity,true);assert.equal(v.footer,true);
+  }
 });
 test('elapsed formatting supports seconds, minutes and hours without rounding early',()=>{
   const zh=key=>({'flow.hour':'小时','flow.minute':'分','flow.second':'秒'})[key];

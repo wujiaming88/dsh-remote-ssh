@@ -91,7 +91,7 @@ test('tail following and prepend restore are driven by the viewport and stable a
 });
 test('the stream inherits native fonts and column width, with one scrollport and public reasoning reuse',async()=>{
   const css=readFileSync(new URL('../src/client/styles.css',import.meta.url),'utf8');
-  const uiCss=readFileSync(new URL('../src/client/ui.css',import.meta.url),'utf8');
+  const uiCss=readFileSync(new URL('../src/client/native-text-controls.css',import.meta.url),'utf8');
   const toolCss=readFileSync(new URL('../src/client/tool-stream.css',import.meta.url),'utf8');
   const chat=readFileSync(new URL('../src/client/chat.js',import.meta.url),'utf8');
   const index=readFileSync(new URL('../src/client/index.js',import.meta.url),'utf8');

@@ -1,28 +1,51 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
+import {parse} from 'acorn';
 import * as pure from '../src/client/ui-pure.js';
 const plain=value=>value;
 const source=readFileSync(new URL('../src/client/ui.js',import.meta.url),'utf8');
-const css=readFileSync(new URL('../src/client/ui.css',import.meta.url),'utf8');
+const overlay=readFileSync(new URL('../src/client/native-overlays.js',import.meta.url),'utf8');
+const nativeControls=readFileSync(new URL('../src/client/native-controls.js',import.meta.url),'utf8');
+const nativeText=readFileSync(new URL('../src/client/native-text-controls.js',import.meta.url),'utf8');
+const css=['ui.css','native-controls.css','native-overlays.css','native-text-controls.css'].map(file=>readFileSync(new URL('../src/client/'+file,import.meta.url),'utf8')).join('\n');
 
 test('one bundle factory owns UI and only imports Host React',()=>{
  const bundle=readFileSync(new URL('../lib/client.js',import.meta.url),'utf8');
  assert.equal((bundle.match(/window\.__ModuleLoader__\.load\(/g)||[]).length,1);
  const imports=[...bundle.matchAll(/\brequire\(['"]([^'"]+)['"]\)/g)].map(match=>match[1]);
  assert.ok(imports.includes('react'));assert.ok(imports.every(name=>name==='react'));
- assert.doesNotMatch(source,/dangerouslySetInnerHTML|\.innerHTML\b|document\.body|ReactDOM|https?:\/\/cdn/);
- assert.match(source,/dialog\.showModal\(\)/);assert.match(source,/panel\.showPopover\(\)/);
- assert.match(source,/props\.autoFocus !== false/);
+ for(const module of [source,overlay,nativeControls,nativeText]) {
+  assert.doesNotMatch(module,/dangerouslySetInnerHTML|\.innerHTML\b|document\.body|ReactDOM|https?:\/\/cdn/);
+  assert.doesNotMatch(module,/(?:require\(|from\s*)['"]@deepseek-ai\//);
+ }
+ assert.match(source,/createNativeOverlays\(React,\{Button,Icon\}\)/);
+ assert.match(source,/createNativeTextControls\(React,\{Button,Icon,CopyButton\}\)/);
+ assert.match(overlay,/dialog\.showModal\(\)/);assert.match(overlay,/panel\.showPopover\(\)/);
+ assert.match(overlay,/props\.autoFocus !== false/);
+ assert.match(overlay,/onCancel:[\s\S]*?event\.preventDefault\(\)/);
+ assert.match(overlay,/restoreFocus\(previous\)/);
+ assert.match(overlay,/node\.getAttribute\('aria-disabled'\) !== 'true'/);
  const variables=[...css.matchAll(/var\((--[\w-]+)/g)].map(match=>match[1]);
  const typography = new Set(['--ds-font-family-code', '--dsh-font-family-code', '--dsh-font-family-code-default', '--dsh-content-font-size', '--dsh-content-font-size-secondary', '--dsh-content-font-delta', '--dsh-code-font-size', '--dsh-code-font-delta']);
- assert.ok(variables.length>30);assert.ok(variables.every(name=>name.startsWith('--dsw-alias-')||typography.has(name)));
+ const local=new Set([...css.matchAll(/(--rssh-[\w-]+)\s*:/g)].map(match=>match[1]));
+ const nativeTokens=new Set(['--dsw-focus-ring-width','--dsw-focus-ring-color','--ds-transition-duration','--ds-ease-in-out',
+  '--dsw-elevation-prominent','--dsh-frame-overlay-top','--dsw-menu-surface-fill','--dsw-menu-backdrop-filter','--dsw-mask-blur']);
+ // These copied local override seats are optional and have CSS fallbacks; the
+ // row gutter / terminal whitespace are also supplied by the component itself.
+ for(const name of ['--rssh-native-terminal-command-whitespace','--rssh-native-terminal-output-max-height','--rssh-native-terminal-line-whitespace','--rssh-native-read-gutter','--rssh-native-code-block-line-number-width'])local.add(name);
+ assert.ok(variables.length>30);
+ const unexpected=variables.filter(name=>!name.startsWith('--dsw-alias-')&&!name.startsWith('--dsw-font-')&&!name.startsWith('--dsw-radius-')&&!typography.has(name)&&!nativeTokens.has(name)&&!local.has(name));
+ assert.deepEqual([...new Set(unexpected)],[]);
 });
 test('owned UI exports every control used by the live modules',()=>{
  const directory=new URL('../src/client/',import.meta.url);
  const used=new Set(readdirSync(directory).filter(name=>name.endsWith('.js')&&name!=='ui.js').flatMap(name=>[...readFileSync(new URL(name,directory),'utf8').matchAll(/ui\.([A-Z]\w*)/g)].map(match=>match[1])));
- const exported=source.slice(source.indexOf('Object.assign(exports,'));
- for(const name of used)assert.match(exported,new RegExp(`\\b${name}:`),name);
+ const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
+ const factory=ast.body.find(node=>node.type==='ExportNamedDeclaration'&&node.declaration?.id?.name==='createUi').declaration;
+ const assignment=factory.body.body.find(node=>node.type==='ExpressionStatement'&&node.expression.type==='CallExpression'&&node.expression.callee.object?.name==='Object'&&node.expression.callee.property?.name==='assign'&&node.expression.arguments[0]?.name==='exports').expression;
+ const exported=new Set(assignment.arguments[1].properties.map(property=>property.key.name??property.key.value));
+ for(const name of used)assert.ok(exported.has(name),name);
 });
 
 test('URL allowlist rejects executable and ambiguous schemes', () => {

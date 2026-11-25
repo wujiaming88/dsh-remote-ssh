@@ -27,6 +27,26 @@ export async function api(method, args = {}, signal) {
   }
 }
 
+// Binary uploads never pass through JSON, base64, or the Agent prompt transport.
+export async function uploadFileAttachment(sessionId, attachment, signal, request = globalThis.fetch) {
+  const query = new URLSearchParams({sessionId, uploadId: attachment.uploadId, name: attachment.name});
+  const response = await request(`${HTTP_BASE}/session-attachment-upload?${query}`, {
+    method: 'POST', signal, body: attachment.file,
+    headers: {'content-type': 'application/octet-stream', 'x-requested-with': 'XMLHttpRequest'},
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || result?.ok !== true) throw responseError({...result,
+    code: result?.code || result?.error?.code || `http_${response.status}`});
+  const value = result.attachment;
+  if (value?.type !== 'remote_file' || value.uploadId !== attachment.uploadId ||
+      typeof value.name !== 'string' || !value.name || !/^sha256:[0-9a-f]{64}$/.test(value.version) ||
+      value.size !== attachment.size || typeof value.remotePath !== 'string' || !value.remotePath.startsWith('/')) {
+    throw Object.assign(new Error('The remote upload was not confirmed. Retry to verify it.'), {code: 'upload_unconfirmed'});
+  }
+  return {type: 'remote_file', uploadId: value.uploadId, name: value.name, version: value.version,
+    size: value.size, remotePath: value.remotePath};
+}
+
 export async function stream(method, args, signal, onEvent) {
   const response = await fetch(`${HTTP_BASE}/api/${method}`, {
     method: 'POST', signal,

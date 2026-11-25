@@ -1,5 +1,5 @@
 import React from 'react';
-import {h,ui,useT} from './shared.js';
+import {h,ui,useT,NativeIcon} from './shared.js';
 
 export const messages = {
   zh: {
@@ -26,10 +26,7 @@ export const messages = {
   },
 };
 
-function WarningIcon() {
-  return h('svg',{className:'rssh-status-icon',width:32,height:32,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-    h('path',{d:'M12 3 2.6 20h18.8L12 3Z'}),h('path',{d:'M12 9.5v4.5'}),h('circle',{cx:12,cy:16.8,r:.5,fill:'currentColor',stroke:'none'}));
-}
+function WarningIcon(){return h(NativeIcon,{name:'warning',size:32,className:'rssh-status-icon'});}
 function statusTitle(code,t) {
   switch (code) {
     case 'remote_prepare_required': return t('status.prepareRequired');
@@ -45,8 +42,7 @@ export function ConversationStatus({kind,title,description,code,nodeMissing,need
   const error=kind==='error';
   return h('section',{className:'rssh-status','data-kind':kind,role:error?'alert':'status'},
     error?h(WarningIcon):h('span',{className:'rssh-status-spinner',role:'img','aria-label':title||t('status.starting')},
-      h('svg',{width:28,height:28,viewBox:'0 0 16 16','aria-hidden':true},h('circle',{cx:8,cy:8,r:6,fill:'none',stroke:'currentColor',strokeOpacity:0.3,strokeWidth:1.6}),
-        h('path',{d:'M8 2a6 6 0 0 1 6 6',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round'}))),
+      h(ui.StateDot,{state:'ongoing',size:28})),
     h('h2',{className:'rssh-status-title'},title||t(error?'status.failed':'status.starting')),
     error&&code?h('code',{className:'rssh-status-code'},code):null,
     error?h('p',{className:'rssh-status-description'},description||t('status.failed')):null,

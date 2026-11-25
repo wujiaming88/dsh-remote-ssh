@@ -54,7 +54,12 @@ test('attachment plus invokes only file selection and files reuse existing valid
   const calls=[],props=new Function('h','attachmentInput','sending','readingFiles','receiveFiles','return '+chat.slice(fileInput.start,fileInput.end))(h,{current:null},false,false,files=>calls.push(files)).props;
   assert.equal(props.hidden,true);assert.equal(props.multiple,true);
   const files=[{name:'hello.txt'}],event={target:{files,value:'selected'}};props.onChange(event);assert.deepEqual(calls,[files]);assert.equal(event.target.value,'');
-  assert.match(chat,/combined.length > 16/);assert.match(chat,/capabilities.promptCapabilities\?\.image/);
+  assert.match(chat,/composer\.receiveFiles\(files,state\.capabilities/);
+  assert.match(read('composer-session.js'),/await prepareFileAttachments\(files,this\.state\.attachments,capabilities\)/);
+  const intake=read('file-intake.js');
+  assert.match(intake,/selected\.length \+ existing\.length > MAX_ATTACHMENTS/);
+  assert.match(intake,/capabilities\?\.promptCapabilities\?\.image/);
+  assert.match(chat,/webkitGetAsEntry\?\.\(\)\?\.isDirectory/);
 });
 test('dock is centered and reserves space before real metrics arrive',()=>{
   const dock=rule('rssh-compose-dock');assert.match(dock,/justify-content: center/);assert.match(dock,/gap: 0 12px/);

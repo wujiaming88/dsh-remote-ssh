@@ -1,11 +1,8 @@
 import React from 'react';
-import {h,ui} from './shared.js';
+import {h,ui,NativeIcon} from './shared.js';
 import {imageAttachmentModel,createAttachmentPreview,safeImagePreviewURL} from './attachments-model.js';
 
-function ImageGlyph() {
-  return h('svg',{width:24,height:24,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.5,'aria-hidden':true},
-    h('rect',{x:3,y:3,width:18,height:18,rx:3}),h('circle',{cx:8,cy:8,r:1.5}),h('path',{d:'m4 18 5-6 4 4 3-3 4 5'}));
-}
+function ImageGlyph(){return h(NativeIcon,{name:'image',size:24});}
 function useImagePreview(file) {
   const model=React.useMemo(()=>imageAttachmentModel(file),[file.type,file.mimeType,file.data]);
   const [resource,setResource]=React.useState(null);
@@ -25,11 +22,7 @@ export function ImagePreviewModal({src,name,t,onClose,onError}) {
     h('div',{className:'rssh-image-preview-stage'},failed?h('p',{role:'status'},t('acp.imagePreviewUnavailable')):
       h('img',{src:safeSource,alt:name,decoding:'async',draggable:false,onError:()=>{setFailedSource(safeSource);onError?.();}})));
 }
-function RemoveAttachment({file,sending,onRemove,t}) {
-  const label=`${t('acp.removeAttachment')}: ${file.name||t('acp.attachment')}`;
-  return h('button',{type:'button',className:'rssh-attachment-remove',disabled:sending,'aria-label':label,title:label,onClick:()=>onRemove(file.id)},
-    h('svg',{width:14,height:14,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.5,strokeLinecap:'round','aria-hidden':true},h('path',{d:'m4 4 8 8M12 4l-8 8'})));
-}
+function RemoveAttachment({file,sending,onRemove,t}) { const label=`${t('acp.removeAttachment')}: ${file.name||t('acp.attachment')}`; return h('button',{type:'button',className:'rssh-attachment-remove',disabled:sending,'aria-label':label,title:label,onClick:()=>onRemove(file.id)},h(NativeIcon,{name:'close',size:14})); }
 function ImageAttachment({file,sending,onRemove,t}) {
   const preview=useImagePreview(file),[opened,setOpened]=React.useState(false);
   const [loadedURL,setLoadedURL]=React.useState(null),[failedURL,setFailedURL]=React.useState(null);
@@ -49,15 +42,24 @@ function ImageAttachment({file,sending,onRemove,t}) {
     failed?h('span',{className:'rssh-attachment-note'},t('acp.imageAttachmentRetained')):null,
     opened?h(ImagePreviewModal,{src:url,name,t,onClose:()=>setOpened(false),onError:()=>setFailedURL(url)}):null);
 }
-function FileAttachment({file,sending,onRemove,t}) {
+function FileAttachment({file,upload,sending,onRemove,t}) {
   const name=file.name||file.path||t('acp.attachment');
+  const status=file.type==='file_upload'?(upload?.status||'pending'):null;
+  const feedback=status?t(status==='uploading'?'acp.fileUploadUploading':status==='uploaded'?'acp.fileUploadUploaded':status==='failed'?'acp.fileUploadFailed':'acp.fileUploadPending'):null;
+  const detail=status==='uploaded'&&upload?.remotePath?`${feedback}: ${upload.remotePath}`:feedback;
   return h('li',{className:'rssh-attachment-file',title:file.path||name,'aria-label':`${t(file.path?'acp.remoteFileAttachment':'acp.fileAttachment')}: ${name}`},
     h(ui.FileTypeIcon,{path:name,size:16}),
-    h('span',{className:'rssh-attachment-name',title:name},name),
+    h('div',{className:'rssh-attachment-file-body'},
+      h('span',{className:'rssh-attachment-name',title:name},name),
+      status?h('span',{className:'rssh-attachment-upload-status','data-status':status,role:'status',title:detail},
+        h(ui.StateDot,{state:status==='uploading'?'ongoing':status==='uploaded'?'done':status==='failed'?'warning':'idle',size:10}),
+        h('span',null,detail)):null),
     h(RemoveAttachment,{file,sending,onRemove,t}));
 }
-export function AttachmentList({attachments,sending,onRemove,t}) {
+export function AttachmentList({attachments,uploads={},sending,onRemove,t}) {
   if(!attachments.length)return null;
-  return h('ul',{className:'rssh-attachments','aria-label':t('acp.attachments')},attachments.map(file=>
-    h(file.type==='image'?ImageAttachment:FileAttachment,{key:file.id,file,sending,onRemove,t})));
+  return h(React.Fragment,null,
+    h('ul',{className:'rssh-attachments','aria-label':t('acp.attachments')},attachments.map(file=>
+      h(file.type==='image'?ImageAttachment:FileAttachment,{key:file.id,file,upload:uploads[file.uploadId],sending,onRemove,t}))),
+    attachments.some(file=>file.type==='file_upload')?h('p',{className:'rssh-attachment-upload-hint'},t('acp.fileUploadHint')):null);
 }

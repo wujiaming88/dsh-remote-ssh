@@ -1,0 +1,299 @@
+/* Copied/adapted from installed DSH 0.2.2-rc.5 index-CSAdOBx6.css.
+ * SHA256 d487cca8d8a97f1e0cc5eca02343528c873e544eb7ec3a5b323a0f035553551d.
+ * Original groups: StateDot 1i3xo, Button 1ulci, Tag brmue,
+ * Checkbox 1wz3s, Input 14sgc. Only selectors/keyframes are renamed;
+ * outline uses the original .5px default instead of private --dsh overrides.
+ * Theme values remain DSW tokens; geometry/interaction match copied source.
+ * This local stylesheet does not depend on the original hashed selectors.
+ */
+.rssh-native-dot {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+.rssh-native-dot:after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  corner-shape: round;
+  background: currentColor;
+}
+.rssh-native-dot[data-state=done] {
+  color: var(--dsw-alias-state-success-primary);
+}
+.rssh-native-dot[data-state=warning] {
+  color: var(--dsw-alias-state-warn-primary);
+}
+.rssh-native-dot[data-state=error] {
+  color: var(--dsw-alias-state-error-primary);
+}
+.rssh-native-dot[data-state=idle] {
+  color: var(--dsw-alias-state-idle-primary);
+}
+.rssh-native-spinner {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-spinner-motion {
+  transform-origin: center;
+  animation: rssh-native-state-dot-spin 1.5s linear infinite;
+}
+.rssh-native-spinner-track,
+.rssh-native-spinner-arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.rssh-native-spinner-track {
+  opacity: .25;
+}
+.rssh-native-spinner-arc {
+  stroke-dasharray: 12 150;
+  animation: rssh-native-state-dot-dash 1.5s ease-in-out infinite;
+}
+@keyframes rssh-native-state-dot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes rssh-native-state-dot-dash {
+  0% {
+    stroke-dasharray: 12 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 24 150;
+    stroke-dashoffset: -6;
+  }
+  to {
+    stroke-dasharray: 12 150;
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-spinner-motion,
+  .rssh-native-spinner-arc {
+    animation: none;
+  }
+  .rssh-native-spinner-arc {
+    stroke-dasharray: 18 150;
+    stroke-dashoffset: -3;
+  }
+}
+.rssh-native-step {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 50%;
+  corner-shape: round;
+  border: 1.5px solid var(--dsw-alias-label-tertiary);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+.rssh-native-step[data-state=done] {
+  border-color: var(--dsw-alias-state-success-primary);
+  background: var(--dsw-alias-state-success-primary);
+}
+.rssh-native-step[data-state=error] {
+  border-color: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-error-primary);
+}
+.rssh-native-step[data-state=warning] {
+  border-color: var(--dsw-alias-state-warn-primary);
+}
+.rssh-native-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  border-radius: var(--dsw-radius-md);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  padding: 0 14px;
+}
+.rssh-native-button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+.rssh-native-button-md {
+  height: 36px;
+}
+.rssh-native-button-sm {
+  height: 28px;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0 10px;
+  border-radius: var(--dsw-radius-sm);
+}
+.rssh-native-button-primary {
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+@media (hover: hover) {
+  .rssh-native-button-primary:hover:not(:disabled) {
+    background: var(--dsw-alias-button-primary-hover);
+  }
+  .rssh-native-button-ghost:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+.rssh-native-button-ghost:active:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+.rssh-native-button-outline {
+  border: .5px solid transparent;
+  background: transparent;
+  box-shadow: inset 0 0 0 .5px var(--dsw-alias-border-l3);
+}
+@media (hover: hover) {
+  .rssh-native-button-outline:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+.rssh-native-button-toolbar {
+  background: var(--dsw-alias-button-tool-bar-fill);
+}
+@media (hover: hover) {
+  .rssh-native-button-toolbar:hover:not(:disabled) {
+    background: var(--dsw-alias-button-tool-bar-hover);
+  }
+}
+.rssh-native-button-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+.rssh-native-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  corner-shape: round;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.rssh-native-tag[data-tone=outline] {
+  border: .5px solid var(--dsw-alias-border-l4);
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-tag[data-tone=solid] {
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-layer-3);
+}
+.rssh-native-tag[data-tone=neutral] {
+  background: var(--dsw-alias-bg-module-platform);
+  color: var(--dsw-alias-label-secondary);
+}
+.rssh-native-tag[data-tone=quiet] {
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-tag[data-tone=success] {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);
+  color: var(--dsw-alias-state-success-primary);
+}
+.rssh-native-tag[data-tone=info] {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+}
+.rssh-native-tag[data-tone=warning] {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent);
+  color: var(--dsw-alias-state-warn-primary);
+}
+.rssh-native-tag[data-tone=danger] {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
+  color: var(--dsw-alias-state-error-primary);
+}
+.rssh-native-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+.rssh-native-checkbox input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--dsw-alias-brand-primary);
+  cursor: inherit;
+}
+.rssh-native-checkbox input:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.rssh-native-checkbox:has(input:disabled) {
+  cursor: default;
+  opacity: .5;
+}
+.rssh-native-input-wrap {
+  box-sizing: border-box;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: .5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+}
+.rssh-native-input-wrap:focus-within {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+.rssh-native-input-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-input::placeholder {
+  color: var(--dsw-alias-label-dimmed);
+}
+/* Local select adaptation: the real select covers the entire native Input shell,
+   including the area below the decorative arrow. No synthetic picker opening. */
+.rssh-native-select-wrap {
+  position: relative;
+  padding: 0;
+}
+.rssh-native-select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0 30px 0 8px;
+  border-radius: inherit;
+  appearance: none;
+}
+.rssh-native-select-chevron {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}

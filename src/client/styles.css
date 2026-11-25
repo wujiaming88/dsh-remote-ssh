@@ -123,7 +123,12 @@
   gap: 6px;
   flex-wrap: wrap;
 }
+/* COPY: installed ui-conversation skeleton/InputBar.module.css card/draft/
+   tools/submit values (DSH 0.2.2-rc.5). ADAPTATION: this plugin retains its
+   textarea and remote submission controller, not the native editor/services;
+   shared-column width is expressed locally and controls wrap on narrow panes. */
 .ra-acp-composer {
+  position: relative;
   flex: none;
   width: calc(100% - 32px);
   max-width: calc(var(--dsh-chat-content-width, 748px) + 32px);
@@ -138,23 +143,23 @@
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-specific-input-major);
   box-shadow: var(--dsw-elevation-soft);
-  font-size: var(--dsh-content-font-size, 14px);
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  font-size: var(--dsh-content-font-size, 14px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
 }
 .ra-acp-composer > .ra-acp-attachments { padding: 4px 14px 0; }
 .rssh-composer-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   flex: none;
   width: 28px;
   height: 28px;
   min-height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-specific-selector);
   color: var(--dsw-alias-label-primary);
 }
@@ -166,11 +171,12 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 999px;
+  corner-shape: round;
+  transition: background-color 100ms ease;
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
 }
 @media (hover: hover) {
   .ra-acp-send:hover:not(:disabled) {
@@ -198,19 +204,8 @@
   margin: 0 auto;
   padding-top: 4px;
 }
-.rssh-composer-spinner {
-  animation: rssh-composer-spin .8s linear infinite;
-}
-@keyframes rssh-composer-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rssh-composer-spinner {
-    animation: none;
-  }
-}
+/* Native StateDot owns both SVG-circle motion and reduced-motion behavior. */
+@media (prefers-reduced-motion: reduce) { .ra-acp-send { transition: none; } }
 .ra-acp-compose-bar {
   display: flex;
   flex-wrap: wrap;
@@ -259,6 +254,11 @@
   padding: 4px 8px 0 14px;
   font: inherit;
   outline: none;
+  caret-color: var(--dsw-alias-state-business-primary);
+  font-family: var(--dsw-font-family);
+}
+@media (pointer: coarse) {
+  .ra-acp-composer { font-size: max(16px, var(--dsh-content-font-size, 14px)); }
 }
 .ra-acp-textarea::placeholder { color: var(--dsw-alias-label-caption); opacity: 1; }
 .ra-acp-composer[data-empty] .ra-acp-textarea { min-height: calc(52px + var(--dsh-content-font-delta, 0px)); }
@@ -366,11 +366,6 @@
   height: 36px;
   color: var(--dsw-alias-label-secondary);
 }
-.rssh-status-spinner svg {
-  animation: rssh-status-spin 1s linear infinite;
-}
-@keyframes rssh-status-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .rssh-status-spinner svg { animation: none; } }
 .rssh-status-title {
   margin: 0;
   font-size: 15px;
@@ -572,6 +567,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* COPY: installed skeleton/ContextMeter.module.css trigger/ring/panel/content.
+   ADAPTATION: remote usage projections and warning/error tones remain owned;
+   Menu's manual-popover controller replaces native Portal/CSS anchor positioning. */
 .rssh-meter-trigger {
   display: inline-flex;
   align-items: center;
@@ -610,7 +608,7 @@
 }
 .rssh-meter-fill {
   fill: none;
-  stroke: var(--dsw-alias-label-secondary);
+  stroke: var(--dsw-alias-label-tertiary);
   stroke-width: 2;
   stroke-linecap: round;
 }
@@ -629,12 +627,20 @@
   width: min(264px, calc(100vw - 24px));
   min-width: 0;
   padding: 12px;
-  border-radius: 12px;
-  max-height: calc(100dvh - 24px);
-  overflow: auto;
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-specific-menu);
+  backdrop-filter: var(--dsw-menu-backdrop-filter);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
+  max-height: calc(100dvh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
+  overflow-x: hidden;
+  overflow-y: auto;
   text-align: left;
   white-space: normal;
 }
+/* This native information-panel surface owns its material; do not double it
+   with the Menu component's separate translucent item-list material layer. */
+.rssh-meter-panel > .rssh-native-menu-material { display: none; }
 .rssh-meter-card {
   display: flex;
   flex-direction: column;
@@ -750,22 +756,27 @@
   flex-direction: column;
   align-items: flex-end;
 }
+/* COPY: MessageItem.module.css userStack (DSH 0.2.2-rc.5). */
 .rssh-user-stack {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   max-width: min(calc(var(--dsh-chat-content-width, 748px) * .702), 82%);
 }
+/* COPY: published native Bubble _1sgyj (native.css 109–118).
+   Keep owned safe text + anywhere wrapping for unbroken remote payloads. */
 .rssh-user-bubble {
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: var(--dsw-alias-interactive-bg-hover);
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-specific-bubble);
   color: var(--dsw-alias-label-primary);
   font-size: var(--dsh-content-font-size, 14px);
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  line-height: calc(22px + var(--dsh-content-font-delta, 0px));
   white-space: pre-wrap;
+  word-break: break-word;
   overflow-wrap: anywhere;
 }
 .rssh-message-delivery {
@@ -962,16 +973,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* COPY: ReasoningRow.module.css thinkBody and native Markdown compact
+   _13jw0 (2155–2178); the local safe renderer does not expose variant=compact. */
 .rssh-thought-body {
-  margin: 8px 0;
-  padding-inline-start: calc(40px + var(--dsh-content-font-delta, 0px));
+  padding: 4px 0 4px calc(22px + var(--dsh-content-font-delta, 0px));
   min-width: 0;
 }
-.rssh-thought-body .rsui-markdown {
-  color: var(--dsw-alias-label-secondary);
+.rssh-thought-body .rssh-native-markdown {
+  max-width: 100%;
+  color: var(--dsw-alias-label-tertiary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
 }
+.rssh-thought-body .rssh-native-markdown :is(h1, h2, h3, h4, h5, h6) { margin: 8px 0 4px; font: inherit; font-weight: 600; color: inherit; }
+.rssh-thought-body .rssh-native-markdown :is(p, ul, ol, blockquote) { margin: 4px 0; }
+.rssh-thought-body .rssh-native-markdown li:not(:first-child) { margin-top: 2px; }
+.rssh-thought-body .rssh-native-markdown li > p { margin: 4px 0; }
+.rssh-thought-body .rssh-native-markdown li::marker { line-height: inherit; color: inherit; }
 .rssh-session-action-dialog {
   display: flex;
   flex-direction: column;
@@ -983,8 +1001,9 @@
   flex-direction: column;
   gap: 6px;
 }
-.rssh-session-action-dialog input {
-  width: 100%;
+.rssh-session-action-dialog .rssh-native-input-wrap {
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
 }
 .rssh-session-action-dialog p {

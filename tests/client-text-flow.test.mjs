@@ -5,10 +5,15 @@ import {readFileSync} from 'node:fs';
 import {parse} from 'acorn';
 import {parseMarkdown, tableCells, diffLines, stripTerminal} from '../src/client/ui-pure.js';
 const source=readFileSync(new URL('../src/client/ui.js',import.meta.url),'utf8');
-const css=readFileSync(new URL('../src/client/ui.css',import.meta.url),'utf8');
-const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
-const createUi=ast.body.find(node=>node.type==='ExportNamedDeclaration'&&node.declaration?.id?.name==='createUi').declaration;
-const section=name=>{const node=createUi.body.body.find(node=>node.type==='FunctionDeclaration'&&node.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end);};
+import {textControlWindow, readControlRows, terminalControlState} from '../src/client/native-text-controls.js';
+const nativeSource=readFileSync(new URL('../src/client/native-text-controls.js',import.meta.url),'utf8');
+const css=readFileSync(new URL('../src/client/native-text-controls.css',import.meta.url),'utf8');
+const factories=[[source,'createUi'],[nativeSource,'createNativeTextControls']].map(([code,name])=>{
+ const ast=parse(code,{ecmaVersion:'latest',sourceType:'module'});
+ const factory=ast.body.find(node=>node.type==='ExportNamedDeclaration'&&node.declaration?.id?.name===name).declaration;
+ return {code,factory};
+});
+const section=name=>{for(const {code,factory} of factories){const node=factory.body.body.find(node=>node.type==='FunctionDeclaration'&&node.id.name===name);if(node)return code.slice(node.start,node.end);}assert.fail(name);};
 
 test('copy is exported once and keeps payload-only clipboard, check, error and accessible icon-only contracts',()=>{
   assert.match(source,/CopyButton: CopyButton/);
@@ -25,13 +30,15 @@ test('copy is exported once and keeps payload-only clipboard, check, error and a
 
 test('text blocks have a lightweight banner, real all-row expansion, stable disclosure ID and icon-only actions',()=>{
   const block=section('TextBlock');
-  assert.match(block,/rsui-block-banner/);assert.doesNotMatch(source,/rsui-block-toolbar/);
-  assert.match(block,/shown = expanded \? rows : rows\.slice\(0, max\)/);
-  assert.match(block,/var uid = React\.useId\(\)/);
-  assert.match(block,/'aria-expanded': expanded, 'aria-controls': uid/);
-  assert.match(block,/'aria-pressed': wrap, 'aria-controls': uid/);
-  assert.match(block,/title: wrapCaption, 'aria-label': wrapCaption/);
-  assert.match(block,/h\(CopyButton,[\s\S]*?iconOnly: true/);
+  const header=section('Header'), expansion=section('Expansion');
+  assert.match(header,/'data-code-block-banner': true/);assert.doesNotMatch(nativeSource,/rsui-block-toolbar/);
+  assert.match(block,/textControlWindow\(rows, props\.maxLines, expanded\)/);
+  assert.match(block,/window\.head\.map\(rowView\)/);assert.match(block,/window\.tail\.map/);
+  assert.match(block,/const id = React\.useId\(\)/);
+  assert.match(expansion,/'aria-expanded': expanded, 'aria-controls': id/);
+  assert.match(header,/'aria-pressed': wrapped, 'aria-controls': id/);
+  assert.match(header,/title: wrapLabel,[\s\S]*?'aria-label': wrapLabel/);
+  assert.match(header,/h\(CopyButton,[\s\S]*?iconOnly: true/);
   assert.match(block,/tabIndex: 0/);
   assert.doesNotMatch(block,/\\u200b/);
   assert.match(section('ReadBlock'),/typeof props\.text === 'string' \? props\.text/);
@@ -39,29 +46,61 @@ test('text blocks have a lightweight banner, real all-row expansion, stable disc
   assert.match(section('renderBlocks'),/copyText: block\.text/);
 });
 
+test('native head/tail preview preserves all rows on expansion and complete copy data',()=>{
+  const rows=Array.from({length:9},(_,index)=>({number:index+1,text:'line '+(index+1)}));
+  const collapsed=textControlWindow(rows,4,false);
+  assert.equal(collapsed.hidden,5);assert.deepEqual(collapsed.head,rows.slice(0,2));assert.deepEqual(collapsed.tail,rows.slice(-2));
+  const expanded=textControlWindow(rows,4,true);
+  assert.equal(expanded.hidden,5);assert.equal(expanded.head,rows);assert.deepEqual(expanded.tail,[]);
+  const odd=textControlWindow(rows,3,false);assert.equal(odd.head.length,2);assert.equal(odd.tail.length,1);
+  const one=textControlWindow(rows,1,false);assert.equal(one.head.length,1);assert.equal(one.tail.length,0);
+  assert.equal(textControlWindow(rows,20,false).head,rows);
+  assert.deepEqual(readControlRows({text:'first\nlast\n'}).map(row=>row.text),['first','last','']);
+  assert.deepEqual(readControlRows({lines:[{number:42,text:'x'},'y']}),[{number:42,text:'x'},{number:2,text:'y'}]);
+  assert.match(section('TextBlock'),/rows\.map\(row => row\.text\)\.join\('\\n'\)/);
+  assert.match(section('TextBlock'),/copyText = props\.copyText == null/);
+  assert.match(section('TextBlock'),/row\.oldNumber \?\? ''/);
+  assert.match(section('TextBlock'),/row\.number \?\? ''/);
+});
+
 test('terminal status is supplied-only, absent exit is not success, and empty output is metadata rather than payload',()=>{
   const terminal=section('TerminalBlock');
-  assert.match(terminal,/if \(props\.running\)/);assert.match(terminal,/else if \(props\.signal\)/);
-  assert.match(terminal,/else if \(props\.exitCode != null\)/);
-  assert.match(terminal,/else status = label\(labels, 'noExitCode'/);
-  assert.match(terminal,/copyText: output/);
-  assert.match(terminal,/after: !rows\.length/);
+  assert.match(terminal,/terminalControlState\(props\)/);
+  assert.match(terminal,/h\(CopyButton, \{text: output/);
+  assert.match(terminal,/rows\.length \? h\('div', \{id, tabIndex: 0/);
+  assert.match(terminal,/rssh-native-terminal-empty/);
   assert.doesNotMatch(terminal,/Number\(props\.exitCode\)|'done'|'failed'|rows = \[\{ text: label/);
+  const unknown=terminalControlState({output:'\u001b[31mout\u001b[0m',command:'echo out'});
+  assert.equal(unknown.status,'No exit code');assert.equal(unknown.failed,false);assert.equal(unknown.output,'out');
+  assert.equal(terminalControlState({exitCode:0}).status,'Exit code: 0');
+  assert.equal(terminalControlState({exitCode:0}).failed,false);
+  assert.equal(terminalControlState({exitCode:7}).failed,true);
+  assert.equal(terminalControlState({signal:'SIGTERM',exitCode:0}).status,'Signal: SIGTERM');
+  assert.equal(terminalControlState({running:true,signal:'SIGTERM',exitCode:7}).status,'Running');
+  const empty=terminalControlState({});assert.equal(empty.output,'');assert.equal(empty.command,'');
+  assert.equal(terminalControlState({labels:{noExitCode:'Unknown'}}).status,'Unknown');
 });
 
 test('text flow follows Host font axes without fixed vertical scroll cages or wide-table breakout',()=>{
-  const blocks=css.slice(css.indexOf('/* Text-flow styles:'));
-  assert.match(blocks,/font-size: var\(--dsh-content-font-size, 14px\)/);
-  assert.match(blocks,/line-height: calc\(24px \+ var\(--dsh-content-font-delta, 0px\)\)/);
-  assert.match(blocks,/font-size: var\(--dsh-content-font-size-secondary, 13px\)/);
-  assert.match(blocks,/font-family: var\(--ds-font-family-code, var\(--dsh-font-family-code/);
-  assert.match(blocks,/font-size: var\(--dsh-code-font-size, 11px\)/);
-  assert.match(blocks,/line-height: calc\(19px \+ var\(--dsh-code-font-delta, 0px\)\)/);
-  assert.match(blocks,/overflow-x: auto/);assert.doesNotMatch(blocks,/max-height|480px|overflow:\s*auto|margin-left:\s*-|ui-monospace/);
-  assert.match(blocks,/\.rsui-markdown p \{ margin: 0;/);
-  assert.match(blocks,/\.rsui-markdown li > :not\(:first-child\) \{ margin-top: 4px;/);
-  assert.match(section('renderBlocks'),/className: 'rsui-markdown-table', tabIndex: 0/);
-  assert.doesNotMatch(source,/dangerouslySetInnerHTML|innerHTML|require\(['"]@deepseek-ai/);
+  assert.match(css,/font: var\(--dsw-font-markdown-base\)/);
+  assert.match(css,/font-size:\s*var\(--dsh-content-font-size,\s*14px\)/);
+  assert.match(css,/line-height:\s*calc\(24px \+ var\(--dsh-content-font-delta,\s*0px\)\)/);
+  assert.match(css,/font-size:\s*var\(--dsh-content-font-size-secondary,\s*13px\)/);
+  assert.match(css,/font-family:\s*var\(--ds-font-family-code,\s*var\(--dsh-font-family-code/);
+  assert.match(css,/font-size:\s*var\(--dsh-code-font-size,\s*11px\)/);
+  assert.match(css,/line-height:\s*calc\(19px \+ var\(--dsh-code-font-delta,\s*0px\)\)/);
+  assert.doesNotMatch(css,/480px|ui-monospace/);
+  const contentRules=[...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([,selector])=>/\.rssh-native-(?:text-body|terminal-output|code-block :where\(pre\)|markdown-table-scroll)/.test(selector));
+  assert.ok(contentRules.length>=4);
+  for(const [,selector,declarations] of contentRules){
+    assert.doesNotMatch(declarations,/(?:max-)?height:\s*\d+px|margin-left:\s*-/ ,selector);
+    if(/max-height:/.test(declarations))assert.match(declarations,/max-height:\s*(?:none|var\(--rssh-native-terminal-output-max-height, none\))/);
+  }
+  assert.match(css,/\.rssh-native-markdown-table-scroll\s*\{[^}]*max-width: 100%;[^}]*overflow-x: auto/);
+  assert.match(css,/\.rssh-native-markdown p\s*\{\s*margin: 16px 0;/);
+  assert.match(css,/\.rssh-native-markdown li > :where\(ul, ol\)\s*\{\s*margin-top: 4px;/);
+  assert.match(section('renderBlocks'),/className: 'rssh-native-markdown-table-scroll', tabIndex: 0/);
+  for(const code of [source,nativeSource])assert.doesNotMatch(code,/dangerouslySetInnerHTML|innerHTML|require\(['"]@deepseek-ai/);
 });
 
 test('owned Markdown keeps tight and loose lists distinct without splitting ordered starts',()=>{

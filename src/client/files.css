@@ -10,7 +10,7 @@
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-base);
   font-size: var(--dsh-content-font-size-secondary, 13px);
-  line-height: 1.6;
+  line-height: 1.5;
   container: rssh-files / inline-size;
 }
 .rssh-files-toolbar {
@@ -30,25 +30,19 @@
   gap: 4px;
   color: var(--dsw-alias-label-secondary);
 }
-.rssh-files-root { flex: none; padding: 2px 4px; min-height: 28px; color: inherit; }
+/* Toolbar actions use the copied native small/ghost Button. Only icon-only
+   width/padding and remote navigator layout belong to this sheet. */
+.rssh-files-root { flex: none; }
 .rssh-files-path { display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
 .rssh-files-path-parent { flex: 0 10 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-tertiary); }
 .rssh-files-path-leaf { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-primary); }
 .rssh-files-tools { display: flex; align-items: center; gap: 2px; flex: none; }
 .rssh-files-tool {
   width: 28px;
-  height: 28px;
-  min-height: 28px;
-  padding: 6px;
+  padding: 0;
   flex: none;
-  border: 0;
-  border-radius: var(--dsw-radius-sm);
-  color: var(--dsw-alias-label-secondary);
-  background: transparent;
-  line-height: 1;
 }
-.rssh-files-tool svg { width: 15px; height: 15px; }
-.rssh-files-tool:focus-visible, .rssh-file-editor:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
+.rssh-file-editor:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
 .rssh-files-list {
   flex: 1 1 0;
   min-height: 0;
@@ -59,7 +53,10 @@
   padding: 8px 0 8px 8px;
   margin-right: 2px;
 }
+/* COPY: sidebar-files FileTree.module.css row/action. The remote flat browser
+   uses one Button rather than native tree row+action, so reset its fixed height. */
 .rssh-files-row {
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -154,5 +151,5 @@
   .rssh-files-toolbar { padding-left: 6px; }
 }
 @media (hover: hover) {
-  .rssh-files-tool:hover:not(:disabled), .rssh-files-row:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+  .rssh-files-row:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 }

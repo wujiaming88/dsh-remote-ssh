@@ -1,5 +1,5 @@
 import React from 'react';
-import { api, useT, ui, formatError } from './shared.js';
+import { api, useT, ui, formatError, NativeIcon } from './shared.js';
 
 const h = React.createElement;
 export const messages = {
@@ -43,9 +43,8 @@ export const messages = {
 export const css = `
 .rssh-flow{display:flex;flex-direction:column;gap:14px;color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;min-width:0}
 .rssh-flow h3{font-size:14px;margin:0;font-weight:600}.rssh-flow-local{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-bottom:14px;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.rssh-flow-field{display:flex;flex-direction:column;gap:5px}.rssh-flow-line{display:flex;align-items:center;gap:8px}.rssh-flow-line input{flex:1;min-width:0}
-.rssh-flow-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.rssh-flow-select{box-sizing:border-box;width:100%;min-height:32px;padding:4px 9px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit}
-.rssh-flow-select:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+.rssh-flow-field{display:flex;flex-direction:column;gap:5px}.rssh-flow-line{display:flex;align-items:center;gap:8px}.rssh-flow-line > .rssh-native-input-wrap{flex:1;min-width:0}
+.rssh-flow-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.rssh-flow-select{width:100%;min-width:0}
 .rssh-flow-muted{color:var(--dsw-alias-label-secondary);font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.rssh-flow-error{color:var(--dsw-alias-state-error-primary);white-space:pre-wrap;overflow-wrap:anywhere}
 .rssh-flow-warning{padding:10px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;color:var(--dsw-alias-state-warn-label);white-space:pre-wrap}
 .rssh-flow-browser{border:1px solid var(--dsw-alias-border-l1);border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}.rssh-flow-browser button{justify-content:flex-start;text-align:left;overflow-wrap:anywhere}
@@ -81,7 +80,7 @@ function parentPath(path) {
 }
 function field(label, control) { return h('label', { className: 'rssh-flow-field' }, h('span', null, label), control); }
 function select(value, onChange, options, disabled) {
-  return h('select', { value, disabled, className: 'rssh-flow-select', onChange: event => onChange(event.target.value) },
+  return h(ui.SelectField, { value, disabled, className: 'rssh-flow-select', onChange: event => onChange(event.target.value) },
     options.map(([id, text]) => h('option', { key: id, value: id }, text)));
 }
 
@@ -194,7 +193,7 @@ function OpenRemoteWorkspaceFlow(props) {
       field(t('rssh.flow.remoteDir'), h('span', { className: 'rssh-flow-line' }, input('remotePath'), h(ui.Button, { disabled: disabled || !form.profileId, onClick: () => browse() }, t('rssh.flow.browse')))),
       listing ? h('div', { className: 'rssh-flow-browser', 'aria-label': t('rssh.flow.remoteDir'), 'aria-busy': working },
         h('div', { className: 'rssh-flow-path' }, listing.path),
-        parentPath(listing.path) ? h(ui.Button, { size: 'sm', variant: 'ghost', disabled, onClick: () => browse(parentPath(listing.path)) }, '↑ ', t('rssh.flow.up')) : null,
+        parentPath(listing.path) ? h(ui.Button, { size: 'sm', variant: 'ghost', disabled, onClick: () => browse(parentPath(listing.path)) }, h(NativeIcon, {name:'chevron-up',size:14}), t('rssh.flow.up')) : null,
         listing.entries.length === 0 ? h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.empty')) : null,
         listing.entries.map(entry => h(ui.Button, { key: entry.path, size: 'sm', variant: 'ghost', disabled, onClick: () => browse(entry.path) }, entry.name, '/')),
         listing.truncated ? h('div', { className: 'rssh-flow-muted' }, t('rssh.flow.truncated')) : null) : null,

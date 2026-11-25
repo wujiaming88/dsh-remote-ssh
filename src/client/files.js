@@ -1,6 +1,6 @@
 import {HTTP_BASE} from '../../lib/protocol.js';
 import React from "react";
-import {h,ui,api,useT,formatError,FileGlyph} from "./shared.js";
+import {h,ui,api,useT,formatError,FileGlyph,NativeIcon} from "./shared.js";
 import {fileParentTarget} from './ui-pure.js';
 import {formatFileSize,fileEntryPath,fileDirectory,fileViewState} from './files-model.js';
 export const messages = {
@@ -11,15 +11,7 @@ export const messages = {
     'files.retry': 'Retry loading', 'files.modified': 'Unsaved', 'files.saved': 'Saved', 'files.items': '{count} items',
     'files.truncated': 'Showing the first 2,000 entries. Open a subdirectory to browse further.', 'files.imageFailed': 'Image preview could not load. Try refreshing or downloading.' },
 };
-function FileActionIcon({kind}) {
-  const paths = {
-    refresh: 'M13 5.5A5.5 5.5 0 1 0 13.5 10M13 2v3.5H9.5',
-    up: 'M8 13V3M3.5 7.5 8 3l4.5 4.5',
-    upload: 'M8 10V2M4.5 5.5 8 2l3.5 3.5M2 10v4h12v-4',
-    download: 'M8 2v8M4.5 6.5 8 10l3.5-3.5M2 10v4h12v-4',
-  };
-  return h('svg', {width:15,height:15,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.4,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[kind]}));
-}
+function FileActionIcon({kind}) { return h(NativeIcon,{name:kind==='up'?'chevron-up':kind,size:15}); }
 const remoteFileEditors = new Map();
 export function assertFileCloseAllowed(sessionId, tab) {
   const editor = remoteFileEditors.get(`${sessionId}:${tab.id}`);
@@ -162,7 +154,7 @@ export function RemoteFilesSidebar(props) {
         h('div',{className:'rssh-files-document-actions'},
           !preview.binary ? h(ui.Button,{variant:dirty?'primary':'ghost',size:'sm',disabled:busy||!dirty,onClick:save},t('acp.saveFile')) : null,
           dirty ? h(ui.Button,{variant:'ghost',size:'sm',disabled:busy,onClick:()=>setContent(preview.content)},t('acp.discardFile')) : null,
-          h('a',{className:'rsui-button rssh-files-tool','data-variant':'ghost',href:remoteFileUrl(sid,preview.path,false),download:'',title:t('agents.download'),'aria-label':t('agents.download')},h(FileActionIcon,{kind:'download'})))),
+          h('a',{className:'rssh-native-button rssh-native-button-sm rssh-native-button-ghost rssh-files-tool','data-variant':'ghost',href:remoteFileUrl(sid,preview.path,false),download:'',title:t('agents.download'),'aria-label':t('agents.download')},h(FileActionIcon,{kind:'download'})))),
       preview.binary
         ? (!preview.tooLarge && /\.(png|jpe?g|gif|webp)$/i.test(preview.path)
           ? h('div',{className:'rssh-files-image-view'},h('img',{key:preview.viewRevision,className:'rssh-files-image',src:remoteFileUrl(sid,preview.path,true),alt:preview.path,onError:()=>setError(t('files.imageFailed'))}))

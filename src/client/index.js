@@ -22,6 +22,9 @@ import zh from './zh.js';
 import en from './en.js';
 import css from './styles.css';
 import uiCss from './ui.css';
+import nativeControlsCss from './native-controls.css';
+import nativeOverlaysCss from './native-overlays.css';
+import nativeTextCss from './native-text-controls.css';
 import toolCss from './tool-stream.css';
 import attachmentCss from './attachments.css';
 import sentAttachmentCss from './sent-attachments.css';
@@ -65,7 +68,7 @@ export function apply(ctx) {
   installSessionStatus(ctx,sessionStatuses);
   ctx.effect(()=>{sessionStatuses.start();return ()=>sessionStatuses.dispose();});
   ctx.effect(() => {
-    const style = document.createElement('style'); style.textContent = uiCss + "\n" + toolCss + "\n" + css + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss; document.head.appendChild(style);
+    const style = document.createElement('style'); style.textContent = nativeControlsCss + "\n" + nativeOverlaysCss + "\n" + nativeTextCss + "\n" + uiCss + "\n" + toolCss + "\n" + css + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss; document.head.appendChild(style);
     return () => style.remove();
   });
 

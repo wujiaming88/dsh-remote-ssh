@@ -2,6 +2,7 @@ import React from 'react';
 import { createUi } from './ui.js';
 export {api,stream,formatError,responseError} from './api.js';
 
+export {NativeIcon} from './native-icons.js';
 export const h = React.createElement;
 export const ui = createUi(React);
 export const NAMESPACE = 'dsh-remote-ssh';

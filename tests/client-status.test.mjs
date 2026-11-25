@@ -14,7 +14,11 @@ test('failure and loading states render a structured status card, not a bare dot
   assert.match(status,/export function ConversationStatus/);
   assert.match(status,/export function PrepareRuntimeDialog/);
   assert.match(status,/role:error\?'alert':'status'/);
-  assert.match(status,/'aria-hidden':true/);  // decorative warning icon
+  assert.match(status,/h\(NativeIcon,\{name:'warning',size:32,className:'rssh-status-icon'\}\)/);
+  const icon=readFileSync(new URL('../src/client/native-icons.js',import.meta.url),'utf8');
+  assert.match(icon,/"warning":\s*\{\s*"key": "warning-triangle-outline"/);
+  assert.match(icon,/'aria-hidden': true, focusable: false/); // NativeIcon owns decorative SVG defaults
+  assert.match(status,/h\(ui\.StateDot,\{state:'ongoing',size:28\}\)/);
   assert.match(status,/statusTitle\(code,t\)/);
   assert.match(status,/onRetry\?h\(ui.Button,\{variant:needsPrepare\?'ghost':'primary'/);
   assert.match(status,/needsPrepare&&onPrepare/);
@@ -43,5 +47,5 @@ test('status styles are calm, centered and theme-token only',async()=>{
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
   const vars=[...css.matchAll(/var\((--[\w-]+)/g)].map(match=>match[1]);
-  assert.ok(vars.every(name=>['--dsw-alias-','--dsw-radius-','--dsw-specific-input-major','--dsw-specific-selector','--dsw-elevation-soft','--ds-font-','--dsh-'].some(prefix=>name.startsWith(prefix))));
+  assert.ok(vars.every(name=>['--dsw-alias-','--dsw-radius-','--dsw-specific-input-major','--dsw-specific-selector','--dsw-elevation-soft','--dsw-specific-bubble','--dsw-specific-menu','--dsw-menu-backdrop-filter','--dsw-elevation-prominent','--dsw-font-','--ds-font-','--dsh-'].some(prefix=>name.startsWith(prefix))));
 });

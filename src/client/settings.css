@@ -14,13 +14,9 @@
 .rssh-settings-row-title { margin: 0; color: var(--dsw-alias-label-primary); font-size: 14px; line-height: 20px; font-weight: 400; }
 .rssh-settings-muted { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rssh-settings-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.rssh-settings-meta .rsui-tag { background: transparent; border: .5px solid var(--dsw-alias-border-l1); font-size: 11px; line-height: 16px; padding: 0 5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.rssh-settings .rsui-button { border-radius: 8px; }
-.rssh-settings .rsui-button[data-variant=primary], .rssh-settings-dialog .rsui-button[data-variant=primary] { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
-@media (hover: hover) {
-  .rssh-settings .rsui-button[data-variant=primary]:hover:not(:disabled):not(.rssh-settings-destructive),
-  .rssh-settings-dialog .rsui-button[data-variant=primary]:hover:not(:disabled):not(.rssh-settings-destructive) { background: var(--dsw-alias-button-primary-hover); filter: none; }
-}
+/* Native Tag/Button own their visual states, radius and type. Only constrain
+   long remote metadata here; do not repaint the copied controls. */
+.rssh-settings-meta .rssh-native-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .rssh-settings-icon-button { width: 28px; height: 28px; padding: 0; }
 .rssh-settings-row-result { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rssh-settings-row-result[data-tone=success], .rssh-settings-status { color: var(--dsw-alias-state-success-primary); }
@@ -28,22 +24,23 @@
 .rssh-settings-status { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 12px; line-height: 18px; }
 .rssh-settings-empty { margin: 8px 0 0; padding: 12px 0; }
 .rssh-settings-form { display: flex; flex-direction: column; gap: 16px; }
-.rssh-settings-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 20px; }
+.rssh-settings-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 13px; line-height: 20px; }
 .rssh-settings-grid { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 12px; }
-.rssh-settings-form input { width: 100%; }
-.rssh-settings-select { box-sizing: border-box; width: 100%; min-height: 32px; padding: 4px 9px; border: .5px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; line-height: 20px; }
-.rssh-settings-select:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
-.rssh-settings-select:disabled { opacity: .5; cursor: not-allowed; }
+/* Input now owns a wrapper; never stretch Checkbox inputs with a blanket rule. */
+.rssh-settings-form .rssh-native-input-wrap { min-width: 0; max-width: 100%; box-sizing: border-box; }
+/* SelectField adapts the native Input shell; this class now belongs to its wrapper. */
+.rssh-settings-select { box-sizing: border-box; width: 100%; min-width: 0; }
 .rssh-settings-error { color: var(--dsw-alias-state-error-primary); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 18px; margin-top: 6px; }
 .rssh-settings-warning { padding: 10px 12px; border: .5px solid var(--dsw-alias-border-l2); border-radius: 8px; color: var(--dsw-alias-state-warn-label); font-size: 12px; line-height: 18px; white-space: pre-wrap; }
 .rssh-settings-warning p { margin: 0 0 8px; }
 .rssh-settings-path { overflow-wrap: anywhere; }
-.rssh-settings-dialog .rsui-modal-title { font-size: 16px; line-height: 24px; font-weight: 500; }
-.rssh-settings-dialog .rsui-modal-description { font-size: 12px; line-height: 18px; }
-.rssh-settings-dialog .rsui-input { font-size: 13px; line-height: 20px; border-radius: 8px; }
-.rssh-settings-dialog .rsui-button { border-radius: 8px; }
-.rssh-settings-dialog .rsui-button.rssh-settings-destructive { background: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-label-on-color); }
-.rssh-settings-dialog .rsui-check { font-size: 12px; line-height: 18px; }
+/* Native Modal/Checkbox/Input typography is deliberately not overridden.
+   Remote deletion retains its semantic danger extension using DSW state tokens;
+   native ConfirmModal itself has no danger Button variant. */
+.rssh-settings-dialog .rssh-native-button.rssh-settings-destructive { background: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-label-on-color); }
+@media (hover: hover) {
+  .rssh-settings-dialog .rssh-native-button.rssh-settings-destructive:hover:not(:disabled) { background: var(--dsw-alias-state-error-primary); }
+}
 .rssh-settings-dialog p.rssh-settings-muted { margin: 0; }
 @container rssh-settings (max-width: 430px) {
   .rssh-settings-header { flex-wrap: wrap; gap: 10px; }

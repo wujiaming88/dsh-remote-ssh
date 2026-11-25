@@ -10,7 +10,12 @@ export function runningTailPresentation(state,activity,now=Date.now()) {
   const start=scope&&!connection?state.turns[scope]?.startedAt:null;
   const startedAt=typeof start==='number'&&Number.isFinite(start)&&start>0?start:null;
   const seconds=startedAt!==null&&Number.isFinite(now)&&now>=startedAt?Math.floor((now-startedAt)/1000):null;
-  return {phase,scope,startedAt,seconds,clock:seconds!==null,animate:phase==='running',footer:phase==='running'||waiting};
+  const footer=phase==='running'||waiting;
+  // Tool/subagent titles already appear in the process group. Keep connection,
+  // pending and intervention feedback, not a second copy of the active command.
+  const showActivity=activity.kind!=='activity'||!footer;
+  const activeCount=!showActivity&&Number.isSafeInteger(activity.count)&&activity.count>1?activity.count:null;
+  return {phase,scope,startedAt,seconds,clock:seconds!==null,animate:phase==='running',footer,showActivity,activeCount};
 }
 export function formatTurnElapsed(seconds,t) {
   if(!Number.isSafeInteger(seconds)||seconds<0)return null;

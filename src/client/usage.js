@@ -1,5 +1,5 @@
 import React from 'react';
-import {h,ui,useT} from './shared.js';
+import {h,ui,useT,NativeIcon} from './shared.js';
 import {usageDetails,formatTokens,formatPercentage,sessionStats,formatElapsed,usageSummary} from './usage-model.js';
 
 export const messages = {
@@ -55,14 +55,8 @@ export function UsageMeter({state}) {
         row('usage.model',details.model),row('usage.reasoning',details.reasoning),row('usage.mode',details.mode))));
 }
 
-function StatsIcon() {
-  return h('svg',{className:'rssh-stats-icon',width:14,height:14,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.3,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-    h('path',{d:'M3 12.5a6 6 0 1 1 10 0M8 8l3-3'}),h('circle',{cx:8,cy:8,r:1}));
-}
-function UsageIcon() {
-  return h('svg',{width:14,height:14,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.3,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-    h('ellipse',{cx:8,cy:3.5,rx:5.5,ry:2}),h('path',{d:'M2.5 3.5v9c0 2.7 11 2.7 11 0v-9M2.5 8c0 2.7 11 2.7 11 0'}));
-}
+function StatsIcon(){return h(NativeIcon,{name:'stats',size:14,className:'rssh-stats-icon'});}
+function UsageIcon(){return h(NativeIcon,{name:'usage',size:14});}
 export function UsagePill({state}) {
   const t=useT(),details=usageDetails(state),summary=usageSummary(details);
   const [open,setOpen]=React.useState(false);

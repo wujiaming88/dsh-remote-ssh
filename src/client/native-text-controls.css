@@ -1,0 +1,695 @@
+/* Installed DSH 0.2.2-rc.5 text presentation, copied locally, NOT native slots.
+ * index-CSAdOBx6.css SHA256:
+ * d487cca8d8a97f1e0cc5eca02343528c873e544eb7ec3a5b323a0f035553551d.
+ * Formatted source groups/ranges: Markdown 13jw0 1896-2113 (only safe-parser
+ * elements; no math/observer-wide-table rules); Terminal 15hvo 2852-2984;
+ * CommandText 1wnek 2985-2995; shared toolbar/card 1mqf1 2996-3070;
+ * Read cf6qc 3071-3109; Diff 1cyuy 3110-3177; Code kjs70 3273-3389.
+ * Classes and --dsl local variables are prefixed. Transparent color literals
+ * are equivalent CSS transparent. The copied baseline remains intact; the final
+ * compatibility rules restore the Host content/code font preference axes and
+ * keep expanded output unbounded (not a second vertically capped viewport).
+ * Diff combines the native read gutters with native diff rows to preserve the
+ * plugin's old/new line numbers; the safe data/parser pipeline remains owned.
+ */
+.rssh-native-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: var(--dsw-font-markdown-base);
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-markdown strong {
+  font-weight: 600;
+}
+.rssh-native-markdown h1 {
+  font: var(--dsw-font-markdown-h1);
+  margin: 32px 0 16px;
+}
+.rssh-native-markdown h2 {
+  font: var(--dsw-font-markdown-h2);
+  margin: 32px 0 16px;
+}
+.rssh-native-markdown h3 {
+  font: var(--dsw-font-markdown-h3);
+  margin: 32px 0 16px;
+}
+.rssh-native-markdown h4 {
+  font: var(--dsw-font-markdown-h4);
+  margin: 16px 0;
+}
+.rssh-native-markdown :where(h5, h6) {
+  font: var(--dsw-font-markdown-base-strong);
+  margin: 16px 0;
+}
+.rssh-native-markdown :where(h1, h2, h3, h4, h5, h6) strong {
+  font-weight: inherit;
+}
+.rssh-native-markdown p {
+  margin: 16px 0;
+}
+.rssh-native-markdown :where(h4, h5, h6) + :where(ul, ol) {
+  margin-top: 8px;
+}
+.rssh-native-markdown :where(h4, h5, h6):has(+ :where(ul, ol)) {
+  margin-bottom: 8px;
+}
+.rssh-native-markdown a,
+.rssh-native-markdown .rssh-native-markdown-file-link {
+  color: var(--dsw-alias-link);
+  font-weight: 500;
+  transition: box-shadow var(--ds-transition-duration) var(--ds-ease-in-out);
+  position: relative;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  margin-left: -3px;
+  margin-right: -3px;
+}
+.rssh-native-markdown a:focus {
+  outline: none;
+  text-decoration: underline dotted var(--dsw-alias-link);
+  text-underline-offset: 3px;
+}
+@media (hover: hover) {
+  .rssh-native-markdown a:hover {
+    outline: none;
+    text-decoration: underline dotted var(--dsw-alias-link);
+    text-underline-offset: 3px;
+  }
+}
+.rssh-native-markdown a:focus-visible,
+.rssh-native-markdown-file-mention:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+.rssh-native-markdown-link-icon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -.25em;
+  margin-right: 5px;
+}
+.rssh-native-markdown :where(ul, ol) {
+  margin: 16px 0;
+  padding-left: 18px;
+}
+.rssh-native-markdown li:not(:first-child) {
+  margin-top: 6px;
+}
+.rssh-native-markdown li > :where(ul, ol) {
+  margin-top: 4px;
+}
+.rssh-native-markdown li::marker {
+  line-height: 24px;
+  color: var(--dsw-alias-label-secondary);
+}
+.rssh-native-markdown :where(ul, ol) ol {
+  list-style-position: inside;
+  padding-left: 0;
+}
+.rssh-native-markdown :where(ul, ol) ol li p {
+  display: inline;
+}
+.rssh-native-markdown li > p {
+  margin: 8px 0;
+}
+.rssh-native-markdown li > *:first-child {
+  margin-top: 0;
+}
+.rssh-native-markdown li > *:last-child:not(.rssh-native-code-block, .rssh-native-markdown-fence-seat) {
+  margin-bottom: 0;
+}
+.rssh-native-markdown hr {
+  display: block;
+  border: none;
+  height: .5px;
+  margin: 32px 0;
+  background: var(--dsw-alias-border-l2);
+}
+.rssh-native-markdown blockquote {
+  border-left: 2px solid var(--dsw-alias-label-caption);
+  margin: 16px 0 0;
+  padding-left: 14px;
+}
+.rssh-native-markdown pre {
+  margin: 16px 0;
+  font-family: var(--ds-font-family-code);
+  overflow: auto;
+}
+.rssh-native-markdown :not(pre) > code {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  font: var(--dsw-font-markdown-code);
+  font-family: var(--ds-font-family-code);
+  font-size: .875em !important;
+  background-color: var(--dsw-alias-markdown-inline-code);
+  border: .5px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-sm);
+  padding: 0 5px;
+}
+.rssh-native-markdown :where(h1, h2, h3, h4, h5, h6) code {
+  font: inherit;
+  font-family: var(--ds-font-family-code);
+}
+.rssh-native-markdown input[type=checkbox] {
+  margin: 0 8px 0 0;
+  accent-color: var(--dsw-alias-label-secondary);
+}
+.rssh-native-markdown-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.rssh-native-markdown-table-scroll:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+.rssh-native-markdown-table-scroll table {
+  border-collapse: collapse;
+  width: max-content;
+  max-width: max-content;
+}
+.rssh-native-markdown-table-scroll th {
+  text-align: start;
+  padding: 10px 16px;
+  border-bottom: .5px solid var(--dsw-alias-border-l3);
+  border-top: none;
+  font: var(--dsw-font-markdown-table-head);
+  max-width: 320px;
+  max-width: min(30vw, 320px);
+  min-width: 100px;
+}
+.rssh-native-markdown-table-scroll td {
+  padding: 10px 16px;
+  border-bottom: .5px solid var(--dsw-alias-border-l2);
+  font: var(--dsw-font-markdown-table);
+  max-width: 320px;
+  max-width: min(30vw, 320px);
+  min-width: 100px;
+}
+.rssh-native-markdown-table-scroll th:first-child,
+.rssh-native-markdown-table-scroll td:first-child {
+  padding-left: 0;
+}
+.rssh-native-markdown-table-scroll td:last-child {
+  padding-right: 0;
+}
+.rssh-native-markdown-table-scroll table code {
+  font-size: 11px;
+}
+.rssh-native-markdown > *:first-child,
+.rssh-native-markdown p:first-child {
+  margin-top: 0 !important;
+}
+.rssh-native-markdown > *:last-child,
+.rssh-native-markdown p:last-child {
+  margin-bottom: 0 !important;
+}
+.rssh-native-terminal-block {
+  --rssh-native-terminal-radius: var(--dsw-radius-lg);
+  --rssh-native-terminal-line-height: 22px;
+  --rssh-native-terminal-font: var(--dsw-font-markdown-code-block);
+  --rssh-native-terminal-gutter: 30px;
+  position: relative;
+  margin: 16px 0;
+  padding-left: var(--rssh-native-terminal-gutter);
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-markdown-code-block);
+  border-radius: var(--rssh-native-terminal-radius);
+  overflow: hidden;
+}
+.rssh-native-terminal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-left: calc(-1 * var(--rssh-native-terminal-gutter));
+  padding: 9px 14px 9px var(--rssh-native-terminal-gutter);
+  border-top-left-radius: var(--rssh-native-terminal-radius);
+  border-top-right-radius: var(--rssh-native-terminal-radius);
+  max-height: 150px;
+  overflow-y: auto;
+}
+.rssh-native-terminal-header::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--dsw-radius-sm);
+}
+.rssh-native-terminal-header::-webkit-scrollbar-track {
+  margin: 6px;
+}
+.rssh-native-terminal-block[data-body] .rssh-native-terminal-header {
+  border-bottom: .5px solid var(--dsw-alias-border-l2);
+}
+.rssh-native-terminal-prompt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  font: var(--rssh-native-terminal-font);
+}
+.rssh-native-terminal-prompt-line {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  line-height: var(--rssh-native-terminal-line-height);
+}
+.rssh-native-terminal-run-state {
+  position: absolute;
+  left: calc(-1 * var(--rssh-native-terminal-gutter) + 8px);
+  top: calc(var(--rssh-native-terminal-line-height) / 2);
+  transform: translateY(-50%);
+}
+.rssh-native-terminal-run-state-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.rssh-native-terminal-cwd {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-terminal-command {
+  --rssh-native-command-whitespace: var(--rssh-native-terminal-command-whitespace, pre);
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-terminal-status {
+  flex: none;
+  position: sticky;
+  top: 0;
+  height: var(--rssh-native-terminal-line-height);
+  color: var(--dsw-alias-state-error-primary);
+}
+.rssh-native-terminal-copy {
+  flex: none;
+  position: sticky;
+  top: 0;
+  background-color: var(--dsw-alias-markdown-code-block);
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font: var(--dsw-font-xs-13);
+  line-height: var(--rssh-native-terminal-line-height);
+}
+.rssh-native-terminal-output {
+  max-height: var(--rssh-native-terminal-output-max-height, none);
+  padding: 12px 14px 12px 0;
+  font: var(--rssh-native-terminal-font);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.rssh-native-terminal-output::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--dsw-radius-sm);
+}
+.rssh-native-terminal-output::-webkit-scrollbar-track {
+  margin: 6px;
+}
+.rssh-native-terminal-line {
+  min-height: var(--rssh-native-terminal-line-height);
+  white-space: var(--rssh-native-terminal-line-whitespace, pre);
+  overflow-wrap: anywhere;
+}
+.rssh-native-terminal-expand {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+@media (hover: hover) {
+  .rssh-native-terminal-expand:hover {
+    color: var(--dsw-alias-label-secondary);
+  }
+}
+.rssh-native-terminal-empty {
+  padding: 12px 14px 12px 0;
+  font: var(--rssh-native-terminal-font);
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-command-text {
+  display: block;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: var(--rssh-native-command-whitespace, pre);
+  overflow-wrap: anywhere;
+}
+.rssh-native-command-text:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+.rssh-native-text-card {
+  position: relative;
+  margin: 16px 0;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-markdown-code-block);
+  border-radius: var(--dsw-radius-lg);
+  font: var(--dsw-font-markdown-code-block);
+}
+.rssh-native-text-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px 8px 22px;
+  background: var(--rssh-native-code-block-background, var(--dsw-alias-markdown-code-block));
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  color: var(--dsw-alias-label-secondary);
+  font: 11px/18px var(--dsw-font-family);
+}
+.rssh-native-text-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+.rssh-native-text-language {
+  color: var(--dsw-alias-label-tertiary);
+  flex: none;
+  font-family: var(--ds-font-family-code);
+}
+.rssh-native-text-title {
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rssh-native-text-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.rssh-native-text-status {
+  margin-right: 8px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+.rssh-native-text-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .rssh-native-text-action:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+.rssh-native-text-action:focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.rssh-native-text-body {
+  padding: 6px 22px 20px;
+  font: var(--dsw-font-markdown-code-block);
+  overflow-x: auto;
+}
+.rssh-native-read-line {
+  display: flex;
+  min-height: 1lh;
+  white-space: pre;
+}
+.rssh-native-read-gutter {
+  flex: none;
+  width: var(--rssh-native-read-gutter);
+  margin-right: 12px;
+  text-align: right;
+  color: var(--dsw-alias-label-tertiary);
+  user-select: none;
+}
+.rssh-native-read-content {
+  min-width: 0;
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-read-block[data-code-wrap=true] .rssh-native-read-line {
+  white-space: pre-wrap;
+}
+.rssh-native-read-block[data-code-wrap=true] .rssh-native-read-content {
+  overflow-wrap: anywhere;
+}
+.rssh-native-read-expand {
+  display: block;
+  width: 100%;
+  padding: 0 0 0 calc(var(--rssh-native-read-gutter) + 12px);
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+@media (hover: hover) {
+  .rssh-native-read-expand:hover {
+    color: var(--dsw-alias-label-secondary);
+  }
+}
+.rssh-native-diff-block {
+  overflow: hidden;
+}
+.rssh-native-diff-body {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+  padding: 6px 0 20px;
+  font: var(--dsw-font-markdown-code-block);
+  overflow-x: auto;
+}
+.rssh-native-diff-line {
+  box-sizing: border-box;
+  min-height: 1lh;
+  padding: 0 22px;
+  white-space: pre;
+}
+.rssh-native-diff-block[data-code-wrap=true] .rssh-native-diff-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.rssh-native-diff-block[data-code-wrap=true] .rssh-native-diff-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rssh-native-diff-path {
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 500;
+}
+.rssh-native-diff-gap {
+  color: var(--dsw-alias-label-tertiary);
+}
+.rssh-native-diff-del:before {
+  content: "- ";
+}
+.rssh-native-diff-del {
+  color: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-code-diff-deleted);
+  box-shadow: inset 3px 0 0 var(--dsw-alias-state-error-primary);
+}
+.rssh-native-diff-add:before {
+  content: "+ ";
+}
+.rssh-native-diff-add {
+  color: var(--dsw-alias-state-success-primary);
+  background: var(--dsw-alias-code-diff-added);
+  box-shadow: inset 3px 0 0 var(--dsw-alias-state-success-primary);
+}
+.rssh-native-diff-context {
+  color: var(--dsw-alias-label-secondary);
+}
+.rssh-native-diff-context:before {
+  content: "  ";
+}
+.rssh-native-diff-expand {
+  display: block;
+  width: 100%;
+  padding: 0 22px;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+@media (hover: hover) {
+  .rssh-native-diff-expand:hover {
+    color: var(--dsw-alias-label-secondary);
+  }
+}
+.rssh-native-code-block {
+  --rssh-native-code-block-banner-background-color: var(--dsw-alias-markdown-code-block-banner);
+  --rssh-native-code-block-border-radius: var(--dsw-radius-lg);
+  --rssh-native-code-block-banner-font: 11px/18px var(--dsw-font-family);
+  --rssh-native-code-block-content-font: var(--dsw-font-markdown-code-block);
+  --rssh-native-code-block-background: var(--dsw-alias-markdown-code-block);
+  position: relative;
+  margin: 16px 0;
+  color: var(--dsw-alias-label-primary);
+  background: var(--rssh-native-code-block-background);
+  border-radius: var(--rssh-native-code-block-border-radius);
+}
+.rssh-native-code-block:not(:last-child) {
+  margin-bottom: 11px;
+}
+.rssh-native-code-banner-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background-color: var(--dsw-alias-bg-base);
+  border-top-left-radius: var(--rssh-native-code-block-border-radius);
+  border-top-right-radius: var(--rssh-native-code-block-border-radius);
+}
+.rssh-native-code-banner {
+  background: var(--rssh-native-code-block-banner-background-color);
+  padding: 9px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font: var(--rssh-native-code-block-banner-font);
+  border-top-left-radius: var(--rssh-native-code-block-border-radius);
+  border-top-right-radius: var(--rssh-native-code-block-border-radius);
+}
+.rssh-native-code-infostring {
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--ds-font-family-code);
+  font-size: 11px;
+  line-height: 18px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rssh-native-code-action {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.rssh-native-code-copy {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.rssh-native-code-content {
+  display: contents;
+}
+.rssh-native-code-block :where(pre) {
+  font: var(--rssh-native-code-block-content-font);
+  padding: 16px;
+  margin: 0 !important;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--rssh-native-code-block-background);
+  border-bottom-left-radius: var(--rssh-native-code-block-border-radius);
+  border-bottom-right-radius: var(--rssh-native-code-block-border-radius);
+}
+.rssh-native-code-block :where(pre.rssh-native-code-highlighted) {
+  background: var(--rssh-native-code-block-background) !important;
+}
+.rssh-native-code-block :where(pre) code {
+  font: inherit;
+  background: none;
+  padding: 0;
+}
+.rssh-native-code-plain {
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-code-card :where(pre) {
+  padding: 6px 22px 20px;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+.rssh-native-code-card[data-code-wrap=false] {
+  --rssh-native-code-block-line-white-space: pre;
+}
+.rssh-native-code-card[data-code-wrap=false] :where(pre) {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.rssh-native-code-numbered :where(pre) code {
+  display: block;
+  counter-reset: source-line;
+  white-space: normal;
+}
+.rssh-native-code-numbered :where(pre) code > .rssh-native-code-line {
+  position: relative;
+  display: block;
+  min-height: 1lh;
+  padding-inline-start: calc(var(--rssh-native-code-block-line-number-width) + 12px);
+  counter-increment: source-line;
+  white-space: var(--rssh-native-code-block-line-white-space, pre-wrap);
+}
+.rssh-native-code-numbered :where(pre) code > .rssh-native-code-line:before {
+  position: absolute;
+  inset-inline-start: 0;
+  width: var(--rssh-native-code-block-line-number-width);
+  color: var(--dsw-alias-label-tertiary);
+  text-align: end;
+  content: counter(source-line);
+  user-select: none;
+}
+
+/* Local Host-preference adaptation, not a claim about the copied native CSS.
+ * Keep every DSW font shorthand above as the baseline, then restore the plugin's
+ * independently adjustable body (14/24) and code (11/19) axes. Inline code and
+ * tables must opt in because their native font shorthands reset inherited axes.
+ */
+.rssh-native-text-header,
+.rssh-native-text-status {
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta, 0px));
+}
+.rssh-native-markdown {
+  font-family: var(--dsw-font-family);
+  font-size: var(--dsh-content-font-size, 14px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+}
+.rssh-native-markdown-table-scroll th,
+.rssh-native-markdown-table-scroll td {
+  font-size: var(--dsh-content-font-size, 14px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+}
+.rssh-native-text-card,
+.rssh-native-text-body,
+.rssh-native-diff-body,
+.rssh-native-code-block :where(pre),
+.rssh-native-markdown :not(pre) > code {
+  font-family: var(--ds-font-family-code, var(--dsh-font-family-code, var(--dsh-font-family-code-default, monospace)));
+  font-size: var(--dsh-code-font-size, 11px);
+  line-height: calc(19px + var(--dsh-code-font-delta, 0px));
+}
+/* Native inline-code baseline has !important .875em; the Host code axis wins. */
+.rssh-native-markdown :not(pre) > code {
+  font-size: var(--dsh-code-font-size, 11px) !important;
+}
+.rssh-native-terminal-block {
+  --rssh-native-terminal-line-height: calc(19px + var(--dsh-code-font-delta, 0px));
+  --rssh-native-terminal-font: var(--dsh-code-font-size, 11px)/calc(19px + var(--dsh-code-font-delta, 0px)) var(--ds-font-family-code, var(--dsh-font-family-code, var(--dsh-font-family-code-default, monospace)));
+}
+/* Only the copied command header keeps its native 150px preview limit. Read,
+ * diff, code and terminal output expansion remains in the outer scroll flow. */
+.rssh-native-terminal-output {
+  max-height: none;
+}

@@ -329,6 +329,12 @@ test('actual RemoteAccess policy denies authenticated non-owner file/prompt/appr
       await route.handler(request, response);
       assert.equal(status, 403, method); assert.equal(payload.error.code, 'remote_access_denied');
     }
+    const attachmentRoute = routes.find(route => route.path === HTTP_BASE + '/session-attachment-upload'); assert.ok(attachmentRoute);
+    let read = false, status, payload;
+    const request = Readable.from((async function* () { read = true; yield Buffer.from('must not upload'); })());
+    Object.assign(request, { method: 'POST', url: HTTP_BASE + '/session-attachment-upload?sessionId=fixture&uploadId=00000000-0000-4000-8000-000000000000&name=a.pdf', headers: {} });
+    await attachmentRoute.handler(request, { headersSent: false, writeHead(code) { status = code; this.headersSent = true; }, end(value) { payload = JSON.parse(value); } });
+    assert.equal(status, 403); assert.equal(payload.error.code, 'remote_access_denied'); assert.equal(read, false);
   } finally { await root.fiber.dispose(); }
 });
 test('real Connection admits Node IncomingMessage headers and its RPC interceptor is single-owner', { skip: !installed }, async () => {

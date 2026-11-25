@@ -135,12 +135,18 @@ test('preview and removal are separate controls, preserve failure feedback and r
 test('attachment strip stays single-row, contains images without cropping, and exposes persistent keyboard controls',async()=>{
   const css=read('attachments.css');assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
   assert.match(css,/\.rssh-attachments \{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto/);
-  assert.match(css,/width: 88px; height: 72px/);assert.match(css,/object-fit: contain/);
+  assert.match(css,/\.rssh-attachment-thumbnail \{[^}]*width: 64px; height: 64px/);assert.match(css,/object-fit: contain/);
+  assert.match(css,/ComposerAttachments\.module\.css/);assert.match(css,/FileCard\.module\.css/);
   assert.match(css,/\.rssh-attachment-name \{[^}]*text-overflow: ellipsis/);
   assert.match(css,/\.rssh-attachment-remove:focus-visible \{[^}]*outline: 2px solid var\(--dsw-alias-state-info-primary\)/);
   assert.match(css,/\.rssh-image-preview-stage img \{[^}]*max-height: min\(720px, 70dvh\)/);
   assert.match(css,/pointer: coarse/);
-  assert.doesNotMatch(css,/\.rssh-attachment-remove[^}]*opacity:\s*0|display:\s*none/);
+  assert.match(css,/\.rssh-attachment-remove:focus-visible \{ opacity: 1; \}/);
+  assert.match(css,/\.rssh-attachment:hover \.rssh-attachment-remove,[^}]*opacity: 1/);
+  assert.match(css,/@media \(hover: none\), \(pointer: coarse\) \{ \.rssh-attachment-remove \{ opacity: 1/);
+  assert.match(css,/@media \(pointer: coarse\) \{ \.rssh-attachment-remove \{ width: 32px; height: 32px/);
+  assert.match(css,/prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(css,/display:\s*none/);
   const index=read('index.js');assert.match(index,/import attachmentCss from '.\/attachments.css'/);assert.match(index,/filesCss \+ "\\n" \+ attachmentCss/);
 });
 test('ordinary files retain compact non-clickable labels with separate removal',()=>{
@@ -152,7 +158,8 @@ test('ordinary files retain compact non-clickable labels with separate removal',
   assert.match(fileBody,/h\(RemoveAttachment,\{file,sending,onRemove,t\}\)/);
   assert.match(fileBody,/className:'rssh-attachment-name',title:name/);
   assert.doesNotMatch(fileBody,/onClick|rssh-attachment-thumbnail/);
-  assert.match(css,/\.rssh-attachment-file \{[^}]*max-width: min\(240px, 100%\);[^}]*min-height: 32px/);
+  assert.match(css,/\.rssh-attachment-file \{[^}]*width: 240px; max-width: 100%; height: 64px/);
+  assert.match(css,/\.rssh-attachment-file > svg \{[^}]*width: 28px; height: 28px/);
   assert.doesNotMatch(css,/\.rssh-attachment-file \{[^}]*height: 72px|\.rssh-attachment-thumbnail, \.rssh-attachment-file/);
 });
 test('image preview, removal and fallback feedback have both locale labels',()=>{

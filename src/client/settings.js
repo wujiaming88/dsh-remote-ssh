@@ -1,5 +1,5 @@
 import React from 'react';
-import { api, useT, ui, formatError } from './shared.js';
+import { api, useT, ui, formatError ,NativeIcon} from './shared.js';
 import {connectionRowKey} from './settings-model.js';
 
 const h = React.createElement;
@@ -92,11 +92,7 @@ function useRequest() {
   }
   return { busy, error, setError, run };
 }
-function SettingsIcon({kind}) {
-  const paths={refresh:'M13 5a5.5 5.5 0 1 0 1 5M13 2v3H10',plus:'M8 3v10M3 8h10'};
-  return h('svg',{width:14,height:14,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.4,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-    kind==='more'?[4,8,12].map(cx=>h('circle',{key:cx,cx,cy:8,r:.9,fill:'currentColor',stroke:'none'})):h('path',{d:paths[kind]}));
-}
+function SettingsIcon({kind}) { return h(NativeIcon,{name:kind,size:14}); }
 function SettingsMore({name,items,onAction,disabled=false}) {
   const t=useT(); const [open,setOpen]=React.useState(false);
   const label=`${t('rssh.settings.more')}: ${name}`;
@@ -124,7 +120,7 @@ function field(label, control, hint) {
 }
 function errorView(error) { return error ? h('div', { className: 'rssh-settings-error', role: 'alert' }, error) : null; }
 function choices(value, onChange, options, disabled) {
-  return h('select', { className: 'rssh-settings-select', value, disabled, onChange: event => onChange(event.target.value) },
+  return h(ui.SelectField, { className: 'rssh-settings-select', value, disabled, onChange: event => onChange(event.target.value) },
     options.map(([id, label]) => h('option', { key: id, value: id }, label)));
 }
 function blankProfile() { return { name: '', host: '', user: '', port: 22, authMethod: 'key', keyPath: '', remoteRoot: '~', proxyJump: '' }; }

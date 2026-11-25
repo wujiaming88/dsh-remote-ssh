@@ -77,7 +77,17 @@ test('only bounded groups introduce a scroll region; raw diagnostics do not nest
 });
 test('affordances, activity and focus are visible without hover or animation',()=>{
   assert.match(css,/\.rssh-disclosure-chevron \{[^}]*transform: rotate\(-90deg\)/);
-  assert.doesNotMatch(css,/opacity:\s*0|@keyframes[^\n]*shimmer|animation:[^;]*shimmer/);
+  // Native DisclosureRow swaps one leading glyph with a chevron; it does not
+  // hide the entire affordance. Keyboard and touch cannot depend on hover.
+  assert.match(css,/\.rssh-disclosure-icon \{[^}]*opacity: 1/);
+  assert.match(css,/:focus-visible \.rssh-disclosure-icon \{ opacity: 0/);
+  assert.match(css,/:focus-visible \.rssh-disclosure-chevron \{ opacity: 1/);
+  assert.match(css,/@media \(hover: none\), \(pointer: coarse\) \{\s*\.rssh-disclosure-icon \{ opacity: 0; \}\s*\.rssh-disclosure-chevron \{ opacity: 1/);
+  for(const selector of ['rssh-flow-status','rssh-flow-active-mark','rssh-flow-failure']){
+    const rule=css.match(new RegExp('\\.'+selector+' \\{([^}]*)\\}'))?.[1];
+    assert.ok(rule,selector);assert.doesNotMatch(rule,/opacity:\s*0|visibility:\s*hidden|display:\s*none/);
+  }
+  assert.doesNotMatch(css,/@keyframes[^\n]*shimmer|animation:[^;]*shimmer/);
   assert.doesNotMatch(thoughtCss,/animation:[^;]*rssh-thought-shimmer/);
   assert.match(disclosure,/className:failed\?'rssh-flow-failure':'rssh-flow-status'/);
   assert.match(thought,/className:'rssh-flow-status','data-active':''/);
@@ -88,7 +98,14 @@ test('affordances, activity and focus are visible without hover or animation',()
   assert.match(css,/pointer: coarse/);
 });
 test('thought and tool bodies use one content axis without sticky thought headers',()=>{
-  for(const source of [css,thoughtCss])assert.match(source,/padding-inline-start: calc\(40px \+ var\(--dsh-content-font-delta, 0px\)\)/);
-  assert.match(css,/padding-inline-start: 16px/);
-  assert.doesNotMatch(thoughtCss,/\.rssh-thought\[data-open\] \.rssh-thought-toggle\s*\{[^}]*position: sticky/);
+  assert.match(css,/\.rssh-flow-body \{[^}]*padding-inline-start: calc\(22px \+ var\(--dsh-content-font-delta, 0px\)\)/);
+  assert.match(thoughtCss,/\.rssh-thought-body \{[^}]*padding: 4px 0 4px calc\(22px \+ var\(--dsh-content-font-delta, 0px\)\)/);
+  assert.match(css,/\.rssh-disclosure-leading \{[^}]*width: calc\(16px \+ var\(--dsh-content-font-delta, 0px\)\)[^}]*margin-right: 6px/);
+  assert.match(css,/\.rssh-flow-body:has\(> :is\(\.rssh-native-text-card, \.rssh-native-code-block, \.rssh-native-terminal-block\)\) \{ padding-inline-start: 4px/);
+  assert.match(css,/\.rssh-flow-children \{[^}]*padding-inline-start: 16px/);
+  assert.match(css,/\.rssh-process-disclosure > \.rssh-flow-body \{[^}]*padding-inline-start: 0/);
+  for(const sheet of [css,thoughtCss]){
+    const bodyRules=[...sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([,selector])=>/\.rssh-(?:flow-body|thought-body|thought-toggle)/.test(selector));
+    for(const [,selector,declarations] of bodyRules)assert.doesNotMatch(declarations,/position:\s*sticky/,selector);
+  }
 });

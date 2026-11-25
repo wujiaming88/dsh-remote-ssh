@@ -1,5 +1,5 @@
 import React from 'react';
-import {h,ui} from './shared.js';
+import {h,ui,NativeIcon} from './shared.js';
 import {acpBuildChildMap,acpItemId} from './presentation.js';
 import {transcriptEntries,transcriptScope,transcriptPolicy,processGroupPresentation} from './transcript-model.js';
 import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
@@ -109,16 +109,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
   });
 }
 
-function RunningGlyph({kind}) {
-  if(kind==='activity')return h(FlowIcon,{kind:'tool'});
-  if(kind==='replying')return h(FlowIcon,{kind:'message'});
-  const waiting=['permission','question'].includes(kind);
-  return h('svg',{className:'rssh-running-glyph',width:16,height:16,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.2,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-    kind==='mark'?h('path',{d:'M8 1.5 9.8 6.2 14.5 8 9.8 9.8 8 14.5 6.2 9.8 1.5 8 6.2 6.2Z'}):
-    waiting?h('path',{d:'M6 4v8m4-8v8'}):
-    kind==='thinking'?h(React.Fragment,null,h('ellipse',{cx:8,cy:8,rx:7,ry:3,transform:'rotate(45 8 8)'}),h('ellipse',{cx:8,cy:8,rx:7,ry:3,transform:'rotate(-45 8 8)'}),h('circle',{cx:8,cy:8,r:.7,fill:'currentColor',stroke:'none'})):
-    h(React.Fragment,null,h('circle',{cx:8,cy:8,r:6}),h('path',{d:'M8 4v4l3 2'})));
-}
+function RunningGlyph({kind}) { const name=kind==='mark'?'running':['permission','question'].includes(kind)?'pause':kind==='activity'?'tool':kind==='replying'?'message':kind==='thinking'?'thought':'clock'; return h(NativeIcon,{name,size:16,className:'rssh-running-glyph'}); }
 
 export function RunningTail({state,t}) {
   const activity=conversationActivity(state);
@@ -130,12 +121,14 @@ export function RunningTail({state,t}) {
   const label=activity.kind==='activity'?[actionLabel(activity.item,t),activity.count>1?`${activity.count} ${t('flow.runningCount')}`:null].filter(Boolean).join(' · '):t(keys[activity.kind]);
   const elapsed=formatTurnElapsed(presentation.seconds,t);
   return h('div',{className:'rssh-running-tail',role:'group','aria-label':t('flow.runStatus'),'data-phase':presentation.phase},
-    h('div',{className:'rssh-running-activity',role:'status','aria-live':'polite','aria-atomic':true},
-      h(RunningGlyph,{kind:activity.kind}),h('span',{className:'rssh-running-activity-text',title:label},label)),
+    presentation.showActivity?h('div',{className:'rssh-running-activity',role:'status','aria-live':'polite','aria-atomic':true},
+      h(RunningGlyph,{kind:activity.kind}),h('span',{className:'rssh-running-activity-text',title:label},label)):null,
     presentation.footer?h('div',{className:'rssh-running-footer','aria-live':'off'},
       h(RunningGlyph,{kind:presentation.phase==='waiting'?activity.kind:'mark'}),
       h('div',{className:'rssh-running-caption'},
-        h('span',null,t(presentation.phase==='waiting'?'flow.turnWaiting':'flow.turnRunning')),
+        h('span',{role:'status','aria-live':'polite','aria-atomic':true},
+          t(presentation.phase==='waiting'?'flow.turnWaiting':'flow.turnRunning'),
+          presentation.activeCount!==null?` · ${presentation.activeCount} ${t('flow.runningCount')}`:null),
         elapsed!==null?h('span',{className:'rssh-running-elapsed',role:'timer','aria-live':'off',title:t('flow.elapsedHint')},
           ' · ',t('flow.turnElapsed'),' ',h('time',{dateTime:`PT${presentation.seconds}S`},elapsed)):null,
         presentation.animate?h('span',{className:'rssh-running-dots','aria-hidden':true},...[0,1,2].map(key=>h('span',{key},'·'))):null)):null);

@@ -55,7 +55,10 @@ test('more menus capture the row, remain keyboard accessible and preserve confir
 test('primary action and modal styling stay scoped to SSH settings',()=>{
   assert.match(source,/variant:'primary',onClick:\(\)=>setDialog\(\{kind:'profile',target:null\}\)/);
   assert.equal((source.match(/className:'rssh-settings-dialog'/g)||[]).length,3);
-  assert.match(css,/background: var\(--dsw-alias-button-primary-fill\); color: var\(--dsw-alias-label-primary-foreground\)/);
+  const controls=readFileSync(new URL('../src/client/native-controls.css',import.meta.url),'utf8');
+  assert.match(controls,/\.rssh-native-button-primary\s*\{[^}]*background: var\(--dsw-alias-button-primary-fill\);\s*color: var\(--dsw-alias-label-primary-foreground\)/);
+  assert.doesNotMatch(css,/--dsw-alias-button-primary-fill/); // visual primary state belongs to the copied control, not a settings repaint
+  assert.match(css,/\.rssh-settings-dialog \.rssh-native-button\.rssh-settings-destructive/);
   assert.match(source,/className:'rssh-settings-destructive'/);
   assert.doesNotMatch(source,/function BackendEditor|workspace\.backend|kind:'backend'/);
   assert.doesNotMatch(source,/require\(|@deepseek-ai\/dsh-client-ui-primitives|document\.querySelector|window\.fetch\s*=/);

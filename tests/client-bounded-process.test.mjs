@@ -158,7 +158,10 @@ test('expanded command details wrap without introducing another scrollport',()=>
   assert.doesNotMatch(rule,/max-height|overflow(?:-[xy])?:\s*(?:auto|scroll)/);
 });
 test('tool titles have protected space and contrast while the group activity retains remaining width',()=>{
-  assert.match(css,/\.rssh-flow-title \{[^}]*color: var\(--dsw-alias-label-secondary\)/);
+  assert.match(css,/\.rssh-flow \{[^}]*color: var\(--dsw-alias-label-tertiary\)/);
+  assert.match(css,/\.rssh-flow-toggle \{[^}]*color: inherit/);
+  assert.match(css,/\.rssh-flow-title \{[^}]*color: inherit/);
+  assert.match(css,/\.rssh-flow-toggle:hover \{ color: var\(--dsw-alias-label-secondary\)/);
   assert.match(css,/\.rssh-flow\[data-summary\] > \.rssh-flow-toggle \.rssh-flow-title \{ flex: 1 1 60%; min-width: min\(14ch, 40%\)/);
   assert.match(css,/\.rssh-flow-summary \{[^}]*color: var\(--dsw-alias-label-tertiary\)/);
   assert.match(css,/\.rssh-process-disclosure\[data-summary\] > \.rssh-flow-toggle \.rssh-flow-title \{ flex: 0 0 auto/);

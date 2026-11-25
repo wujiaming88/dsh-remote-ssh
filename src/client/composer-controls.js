@@ -1,30 +1,13 @@
 import React from 'react';
-import {h,ui,useT} from './shared.js';
+import {h,ui,useT,NativeIcon} from './shared.js';
 import {composerControls} from './composer-controls-model.js';
 
-export function PermissionIcon() {
-  return h('svg',{viewBox:'0 0 16 16',width:14,height:14,fill:'none',stroke:'currentColor',strokeWidth:1.3,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},
-    h('path',{d:'M8 1.5 13 3v4c0 3-2 5.5-5 7-3-1.5-5-4-5-7V3l5-1.5Z'}),h('path',{d:'m5.5 7.5 1.5 1.5 3.5-3.5'}));
-}
-export function AttachmentButton({disabled,onClick}) {
-  const t=useT();
-  return h(ui.Button,{variant:'ghost',className:'rssh-composer-add',disabled,onClick,title:t('acp.addAttachment'),'aria-label':t('acp.addAttachment')},
-    h('svg',{viewBox:'0 0 16 16',width:16,height:16,fill:'none',stroke:'currentColor',strokeWidth:1.4,strokeLinecap:'round','aria-hidden':true},h('path',{d:'M8 2.5v11M2.5 8h11'})));
-}
+export function PermissionIcon() { return h(NativeIcon,{name:'permission',size:14}); }
+export function AttachmentButton({disabled,onClick}) { const t=useT(); return h(ui.Button,{variant:'ghost',className:'rssh-composer-add',disabled,onClick,title:t('acp.addAttachment'),'aria-label':t('acp.addAttachment')},h(NativeIcon,{name:'add',size:16})); }
 
-function StopIcon() {
-  return h('svg',{viewBox:'0 0 16 16',width:16,height:16,'aria-hidden':true},
-    h('rect',{x:3,y:3,width:10,height:10,rx:3,fill:'currentColor'}));
-}
-function SendIcon() {
-  return h('svg',{viewBox:'0 0 16 16',width:16,height:16,fill:'none','aria-hidden':true},
-    h('path',{d:'M8 13.5V2.5M3 7.5l5-5 5 5',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'}));
-}
-function Spinner() {
-  return h('svg',{className:'rssh-composer-spinner',viewBox:'0 0 16 16',width:16,height:16,'aria-hidden':true},
-    h('circle',{cx:8,cy:8,r:6,fill:'none',stroke:'currentColor',strokeOpacity:0.35,strokeWidth:2}),
-    h('path',{d:'M8 2a6 6 0 0 1 6 6',fill:'none',stroke:'currentColor',strokeWidth:2,strokeLinecap:'round'}));
-}
+function StopIcon(){return h(NativeIcon,{name:'stop',size:16});}
+function SendIcon(){return h(NativeIcon,{name:'send',size:16});}
+function Spinner(){return h(ui.StateDot,{state:'ongoing',size:16});}
 export function ComposerControls(props) {
   const t=useT(), controls=composerControls(props);
   const keepFocus=event=>{if(event.button===0)event.preventDefault();};

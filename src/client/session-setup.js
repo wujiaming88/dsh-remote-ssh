@@ -65,7 +65,7 @@ export function SessionSetup({ backend, onSelected }) {
     if (payload.error) { setError(t(payload.error === 'bypassConfirm' ? 'rssh.flow.bypassConfirm' : 'session.setup.invalid')); return; }
     setError(''); void controller.current?.submit(payload.value);
   }
-  const select = (key, options) => h('select', { className: 'rssh-flow-select', value: form[key], disabled, onChange: event => change(key, event.target.value) },
+  const select = (key, options) => h(ui.SelectField, { className: 'rssh-flow-select', value: form[key], disabled, onChange: event => change(key, event.target.value) },
     options.map(([value, label]) => h('option', { key: value, value }, label)));
   const field = (label, control) => h('label', { className: 'rssh-flow-field' }, h('span', null, label), control);
   return h('section', { className: 'rssh-session-setup', 'aria-label': t('session.setup.title') },

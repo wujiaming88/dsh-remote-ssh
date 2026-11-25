@@ -67,7 +67,9 @@ test('secondary typography, non-shrinking rows and reduced-motion are explicitly
   assert.match(css,/\.rssh-thought\s*\{\s*flex: none;\s*min-width: 0;/);
   assert.match(css,/\.rssh-thought-toggle\s*\{[^}]*border: none;[^}]*background: transparent;/);
   assert.match(css,/\.rssh-thought-summary[^}]*text-overflow: ellipsis;\s*white-space: nowrap/);
-  assert.match(css,/\.rssh-thought-body .rsui-markdown[^}]*color: var\(--dsw-alias-label-secondary\)/);
+  assert.match(css,/\.rssh-thought-body \.rssh-native-markdown[^}]*color: var\(--dsw-alias-label-tertiary\);[^}]*font-size: var\(--dsh-content-font-size-secondary, 13px\);[^}]*line-height: calc\(20px \+ var\(--dsh-content-font-delta-secondary, 0px\)\)/);
+  assert.match(css,/\.rssh-thought-toggle\s*\{[^}]*color: var\(--dsw-alias-label-tertiary\)/);
+  assert.match(css,/\.rssh-thought-toggle:hover \{ color: var\(--dsw-alias-label-secondary\)/);
   const processCss=readFileSync(new URL('../src/client/tool-stream.css',import.meta.url),'utf8');
   assert.doesNotMatch(css,/animation:[^;]*rssh-thought-shimmer/);assert.match(processCss,/prefers-reduced-motion: reduce/);
   assert.match(processCss,/\.rssh-flow-status\[data-active\]/);

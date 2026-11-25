@@ -1,0 +1,232 @@
+/* COPY: DSH 0.2.2-rc.5 published frontend native.css, Menu _70kcw
+ * (592–608, 614–615, 727–738, 752–779, 812–842, 857–863, 886–890),
+ * surface/material _1w4el (958–979), Modal _1ytzq (1576–1692).
+ * Original values/tokens retained; all class names are plugin-owned.
+ * ADAPTATION sections below replace Portal/anchor/focus-manager boundaries,
+ * not the visual design. These are copied/adapted controls, not Host instances. */
+.rssh-native-menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.rssh-native-menu {
+  box-sizing: border-box;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 0;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  min-width: min(144px, calc(100vw - 24px));
+  max-width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
+  max-height: calc(100dvh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
+  border-radius: var(--dsw-radius-lg);
+  isolation: isolate;
+}
+.rssh-native-menu-material {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dsw-menu-surface-fill);
+  backdrop-filter: var(--dsw-menu-backdrop-filter);
+  pointer-events: none;
+}
+.rssh-native-menu-viewport {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.rssh-native-menu-item-wrap { position: relative; }
+.rssh-native-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+}
+@media (hover: hover) {
+  .rssh-native-menu-item:hover:not(:disabled):not([aria-disabled=true]) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+.rssh-native-menu-item:focus-visible:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  outline: none;
+}
+.rssh-native-menu-item:disabled,
+.rssh-native-menu-item[aria-disabled=true] {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.rssh-native-menu-item-icon {
+  display: inline-flex;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+  color: var(--dsw-alias-menu-icon);
+}
+.rssh-native-menu-item-icon svg,
+.rssh-native-menu-check {
+  width: 14px;
+  height: 14px;
+}
+.rssh-native-menu-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rssh-native-menu-check {
+  flex: none;
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-menu-selected { background: transparent; }
+.rssh-native-menu-separator {
+  height: .5px;
+  margin: 3px 8px;
+  background: var(--dsw-alias-border-l2);
+}
+.rssh-native-menu-separator + .rssh-native-menu-separator { display: none; }
+
+/* ADAPTATION: UA popover position/reset; the retained menuPosition controller
+ * owns left/top, including end alignment, flipping and viewport clamping.
+ * No detached backing or native CSS-anchor dependency. */
+.rssh-native-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+}
+.rssh-native-menu[hidden] { display: none; }
+.rssh-native-menu-item { box-sizing: border-box; font-family: inherit; }
+/* ADAPTATION: description/detail extension absent from native Zu; typography
+ * copied from its shortcut caption (11px/16px, native caption token). */
+.rssh-native-menu-detail {
+  display: block;
+  white-space: normal;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-caption);
+}
+
+/* COPY: db dialog/content/header/title/close/description/body/footer. */
+.rssh-native-modal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: min(380px, 100%);
+  padding: 0 0 24px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent);
+  animation: rssh-native-modal-enter var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+@keyframes rssh-native-modal-enter {
+  0% { opacity: 0; }
+  to { opacity: 1; }
+}
+.rssh-native-modal:focus { outline: none; }
+.rssh-native-modal-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.rssh-native-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 22px 14px 12px 24px;
+}
+.rssh-native-modal-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-modal-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+@media (hover: hover) {
+  .rssh-native-modal-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
+}
+.rssh-native-modal-description {
+  margin: 0;
+  padding: 0 24px;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+  color: var(--dsw-alias-label-primary);
+}
+.rssh-native-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-top: 20px;
+  padding: 0 24px;
+}
+.rssh-native-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 24px;
+}
+
+/* ADAPTATION: native root+mask Portal becomes HTML dialog + ::backdrop.
+ * Its 24px viewport clearance stays, now enforced on the dialog itself; long
+ * content scrolls inside the native content wrapper while the footer stays visible. */
+.rssh-native-modal {
+  position: fixed;
+  margin: auto;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 2 * max(24px, var(--dsh-frame-overlay-top, 24px)));
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+}
+.rssh-native-modal:not([open]) { display: none; }
+.rssh-native-modal::backdrop {
+  backdrop-filter: var(--dsw-mask-blur);
+  background: var(--dsw-alias-bg-mask-1);
+  animation: rssh-native-modal-enter var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+.rssh-native-modal-content { min-height: 0; overflow-y: auto; }
+.rssh-native-modal-footer { flex: none; }
+@media (prefers-reduced-motion: reduce) {
+  .rssh-native-modal,
+  .rssh-native-modal::backdrop { animation: none; }
+}

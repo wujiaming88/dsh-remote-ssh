@@ -2,9 +2,11 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.13** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.14** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
+
+**rc.14 highlights**: base controls, 47 SVG icon shapes, and matching chat/file/settings views are copied and locally adapted from the actual DSH 0.2.2-rc.5 release. Remote-specific controls follow the same style. These are not runtime imports of native UI packages or claims that local controls are Host instances. Ordinary files upload on Send and provide verified remote-path references (64 MiB each, 256 MiB combined), retaining existing text/image behavior. Remove the repeated command below the process group while preserving turn status, timing and concurrency counts. 724 automated tests pass; real GUI and live SSH end-to-end acceptance remain pending. See [sources and adaptation boundaries](./docs/NATIVE_UI.md).
 
 **rc.13 highlights**: two-line running feedback combines muted current activity with a blue turn-status and factual elapsed-time footer, plus subtle animated dots. User-input waits remain static and settled turns clear the running indicator. Missing turn-start records never fall back to Session age or invented zero-second timing. Sidebar indicators appear only for running, waiting, unread completion and confirmed errors; idle/read states leave no empty circle. 617 tests pass; real GUI visual and interaction acceptance remains pending.
 
@@ -58,8 +60,11 @@ Local directories use native DSH and its native directory picker. Remote workspa
 - Stop cancels execution/queued work without deleting history.
 - Permission requests and form elicitation support choices, multiple selection and custom answers, including AskUserQuestion. Unsupported schemas decline explicitly; URL/OAuth elicitation is not advertised.
 - `/` opens actual commands/skills; arrows select, Enter/Tab insert and Escape dismisses. The command roster is restored from the session snapshot, so it survives long/resumed sessions.
-- `@` browses workspace files. A bounded snapshot is used both for actual ACP input and native durable recording.
-- Text/images may be pasted or dropped, subject to capabilities and limits: 16 attachments, 1 MiB total text and 2 MiB total images.
+- `@` browses workspace files. Text/image references use a bounded snapshot both for actual ACP input and native durable recording. This snapshot picker does not read archives or other binary content; for an ordinary file already on the remote host, include its path in the message.
+- Select with “+”, drop, or paste files. Text/images retain their existing input flow and image capability checks. Other ordinary files (ZIP, PDF, Office, audio/video, etc.) upload only when Send is clicked, then contribute a remote-path text reference—not binary/base64 model input.
+- Up to 16 attachments per message: 1 MiB total text, 2 MiB total images; other files are limited to 64 MiB each and 256 MiB combined. Uploaded files live under the remote workspace's `.dsh-attachments/<session scope>/<upload ID>/<safe filename>` without overwriting same-name files. Transfer support does not guarantee the remote parsing tools are installed.
+- Cards show pending/uploading/uploaded/failed states. Failures retain drafts; retry reuses upload IDs and confirmed receipts. Attachment steering is refused before upload, and the unchanged draft can be sent after the turn ends. Selecting does not upload; the plugin never automatically extracts or executes files. Removing a card does not delete remote files already uploaded.
+- Unsent files and upload receipts remain in page-process memory across session switches, not in localStorage. Refreshing or closing the application does not restore local File objects; text drafts remain persisted. References are checked by size and SHA-256 before admission: moved/modified files cause explicit failure, not overwrite. If an earlier submission had an unknown outcome, check history first; a reference-validation failure does not establish that the earlier message was never delivered.
 - The transcript uses native presentation: user messages are right-aligned bubbles, assistant text is full-width; thoughts, tool calls, subagents, plans, terminals, session messages, notices and compaction are lightweight disclosure rows with turn/parent identity.
 
 ### Native stream and composer
@@ -109,7 +114,7 @@ New data has explicit schema/version under the current profile's `data/remote-ac
 - [Native turn recorder](./lib/remote-turn-recorder.js): legitimate Session events and a deduplicating projection.
 - [Client entry](./src/client/index.js), with independent settings, creation, conversation, state, files, controls and CSS modules.
 
-The client imports only Host React, not private DSH UI packages. Controls follow DSH theme/interaction conventions. Markdown is a safe basic subset; full CommonMark and pixel-identical rendering are not claimed.
+The client imports only Host React, not Harness Client UI packages. Base controls and icons are copied from the installed DSH release and locally adapted with plugin-owned classes; existing public native factories remain in use. Markdown adopts native typography but retains the safe basic parser; full CommonMark and pixel-identical rendering are not claimed. See [source, license and adaptation details](./docs/NATIVE_UI.md).
 
 ## Build and install
 

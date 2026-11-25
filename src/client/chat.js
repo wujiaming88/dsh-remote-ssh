@@ -1,5 +1,5 @@
 import React from 'react';
-import { h, ui, api, useT, Select, FileGlyph, formatError } from './shared.js';
+import { h, ui, api, useT, Select, FileGlyph, formatError ,NativeIcon} from './shared.js';
 import {sessionClientKey} from './session-pool.js';
 import { pickerScrollTop } from './picker.js';
 import { UsageMeter, SessionStatsPill, UsagePill } from './usage.js';
@@ -36,12 +36,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
   const state=React.useSyncExternalStore(client.subscribe,client.getSnapshot,client.getSnapshot);
   const composer=client.composer;
   const composerState=React.useSyncExternalStore(composer.subscribe,composer.getSnapshot,composer.getSnapshot);
-  const {draft,attachments,sending}=composerState;
+  const {draft,attachments,sending,readingFiles,uploads}=composerState;
   const draftRef=React.useRef(draft);draftRef.current=draft;
   const setDraft=value=>{composer.setDraft(value);draftRef.current=composer.getSnapshot().draft;};
-  const attachmentsRef=React.useRef(attachments);attachmentsRef.current=attachments;
-  const setAttachments=value=>{composer.setAttachments(value);attachmentsRef.current=composer.getSnapshot().attachments;};
-  const [readingFiles,setReadingFiles]=React.useState(false);
+  const setAttachments=composer.setAttachments;
   const attachmentInput=React.useRef(null);
   const [busy, setBusy] = React.useState('');
   const [actionError, setError] = React.useState('');
@@ -82,6 +80,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
     setFileQuery(/(?:^|\s)@([^\s]*)$/.exec(value)?.[1] ?? null);
   }
   function chooseFile(file) {
+    if(composer.getSnapshot().sending||composer.getSnapshot().readingFiles)return;
     if (file.type === 'directory') { input(draftRef.current.replace(/@[^\s]*$/, `@${file.path}/`)); return; }
     if (attachments.length >= 16) { setError(t('acp.attachmentTooLarge')); return; }
     setAttachments(previous => [...previous, { id: crypto.randomUUID(), path: file.path, name: file.name }]);
@@ -133,29 +132,9 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
   }
   async function receiveFiles(files) {
     if(sending||readingFiles||!files.length)return;
-    setReadingFiles(true); setError('');
-    try {
-    const received = [];
-    for (const file of files) {
-      const image = /^image\/(png|jpeg|webp|gif)$/.test(file.type);
-      if (file.size > (image ? 2 : 1) * 1024 * 1024) { setError(t('acp.attachmentTooLarge')); return; }
-      if (image) {
-        if (!state.capabilities.promptCapabilities?.image) { setError(t('acp.attachmentUnsupported')); return; }
-        const bytes = new Uint8Array(await file.arrayBuffer()); let binary = '';
-        for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-        received.push({ id: crypto.randomUUID(), type: 'image', name: file.name, mimeType: file.type, data: btoa(binary) });
-      } else if (/^text\//.test(file.type) || /\.(md|txt|json|ya?ml|csv|[cm]?jsx?|tsx?|py|go|rs|java|sh|sql|css|html)$/i.test(file.name)) {
-        received.push({ id: crypto.randomUUID(), name: file.name, mimeType: file.type || 'text/plain', text: await file.text() });
-      } else { setError(t('acp.attachmentUnsupported')); return; }
-    }
-    if (!alive.current) return;
-    const combined = [...attachmentsRef.current, ...received];
-    const textBytes = combined.reduce((size, file) => size + new TextEncoder().encode(file.text || '').length, 0);
-    const imageBytes = combined.reduce((size, file) => size + (file.data ? atob(file.data).length : 0), 0);
-    if (combined.length > 16 || textBytes > 1048576 || imageBytes > 2097152) { setError(t('acp.attachmentTooLarge')); return; }
-    setAttachments(combined);
-    } catch(failure){if(alive.current)setError(failure.message);}
-    finally {if(alive.current)setReadingFiles(false);}
+    setError('');
+    try {await composer.receiveFiles(files,state.capabilities,failure=>t(`acp.${failure.code}`));}
+    catch { /* Session-owned intake retains the localized error and original draft. */ }
   }
   const configs = ['models', 'reasoning'].flatMap(name => {
     const config = state.config[name];
@@ -214,7 +193,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
             h(RunningTail,{state,t}))),
         scroll.showLatest?h(ui.Button,{variant:'outline',className:'rssh-jump-latest','aria-label':t('flow.latest'),title:t('flow.latest'),onClick:()=>{
           scroll.latest();scroll.viewportRef.current?.focus({preventScroll:true});
-        }},h('svg',{width:16,height:16,viewBox:'0 0 16 16',fill:'none',stroke:'currentColor',strokeWidth:1.5,'aria-hidden':true},h('path',{d:'m4 6 4 4 4-4'}))):null),
+        }},h(NativeIcon,{name:'chevron-down',size:16})):null),
       waiting ? h('div', { className: 'ra-acp-perms' },
         state.permissions.map(request => h(AcpPermissionCard, { key: request.requestId, permission: request, t, busy: pendingAnswers.has(request.requestId),
           onAnswer: (request, optionId) => answer(request, { optionId }, 'acpPermission'), onDismiss: request => answer(request, { cancelled: true }, 'acpPermission') })),
@@ -235,10 +214,15 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
           h('span', { className: 'ra-acp-cmd-label' }, fileQuery !== null ? value.path : `/${acpCommandName(value)}`)),
         value.description ? h('small', { className: 'ra-acp-cmd-description' }, value.description) : null))) : null,
       h('div', { className: 'ra-acp-composer', 'data-empty':!hasVisibleContent?'':undefined, onDragOver: event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); },
-        onDrop: event => { if (event.dataTransfer.files.length) { event.preventDefault(); receiveFiles([...event.dataTransfer.files]); } } },
+        onDrop: event => {
+          if ([...event.dataTransfer.items].some(item=>item.webkitGetAsEntry?.()?.isDirectory)) {
+            event.preventDefault();setError(t('acp.attachmentInvalidFile'));return;
+          }
+          if (event.dataTransfer.files.length) { event.preventDefault(); receiveFiles([...event.dataTransfer.files]); }
+        } },
         h('input',{ref:attachmentInput,type:'file',hidden:true,multiple:true,disabled:sending||readingFiles,
           onChange:event=>{const files=[...event.target.files];event.target.value='';receiveFiles(files);}}),
-        h(AttachmentList,{attachments,sending,t,onRemove:id=>{
+        h(AttachmentList,{attachments,uploads,sending,t,onRemove:id=>{
           if(!composer.getSnapshot().sending)setAttachments(old=>removeAttachmentById(old,id));
         }}),
         h('textarea', { className: 'ra-acp-textarea', value: draft, rows: 1, readOnly: sending, 'aria-label': t('acp.composerPlaceholder'), placeholder: t('acp.composerPlaceholder'),

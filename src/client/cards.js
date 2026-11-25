@@ -214,21 +214,22 @@ export function AcpElicitationCard(props) {
       var value = answers[key];
       var input;
       if (field.type === "boolean") {
-        input = h("input", { type: "checkbox", checked: value === true, disabled: props.busy,
-          onChange: function (e) { setValue(key, e.target.checked); } });
+        input = h(ui.Checkbox, { label: title, checked: value === true, disabled: props.busy,
+          onChange: function (checked) { setValue(key, checked); } });
       } else if (Array.isArray(field.enum)) {
-        input = h("select", { value: value == null ? "" : String(value), disabled: props.busy,
+        input = h(ui.SelectField, { value: value == null ? "" : String(value), disabled: props.busy,
           onChange: function (e) { setValue(key, field.enum.find(function (v) { return String(v) === e.target.value; })); } },
           h("option", { value: "", disabled: true }, t("acp.chooseAnswer")),
           field.enum.map(function (v, index) { return h("option", { key: String(v), value: String(v), title: field.enumDescriptions && field.enumDescriptions[index] || "" }, field.enumNames && field.enumNames[index] || String(v)); }));
       } else if (field.type === "array") {
         input = h("span", { className: "ra-acp-question-options" }, field.items.enum.map(function (choice, index) {
-          return h("label", { key: String(choice) }, h("input", { type: "checkbox", disabled: props.busy,
+          return h(ui.Checkbox, { key: String(choice), disabled: props.busy,
             checked: Array.isArray(value) && value.indexOf(choice) >= 0,
-            onChange: function (e) { var list = Array.isArray(value) ? value.filter(function (v) { return v !== choice; }) : [];
-              if (e.target.checked) list.push(choice); setValue(key, list); }
-          }), h("span", null, field.items.enumNames && field.items.enumNames[index] || String(choice)),
-            field.items.enumDescriptions && field.items.enumDescriptions[index] ? h("small", null, field.items.enumDescriptions[index]) : null);
+            onChange: function (checked) { var list = Array.isArray(value) ? value.filter(function (v) { return v !== choice; }) : [];
+              if (checked) list.push(choice); setValue(key, list); },
+            label: h(React.Fragment, null, h("span", null, field.items.enumNames && field.items.enumNames[index] || String(choice)),
+              field.items.enumDescriptions && field.items.enumDescriptions[index] ? h("small", null, field.items.enumDescriptions[index]) : null)
+          });
         }));
       } else {
         input = h(UiInput, { value: value == null ? "" : String(value), disabled: props.busy,
@@ -237,7 +238,9 @@ export function AcpElicitationCard(props) {
             setValue(key, field.type === "number" || field.type === "integer" ? (raw === "" ? undefined : Number(raw)) : raw); }
         });
       }
-      return h("label", { key: key, className: "ra-acp-question-field" }, h("span", null, title),
+      return h(field.type === 'boolean' || field.type === 'array' ? 'div' : 'label',
+        { key: key, className: "ra-acp-question-field", role: field.type === 'array' ? 'group' : undefined,
+          'aria-label': field.type === 'array' ? title : undefined }, field.type === 'boolean' ? null : h("span", null, title),
         field.description ? h("span", { className: "ra-acp-role" }, String(field.description)) : null, input);
     }),
     h("div", { className: "ra-acp-perm-opts" },

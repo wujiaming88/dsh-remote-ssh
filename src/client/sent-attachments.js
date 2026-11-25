@@ -39,7 +39,7 @@ export function SentAttachments({item,context,phase,t}) {
     h('div',{className:'rssh-sent-attachment-list'},files.map((file,index)=>{
       const name=sentAttachmentName(file,index,t);
       return isSentImage(file)?h(SentImage,{key:JSON.stringify([key,index]),name,t,presentation:sentImagePresentation(file,index,response,context,item.turnId)}):
-        h('span',{key:index,className:'rssh-message-attachment',title:name},name);
+        h('span',{key:index,className:'rssh-message-attachment',title:typeof file.remotePath==='string'?`${name}\n${file.remotePath}`:name},name);
     })),
     retryable?h(ui.Button,{variant:'ghost',size:'sm',onClick:()=>setAttempt(value=>value+1)},t('acp.retryImagePreview')):null);
 }

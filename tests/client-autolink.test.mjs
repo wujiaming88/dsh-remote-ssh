@@ -88,11 +88,14 @@ test('adversarial rejected URLs and oversized code preserve source without recur
   }
 });
 test('existing renderer keeps native anchors, external isolation and wrapping instead of click handlers',()=>{
-  const source=readFileSync(new URL('../src/client/ui.js',import.meta.url),'utf8');
-  const css=readFileSync(new URL('../src/client/ui.css',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../src/client/native-text-controls.js',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../src/client/native-text-controls.css',import.meta.url),'utf8');
   assert.match(source,/token.type === 'link'[^\n]*h\('a'/);
   assert.match(source,/target:[^\n]*'_blank'/);assert.match(source,/rel:[^\n]*'noopener noreferrer'/);
   assert.doesNotMatch(source,/dangerouslySetInnerHTML|\.innerHTML\b/);
-  assert.match(css,/\.rsui-markdown\s*\{[^}]*overflow-wrap: anywhere/);
-  assert.match(css,/\.rsui-markdown a\s*\{[^}]*text-decoration: underline/);
+  assert.match(css,/\.rssh-native-markdown\s*\{[^}]*overflow-wrap: anywhere/);
+  assert.match(css,/\.rssh-native-markdown a:focus\s*\{[^}]*text-decoration: underline dotted/);
+  assert.match(css,/\.rssh-native-markdown a:hover\s*\{[^}]*text-decoration: underline dotted/);
+  assert.match(css,/\.rssh-native-markdown a:focus-visible,[\s\S]*?box-shadow: 0 0 0 2px/);
+  assert.doesNotMatch(source,/onClick:\s*[^\n]*token\.href|window\.open/);
 });

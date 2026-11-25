@@ -57,13 +57,17 @@ test('tools and reasoning share a leading-only disclosure affordance with access
   assert.match(disclosure,/open\|\|mounted\?\(typeof children==='function'\?children\(\):children\):null/);
   assert.match(thought,/!open&&summary&&\(running\|\|showPreview\)/);
 });
-test('row sizing and permanent disclosure affordances respect focus and reduced motion',async()=>{
+test('native single-seat disclosure swaps icon for chevron with keyboard, hover and touch access',async()=>{
   const css=read('tool-stream.css'),thoughtCss=read('styles.css');
   for(const sheet of [css,thoughtCss])assert.equal((await transform(sheet,{loader:'css'})).warnings.length,0);
   assert.match(css,/\.rssh-flow-toggle \{[^}]*font-size: var\(--dsh-content-font-size-secondary, 13px\)/);
-  assert.match(css,/\.rssh-disclosure-leading \{[^}]*width: calc\(32px \+ var\(--dsh-content-font-delta/);
-  assert.match(css,/\.rssh-disclosure-leading svg \{[^}]*width: 14px/);
-  assert.doesNotMatch(css,/\.rssh-disclosure-chevron[^}]*opacity:\s*0/);
+  assert.match(css,/\.rssh-disclosure-leading \{[^}]*width: calc\(16px \+ var\(--dsh-content-font-delta[^}]*margin-right: 6px/);
+  assert.match(css,/\.rssh-disclosure-leading svg:not\(\[data-state\]\) \{[^}]*width: calc\(14px \+ var\(--dsh-content-font-delta/);
+  assert.match(css,/\.rssh-disclosure-chevron \{[^}]*position: absolute;[^}]*opacity: 0/);
+  assert.match(css,/:focus-visible \.rssh-disclosure-icon \{ opacity: 0/);
+  assert.match(css,/:focus-visible \.rssh-disclosure-chevron \{ opacity: 1/);
+  assert.match(css,/:hover \.rssh-disclosure-chevron \{ opacity: 1/);
+  assert.match(css,/@media \(hover: none\), \(pointer: coarse\) \{[^}]*\.rssh-disclosure-icon \{ opacity: 0; \}\s*\.rssh-disclosure-chevron \{ opacity: 1/);
   assert.match(css,/\.rssh-flow-toggle:focus-visible \{[^}]*outline: 2px solid var\(--dsw-alias-state-info-primary\)/);
   assert.match(css,/\[aria-expanded=true\] > \.rssh-disclosure-leading \.rssh-disclosure-chevron \{ transform: rotate\(0deg\)/);
   assert.match(css,/prefers-reduced-motion: reduce/);
