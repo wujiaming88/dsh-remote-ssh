@@ -2,7 +2,7 @@ import React from "react";
 import {ui, h} from "./shared.js";
 import {acpNativeName, acpContentText, acpNormalizeExit, acpNativeState, acpSubagentFromTool, acpItemId, acpChildrenFor, acpQuestionField, acpQuestionAnswersValid} from "./presentation.js";
 import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
-import {toolFlowModel,toolRowStatus,toolBodyParts,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
+import {toolFlowModel,toolRowStatus,toolBodyParts,toolDetailTitles,rawDetailEntries,fullPayloadText,processRowSummary} from './tool-model.js';
 import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 import {toolHeaderPresentation} from './tool-header-model.js';
@@ -172,12 +172,14 @@ export function AcpToolCard(props) {
   var compact=props.showProcessSummary===false;
   var title=(compact?model.title:header.labelKey?t(header.labelKey):header.title)||model.title||t('acp.tool');
   var summary=processRowSummary(header.summary,props.showProcessSummary,model.failed,model.error);
-  var originalTitles=[...new Set([tool.title,model.title,model.description].filter(value=>typeof value==='string'&&value.trim()))];
+  var originalTitles=toolDetailTitles(tool,model);
   var fullError=acpContentText(tool.errorMessage||tool.error||'');
   return h(React.Fragment,null,h(Disclosure,{className:'rssh-tool-flow',icon:h(FlowIcon,{kind:header.icon}),title,
     summary,running:model.running,failed:model.failed,status,nativeTool:{path:header.path,pathLabel:header.pathLabel,onOpenOutput:props.onOpenOutput,compact},children:()=>h(React.Fragment,null,
       sub?h(AcpSubagentMeta,{...props,subagent:sub}):null,
-      originalTitles.map((value,index)=>h('div',{key:index,className:'rssh-flow-text'},value)),
+      originalTitles.map((value,index)=>/[\r\n]/.test(value)
+        ?h(ui.TextBlock,{key:index,lang:'text',rows:value.split(/\r\n|\r|\n/).map(text=>({text})),copyText:value,labels:props.labels.read,maxLines:Number.MAX_SAFE_INTEGER})
+        :h('div',{key:index,className:'rssh-flow-text'},value)),
       fullError?h('div',{className:'rssh-native-tool-error-detail',role:model.failed?'alert':undefined},fullError):null,
       model.command&&!model.terminals.length&&model.body!=='terminal'&&model.kind!=='execute'?h('div',null,
         h('pre',{className:'rssh-flow-command'},h('code',null,model.command)),

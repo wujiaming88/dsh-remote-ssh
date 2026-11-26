@@ -66,9 +66,9 @@ test('native plain buttons avoid generic Button padding and retain local file in
 });
 test('controlled draft, IME, picker and retained client ownership remain in the adapter',()=>{
   assert.match(chat,/event.isComposing \|\| event.nativeEvent.isComposing/);
-  assert.match(chat,/event.key === 'Enter' && !event.shiftKey && !event.altKey/);
+  assert.match(chat,/const gesture=composerEnterGesture\(event\)/);
   assert.match(chat,/\['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'\]/);
-  assert.match(chat,/pickerScrollTop\(/);assert.match(chat,/client.sendDraft\(\)/);
+  assert.match(chat,/pickerScrollTop\(/);assert.match(chat,/client.sendDraft\(pendingKind\?'retry':mode\)/);
   assert.match(chat,/React.useSyncExternalStore\(composer.subscribe,composer.getSnapshot,composer.getSnapshot\)/);
   assert.match(chat,/onPaste: event => \{ if \(event.clipboardData.files.length\)/);
   assert.doesNotMatch(view,/sendDraft|receiveFiles|setDraft|uploads\[/);

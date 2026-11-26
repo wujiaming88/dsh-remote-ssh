@@ -2,7 +2,9 @@ import React from 'react';
 import {h,ui,NativeIcon} from './shared.js';
 import {acpBuildChildMap,acpItemId} from './presentation.js';
 import {transcriptEntries,transcriptScope,transcriptPolicy,processGroupPresentation} from './transcript-model.js';
-import {ownedDisclosure as Disclosure,FlowIcon} from './disclosure.js';
+import {ownedDisclosure as Disclosure,FlowIcon,requestReadingIntent} from './disclosure.js';
+import {settledTurnSummaries,settledTurnPresentation,processFocusProtection} from './turn-summary-model.js';
+import {NativeTurnSummary} from './turn-summary-view.js';
 import {AcpToolCard,AcpSubagentCard,AcpPlanCard,AcpStateCard,AcpSessionMessageCard,AcpTerminalEventCard,AcpNativeEventCard,AcpCompactionCard,AcpNoticeCard,AcpSourceFallback,AcpInteractionReceipt} from './cards.js';
 import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
@@ -10,12 +12,14 @@ import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
 import {NativeUserMessage,NativeAssistantMessage,NativeMessageActions,NativeMessageCopy} from './native-message-view.js';
 import {runningTailPresentation,formatTurnElapsed,subscribeRunningClock} from './running-tail-model.js';
-import {activeRootScope,actionLabel,conversationActivity,responseCopyParts,processTreeSummary} from './stream-view-model.js';
+import {activeRootScope,actionLabel,conversationActivity,completedResponseCopyKeys,responseCopyParts,processTreeSummary} from './stream-view-model.js';
 
 export const messages={
   zh:{'flow.you':'你的消息','flow.agent':'Agent 回复','flow.copy':'复制','flow.copied':'已复制','flow.copyFailed':'复制失败，请选中文字手动复制。',
     'flow.copyCommand':'复制命令','flow.categoryTool':'工具','flow.categoryRead':'读取','flow.categoryEdit':'编辑','flow.categoryExecute':'命令','flow.categorySearch':'搜索','flow.categoryThought':'思考','flow.categoryPlan':'计划','flow.categoryAgent':'子任务','flow.categoryOther':'其他类型','flow.copyPart':'复制这段回复','flow.copyTurn':'复制本轮回复','flow.process':'执行过程','flow.processCount':'项记录','flow.stopped':'已停止','flow.interrupted':'已中断',
     'flow.toolRead':'读取','flow.toolEdit':'编辑','flow.toolSearch':'搜索','flow.toolExecute':'运行命令','flow.toolFetch':'获取内容','flow.toolDelete':'删除','flow.toolMove':'移动','flow.toolThink':'思考','flow.toolOther':'工具','flow.toolInput':'输入','flow.toolOutput':'输出',
+    'flow.remoteOffline':'远端连接已中断，最新任务状态待确认。本机断线不会取消远端任务；重连后将补取进展，需要审批时仍会等待你的决定。','flow.closedReadOnly':'远端会话已结束，历史记录为只读。',
+    'flow.turnCompleted':'已完成','flow.turnTook':'已完成，用时 ','flow.turnFailed':'已失败','flow.durationGap':'','flow.turnProcessToggle':'展开或收起本轮执行过程',
     'flow.ended':'已结束','flow.hadFailures':'含失败记录','flow.thinking':'思考中','flow.runningCount':'项进行中',
     'flow.permissionRecorded':'权限确认已处理','flow.permissionAllowed':'已允许此操作','flow.permissionDenied':'已拒绝此操作','flow.questionRecorded':'提问已处理','flow.questionDeclined':'已跳过此问题','flow.permissionCancelled':'权限确认已取消','flow.questionCancelled':'提问已取消',
     'flow.runStatus':'运行状态','flow.turnRunning':'本轮进行中','flow.turnWaiting':'等待你的操作','flow.turnElapsed':'本轮用时','flow.elapsedHint':'从本轮实际开始执行时计算，包含等待和连接中断时间，不代表模型推理耗时。','flow.hour':'小时','flow.minute':'分','flow.second':'秒',
@@ -24,6 +28,8 @@ export const messages={
   en:{'flow.you':'Your message','flow.agent':'Agent response','flow.copy':'Copy','flow.copied':'Copied','flow.copyFailed':'Copy failed. Select the text and copy manually.',
     'flow.copyCommand':'Copy command','flow.categoryTool':'Tools','flow.categoryRead':'Reads','flow.categoryEdit':'Edits','flow.categoryExecute':'Commands','flow.categorySearch':'Searches','flow.categoryThought':'Reasoning','flow.categoryPlan':'Plans','flow.categoryAgent':'Agents','flow.categoryOther':'other types','flow.copyPart':'Copy this response','flow.copyTurn':'Copy turn responses','flow.process':'Activity','flow.processCount':'records','flow.stopped':'Stopped','flow.interrupted':'Interrupted',
     'flow.toolRead':'Read','flow.toolEdit':'Edit','flow.toolSearch':'Search','flow.toolExecute':'Run command','flow.toolFetch':'Fetch','flow.toolDelete':'Delete','flow.toolMove':'Move','flow.toolThink':'Reasoning','flow.toolOther':'Tool','flow.toolInput':'Input','flow.toolOutput':'Output',
+    'flow.remoteOffline':'Remote connection lost; the latest task state is unconfirmed. Disconnecting locally does not cancel the remote task. Reconnection retrieves progress; approvals still wait for your decision.','flow.closedReadOnly':'This remote session has ended. Its history is read-only.',
+    'flow.turnCompleted':'Completed','flow.turnTook':'Completed in ','flow.turnFailed':'Failed','flow.durationGap':' ','flow.turnProcessToggle':'Expand or collapse this turn’s activity',
     'flow.ended':'Ended','flow.hadFailures':'Includes failed steps','flow.thinking':'Thinking','flow.runningCount':'active',
     'flow.permissionRecorded':'Permission request handled','flow.permissionAllowed':'Operation allowed','flow.permissionDenied':'Operation denied','flow.questionRecorded':'Question handled','flow.questionDeclined':'Question skipped','flow.permissionCancelled':'Permission request cancelled','flow.questionCancelled':'Question cancelled',
     'flow.runStatus':'Run status','flow.turnRunning':'Turn in progress','flow.turnWaiting':'Awaiting your action','flow.turnElapsed':'Turn elapsed','flow.elapsedHint':'Time since this turn actually started, including waits and connection interruptions; not model reasoning time.','flow.hour':'h','flow.minute':'m','flow.second':'s',
@@ -33,11 +39,50 @@ export const messages={
 
 export function Transcript({items,running,turns={},preferences,t,labels,openFile,renderFactorySlot,rootSessionId,attachmentContext}) {
   const [manual,setManual]=React.useState({});
+  const [turnOpen,setTurnOpen]=React.useState({});
+  const focusedProcess=React.useRef(null),turnRegionPrefix=React.useId();
   const policy=transcriptPolicy(preferences,'standard');
   const built=acpBuildChildMap(items);
   const top=items.filter(item=>!built.parents[acpItemId(item)]);
   const entries=transcriptEntries(top,{turns});
   const latestUser=entries.findLast(entry=>entry.item?.type==='user')?.item;
+  const turnSummaries=settledTurnSummaries(entries,turns,rootSessionId);
+  const copyableResponses=completedResponseCopyKeys(items,turns);
+  const focused=focusedProcess.current;
+  const focusProtection=processFocusProtection(entries,policy,manual,focused);
+  const readingManual=focusProtection?{...manual,[focusProtection.key]:{open:true,readingFlat:true}}:manual;
+  const turnPresentations=new Map([...turnSummaries].map(([scope,summary])=>[scope,
+    settledTurnPresentation(summary,entries,policy,readingManual,turnOpen[scope],focused?.scope===scope)]));
+  // Completion must not hide a focused or explicitly-read process. Freeze that
+  // protection before paint; merely leaving focus later is not a collapse action.
+  React.useLayoutEffect(()=>{
+    if(focusProtection){
+      setManual(previous=>previous[focusProtection.key]?.open&&previous[focusProtection.key]?.readingFlat?previous:
+        {...previous,[focusProtection.key]:{open:true,readingFlat:true}});
+      if(focusedProcess.current===focused)focusedProcess.current={...focused,wasFlat:false};
+    }
+    const pins=[...turnPresentations].filter(([,value])=>value.pin).map(([scope])=>scope);
+    if(pins.length)setTurnOpen(previous=>{
+      const missing=pins.filter(scope=>typeof previous[scope]!=='boolean');
+      return missing.length?{...previous,...Object.fromEntries(missing.map(scope=>[scope,true]))}:previous;
+    });
+  },[turnPresentations,focusProtection,focused]);
+  const processRegionId=key=>`${turnRegionPrefix}-${encodeURIComponent(key)}`;
+  function renderTurnSummary(entry) {
+    const summary=turnSummaries.get(entry.scope);
+    if(!summary||summary.ownerKey!==entry.key)return null;
+    const presentation=turnPresentations.get(entry.scope);
+    const processKeys=new Set(summary.processKeys);
+    const facts=processTreeSummary({settled:true,items:entries.filter(value=>processKeys.has(value.key)).flatMap(value=>value.items)},built.map);
+    return h(NativeTurnSummary,{key:`turn-summary:${entry.scope}`,summary,t,...presentation,
+      failedCount:facts.failedCount,controls:summary.processKeys.map(processRegionId).join(' '),
+      onToggle:event=>{
+        // Explicit focus also covers browsers that do not focus on pointer click.
+        event.currentTarget.focus({preventScroll:true});
+        requestReadingIntent(event.currentTarget);
+        setTurnOpen(previous=>({...previous,[entry.scope]:!presentation.open}));
+      }});
+  }
   const activeScope=running?activeRootScope(turns,rootSessionId):null;
   const copyLabels={copy:t('flow.copy'),copied:t('flow.copied'),copyFailed:t('flow.copyFailed')};
   // Child conversations reuse the same filtering, message roles and copy rules.
@@ -66,8 +111,8 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         return h(NativeAssistantMessage,{key:item.key||id,label:t('flow.agent'),streaming,
           source:fallback?h(AcpSourceFallback,{item,fallback,t}):null,
           body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown}),
-          actions:h(NativeMessageActions,{clock:'end'},
-            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}})),
+          actions:copyableResponses.has(item.key)?h(NativeMessageActions,{clock:'end'},
+            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}})):null,
           interrupted:entry.responseTail&&(turn?.status==='cancelled'||turn?.status==='interrupted')?t(turn.status==='cancelled'?'flow.stopped':'flow.interrupted'):null});
       }
       case 'thought': return h(React.Fragment,{key:item.key},fallback?h(AcpSourceFallback,{item,fallback,t}):null,
@@ -88,17 +133,24 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
     }
   }
   return entries.map(entry=>{
-    if(entry.kind!=='process')return h('div',{key:entry.key,className:'rssh-transcript-item','data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':entry.item.type},render(entry.item,entry));
+    const turnSummary=renderTurnSummary(entry),turnData=turnSummaries.get(entry.scope);
+    if(entry.kind!=='process')return h('div',{key:entry.key,className:'rssh-transcript-item','data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':entry.item.type},
+      turnData?.afterOwner?null:turnSummary,render(entry.item,entry),turnData?.afterOwner?turnSummary:null);
     const facts=processTreeSummary(entry,built.map);
     const current=facts.runningItem;
     const live=!!(running&&entry.scope===activeScope&&!entry.settled&&current&&
       (current.type!=='thought'||thoughtIsStreaming(current,items,running)));
     const summary=[policy.showProcessSummary&&live?actionLabel(current,t):null,
       facts.failedCount?`${t('flow.hadFailures')} ${facts.failedCount}`:null].filter(Boolean).join(' · ');
-    const presentation=processGroupPresentation(entry,policy,manual[entry.key]);
+    const presentation=processGroupPresentation(entry,policy,readingManual[entry.key]);
     // Keep this same parent type throughout streaming and completion. Explicit
     // reading pins the group open, so finishing never removes the focused child.
-    return h('div',{key:entry.key,className:'rssh-process-group','data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':'process'},
+    const turnHidden=!!turnData&&!turnPresentations.get(entry.scope).open;
+    return h('div',{key:entry.key,className:'rssh-process-group',hidden:turnHidden&&!turnSummary,'data-transcript-anchor':entry.key,...historyAnchorAttributes(entry),'data-flow-kind':'process'},
+      turnSummary,
+      h('div',{key:'process-part',id:processRegionId(entry.key),className:'rssh-turn-process-part',hidden:turnHidden,
+        onFocusCapture:()=>{focusedProcess.current={scope:entry.scope,key:entry.key,wasFlat:presentation.flat};},
+        onBlurCapture:event=>{if(!event.currentTarget.contains(event.relatedTarget)&&focusedProcess.current?.key===entry.key)focusedProcess.current=null;}},
       h(Disclosure,{className:'rssh-process-disclosure',title:t('flow.process'),summary,
         icon:h(FlowIcon,{kind:'process'}),...presentation,
         onOpenChange:open=>setManual(previous=>({...previous,[entry.key]:{open}})),
@@ -108,7 +160,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         }),
         scrollRunning:!!(running&&entry.scope===activeScope&&!entry.settled),
         running:live,status:entry.settled?t(entry.interrupted?'flow.interrupted':'flow.ended'):live?t('acp.running'):undefined,
-        children:()=>entry.items.map(item=>render(item))}));
+        children:()=>entry.items.map(item=>render(item))})));
   });
 }
 

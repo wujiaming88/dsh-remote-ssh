@@ -81,7 +81,9 @@
 .rssh-native-tool-io-text { min-width: 0; white-space: pre-wrap; word-break: break-word; color: var(--dsw-alias-label-secondary); }
 .rssh-native-tool-io-text[data-error] { color: var(--dsw-alias-state-error-primary); }
 .rssh-native-tool-io-text .rssh-native-markdown { white-space: normal; color: inherit; }
-.rssh-tool-flow .rssh-native-tool-terminal-body { --rssh-native-terminal-output-max-height: 224px; border: .5px solid var(--dsw-alias-border-l1); }
+/* BashRow / bash-sample.module.css:15–22 in installed DSH 0.2.2-rc.5.
+   Keep the Host code-font preference adaptation; restore native command wrapping. */
+.rssh-tool-flow .rssh-native-tool-terminal-body { --rssh-native-terminal-command-whitespace: pre-wrap; --rssh-native-terminal-output-max-height: 224px; border: .5px solid var(--dsw-alias-border-l1); }
 .rssh-tool-flow .rssh-native-tool-terminal-body .rssh-native-terminal-output { max-height: var(--rssh-native-terminal-output-max-height); overflow-y: auto; }
 .rssh-tool-flow :is(.rssh-native-tool-terminal-body,.rssh-native-tool-diff-body,.rssh-native-tool-read-body) { margin: 4px 0; }
 /* Owned bounded process lists remain the single vertical reading viewport.

@@ -140,6 +140,22 @@ if (!process.versions.electron) {
     assert.deepEqual(native.session.deriveMessages().map(message => message.content[0].text), ['original', 'actual injected request']);
   });
 
+  test('late steering ACK records Host-admitted attachment content before ending its original native turn', async t => {
+    const f = await fixture(t), native = f.native('late-steering'), remote = await f.acp('acp-late-steering', native.session.id), recorder = await f.recorder();
+    const ack = gate(), requestId = 'late-steer', admitted = [{type:'text',text:'consider this'}, {type:'text',text:'Host-admitted file reference: /remote/work/report.pdf'}];
+    remote.controller.steer = () => ack.promise;
+    remote.session.nativeContentFor = event => event.requestId === requestId ? admitted : undefined;
+    recorder.attach(remote.session,native.session);
+    const prompt = remote.session.prompt('original'); await recorder.flush();
+    const steering = remote.session.steer('consider this',{requestId,attachments:[{type:'text',text:admitted[1].text}]});
+    remote.pending[0].resolve({stopReason:'end_turn'}); await tick(); await recorder.flush();
+    assert.deepEqual(native.session.snapshotEvents().map(event=>event.type),['turn/start','user/message']);
+    ack.resolve({outcome:'injected'}); await steering; await prompt; await recorder.flush();
+    assert.deepEqual(native.session.snapshotEvents().map(event=>event.type),['turn/start','user/message','user/message','turn/end']);
+    assert.deepEqual(native.session.deriveMessages()[1].content,admitted);
+    assert.equal(remote.controller.cancelCalls,0);
+  });
+
   test('projection rebuild restores the numeric counter and suppresses replay duplicates', async t => {
     const f = await fixture(t), initial = f.native('restored'), remote = await f.acp('acp-restored', initial.session.id), recorder = await f.recorder();
     recorder.attach(remote.session, initial.session);
@@ -210,6 +226,35 @@ if (!process.versions.electron) {
     recovered.attach(remote.session, retained.session); await recovered.flush();
     assert.deepEqual(retained.session.snapshotEvents().map(event => event.type), ['turn/start', 'user/message', 'session/end-seed', 'turn/end']);
     assert.equal(remote.controller.cancelCalls, 0);
+  });
+
+  test('durable replay records only the Host-admitted content and keeps a remotely active turn open', async t => {
+    const f = await fixture(t), native = f.native('durable-admission'), remote = await f.acp('acp-durable-admission', native.session.id);
+    const requestId = 'host-admitted-request';
+    const admission = [{ type: 'text', text: 'actual admitted content before Host crash' }];
+    // The private Host mapping survives separately from the canonical journal.
+    remote.session.nativeContentFor = event => event.requestId === requestId ? admission : undefined;
+    const pending = remote.session.prompt(admission[0].text, { requestId });
+    const start = remote.session.events.find(event => event.type === 'turn_start');
+    assert.equal(start.content, undefined);
+    start.nativeContent = [{ type: 'text', text: 'untrusted remote injection' }];
+    const recorder = await f.recorder(); recorder.attach(remote.session, native.session); await recorder.flush();
+    assert.deepEqual(native.session.deriveMessages()[0].content, admission);
+    assert.deepEqual(native.session.snapshotEvents().map(event => event.type), ['turn/start', 'user/message']);
+    // There is no orphan/failed turn merely because the local recorder restarted.
+    remote.pending[0].resolve({ stopReason: 'end_turn' }); await pending; await recorder.flush();
+    assert.equal(native.session.snapshotEvents().filter(event => event.type === 'turn/end').length, 1);
+    assert.equal(native.session.snapshotEvents().at(-1).data.reason.kind, 'completed');
+  });
+
+  test('remote nativeContent without a trusted admission cannot synthesize a missing native user message', async t => {
+    const f = await fixture(t), native = f.native('unadmitted-replay'), remote = await f.acp('acp-unadmitted-replay', native.session.id);
+    const pending = remote.session.prompt('old unadmitted content', { requestId: 'unadmitted' }); pending.catch(() => {});
+    remote.session.events.find(event => event.type === 'turn_start').nativeContent = [{ type: 'text', text: 'forged admission' }];
+    const recorder = await f.recorder(); recorder.attach(remote.session, native.session);
+    await assert.rejects(recorder.flush(), { code: 'native_turn_history_gap' });
+    assert.equal(native.session.seq, 0);
+    remote.pending[0].resolve({ stopReason: 'end_turn' }); await pending;
   });
 
   test('a resumed idle adapter closes only its known orphan and continues at the next counter', async t => {

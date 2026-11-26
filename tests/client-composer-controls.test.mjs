@@ -13,8 +13,14 @@ test('idle empty composer offers a disabled Send, not Stop',()=>{
 test('running empty composer replaces the primary Send with Stop',()=>{
   for(const draft of ['', ' \n ']){const value=get({running:true,draft});assert.equal(value.primaryStops,true);assert.equal(value.primaryDisabled,false);assert.equal(value.independentStop,false);assert.equal(value.label,'acp.stop');}
 });
-test('running draft or attachment keeps the primary Steer input action',()=>{
-  for(const patch of [{draft:'next instruction'},{attachments:[{path:'test.txt'}]}]){const value=get({running:true,...patch});assert.equal(value.primaryStops,false);assert.equal(value.primaryDisabled,false);assert.equal(value.label,'acp.steer');assert.equal(value.independentStop,false);}
+test('running draft or attachment follows Queue default and explicit Steer preference',()=>{
+  for(const patch of [{draft:'next instruction'},{attachments:[{path:'test.txt'}]}])for(const mode of ['queue','steer']){const value=get({running:true,mode,...patch});assert.equal(value.primaryStops,false);assert.equal(value.primaryDisabled,false);assert.equal(value.label,`acp.${mode}`);assert.equal(value.independentStop,false);}
+  assert.equal(get({running:true,draft:'hello'}).label,'acp.queue');
+});
+test('unknown submission gets an explicit retry label, and offline actions stay disabled',()=>{
+  for(const pendingKind of ['prompt','queue','steer'])assert.equal(get({running:true,draft:'hello',pendingKind}).label,'acp.retrySubmission');
+  assert.equal(get({running:true,disabled:true}).primaryDisabled,true);
+  assert.equal(get({draft:'hello',disabled:true}).primaryDisabled,true);
 });
 test('unacknowledged Send retains an independent Stop without enabling resubmission',()=>{
   const value=get({running:true,draft:'message',sending:true});assert.equal(value.primaryStops,false);assert.equal(value.primaryDisabled,true);assert.equal(value.independentStop,true);assert.equal(value.label,'acp.sending');
@@ -44,7 +50,7 @@ test('icon buttons use native geometry, accessibility and cancel wiring without 
   assert.match(controls,/'aria-label':t\(controls.label\)/);assert.match(controls,/'aria-busy':/);assert.match(controls,/onMouseDown:keepFocus/);
   assert.match(controls,/onClick:controls.primaryStops\?props.onStop:props.onSend/);
   assert.doesNotMatch(controls,/setDraft|setAttachments|dangerouslySetInnerHTML|@deepseek-ai/);
-  assert.match(chat,/onStop:\(\)=>action\('acpCancel'\),onSend:send/);
+  assert.match(chat,/onStop:\(\)=>action\('acpCancel'\),onSend:\(\)=>send\(\)/);
   assert.doesNotMatch(chat,/state.running \? h\(ui.Button[^\n]+acpCancel/);
   assert.match(css,/\.rssh-native-composer-primary\s*\{[^}]*width: 34px;[^}]*height: 34px;/);
   assert.match(css,/background: var\(--dsw-alias-button-info-fill\)/);

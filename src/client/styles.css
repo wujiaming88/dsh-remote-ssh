@@ -315,6 +315,7 @@
   min-height: 120px;
 }
 .ra-acp-cmd-panel {
+  box-sizing: border-box;
   display: flex;
   position: relative;
   flex-direction: column;
@@ -330,9 +331,14 @@
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-1);
 }
+/* A multiline picker row is not the native fixed-height small Button. */
 .ra-acp-cmd-row {
+  appearance: none;
   display: flex;
   flex: 0 0 auto;
+  height: auto;
+  min-height: 30px;
+  justify-content: flex-start;
   min-width: 0;
   overflow: hidden;
   flex-direction: column;
@@ -350,6 +356,10 @@
   line-height: 20px;
   text-align: left;
   cursor: pointer;
+}
+.ra-acp-cmd-row:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: -2px;
 }
 .ra-acp-cmd-heading {
   display: flex;

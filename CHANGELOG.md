@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.0.0-rc.18 — durable execution, native message delivery and turn summaries
+
+- Fix slash-command/file picker overlap by using content-sized rows rather than fixed-height small buttons; preserve full tooltips, two-line descriptions, keyboard navigation and visible focus. Prevent late history snapshots from rolling back a newer command roster after reconnect, with warm/cold reopen regressions.
+
+- Add explicit remote-owned FIFO Queue and native Steer modes for Codex/Claude Code, using the installed DSH busy-Enter preference, complementary Ctrl/Cmd+Enter, and copied QueueDock presentation. Queued messages can be removed before execution; unsupported or no-longer-active steering never silently changes into Queue. See [message delivery contracts](<docs/MESSAGE_DELIVERY.md>).
+- Preserve immutable request identity across unknown receipts; bound queue previews and request tombstones, recover authoritative queued state, and share receipt/state synchronization across concurrent duplicate calls. Validate steering attachments and persist trusted native admission fingerprints before dispatch.
+- Keep late steering ACKs in their original turn, freeze future turns after unknown injection, and synchronously stop admission/drain after journal failure. Add SDK wire, Host admission, durable reconnect, queue cancellation and late-ACK native-history regressions.
+
+- Show the assistant message-copy action only on each turn's final nonempty reply after authoritative completion. Intermediate/streaming replies and cancelled, interrupted or unknown turns have no message-copy footer. Preserve earlier completed turns' final copy actions, user/tool copying, and the original final reply text without concatenating intermediate messages.
+
+- Restore native Bash/TerminalBlock presentation for long command scripts: avoid repeating a command-shaped ACP title as whitespace-collapsed prose, preserve independent descriptions and raw evidence, and apply the installed Bash view's pre-wrapped command layout. Multiline title-only data uses the existing literal TextBlock without guessing an execution kind. Cover heredocs, indentation, blank lines, long commands and streaming/history replay.
+
+- Move task ownership into a detached remote ACP broker. SSH/Host/browser lifetimes no longer cancel admitted work; reconnect to the same execution and replay canonical events, latest state and pending permission/form requests without reinitializing the adapter or blindly resending prompts.
+- Persist private owner identity and native message admissions before dispatch. Add fsync operation admission/results, HMAC argument identity, single-writer fencing, bounded backpressure/quotas and query-first recovery; lost active owners remain explicit unknown rather than starting replacement tasks.
+- Separate SSH status from browser HTTP connectivity. Add an explicit confirmed “End remote session” action with read-only history; closed workers exit and a private terminal proof supports late result queries. Host shutdown interrupts local waits only, and unconfirmed owners prevent deleting their recovery configuration.
+- Add real local process tests covering killed Host/helper processes, offline approvals/forms, lost receipts, terminal replay, worker exit and owner-loss refusal. Actual target-server SSH behavior and GUI appearance still require acceptance; automated local process tests do not establish target-server acceptance. See [durable execution boundaries](<docs/DURABLE_EXECUTION.md>).
+
+- Add one native-style completion summary per root turn: status, factual duration, adjacent disclosure arrow and a divider, adapted from DSH 0.2.2-rc.5 TurnProcessNodeView. Use only authoritative lifecycle timestamps; missing/invalid times omit duration, and stopped/interrupted/failed turns never claim completion.
+- The summary controls all process segments in that turn without moving or hiding assistant prose. Preserve each segment's own disclosure state and mounted content; turns without process content show a static summary without a false arrow.
+- Preserve focused readers across both completion and next-input folding, including inner flat-to-bounded transitions. Keep explicit user collapse available and retain the existing detailed/verbose display policy.
+
 ## 3.0.0-rc.17 — contextual copy visibility and refreshed documentation
 
 - Reveal assistant copy actions only on message hover or keyboard focus on hover-capable devices, including the final response. Keep controls visible on touch-only devices and preserve footer space to avoid layout shifts; copying scope and stream/interruption states are unchanged.

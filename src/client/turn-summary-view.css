@@ -1,0 +1,36 @@
+/* COPY: DSH 0.2.2-rc.5 ui-chat TurnProcessNodeView.module.css:1–62.
+   ADAPTATION: scoped names; static div without a false disclosure when no process
+   exists or the selected view is always open; focus ring, touch target, and honest
+   failed-step warning. Copyright (c) 2026 DeepSeek. MIT: THIRD_PARTY_NOTICES.md. */
+.rssh-turn-summary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(33px + var(--dsh-content-font-delta, 0px));
+  padding: 0 0 8px;
+  border: none;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  background: none;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: var(--dsh-content-font-size, 14px);
+  text-align: left;
+  transition: color 100ms ease;
+}
+button.rssh-turn-summary { cursor: pointer; }
+.rssh-turn-summary:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 2px; border-radius: 4px; }
+.rssh-turn-summary-chevron { flex: none; width: 14px; height: 14px; margin-left: 4px; color: inherit; transition: transform 100ms ease; }
+.rssh-turn-summary[data-open] .rssh-turn-summary-chevron { transform: rotate(180deg); }
+.rssh-turn-summary-label { min-width: 0; overflow: hidden; font-size: inherit; line-height: calc(24px + var(--dsh-content-font-delta, 0px)); text-overflow: ellipsis; white-space: nowrap; }
+.rssh-turn-summary-number { font-family: var(--ds-font-family-code); font-variant-numeric: tabular-nums; }
+.rssh-turn-summary-warning { color: var(--dsw-alias-state-error-primary); }
+/* Keep source entries/keys in place; only process containers participate in
+   the outer Turn disclosure. A collapsed empty wrapper must not leave flex gaps. */
+.rssh-turn-process-part[hidden], .rssh-process-group[hidden] { display: none; }
+.rssh-turn-summary + :not([hidden]) { margin-top: 16px; }
+.rssh-transcript-item[data-flow-kind=user] > .rssh-turn-summary { margin-top: 16px; }
+@media (hover: hover) { button.rssh-turn-summary:hover { color: var(--dsw-alias-label-secondary); } }
+@media (pointer: coarse) { button.rssh-turn-summary { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .rssh-turn-summary, .rssh-turn-summary-chevron { transition: none; } }

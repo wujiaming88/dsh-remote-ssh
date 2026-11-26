@@ -10,11 +10,20 @@ const origin = event => [event.sessionId, event.turnId, event.messageId, event.p
 
 export function initialState() {
   return { cursor: { generation: '', seq: 0 }, items: [], permissions: [], elicitations: [], commands: [],
-    config: {}, capabilities: {}, usage: null, suggestions: [], binding: null,
+    config: {}, capabilities: {}, usage: null, suggestions: [], binding: null, queuedMessages: [], queueCursor: { generation: '', seq: 0 },
     running: false, loading: true, connected: false, error: '', title: '', turns: {}, hasEarlier: false, oldestSeq: null };
 }
+// An HTTP receipt can race newer SSE queue events. Never resurrect a consumed
+// or removed row from an older snapshot, including after history pagination.
+function queueProjection(state,queuedMessages,cursor) {
+  if(!Array.isArray(queuedMessages)||!Number.isSafeInteger(cursor?.seq)||cursor.seq<0||!cursor.generation)return {};
+  const previous=state.queueCursor||{generation:'',seq:0};
+  if(previous.generation===cursor.generation&&previous.seq>cursor.seq)return {};
+  if(previous.generation&&previous.generation!==cursor.generation&&state.cursor.generation&&state.cursor.generation!==cursor.generation)return {};
+  return {queuedMessages,queueCursor:{generation:cursor.generation,seq:cursor.seq}};
+}
 export function applySnapshot(state, snapshot = {}) {
-  return { ...state, binding: { ...state.binding, ...snapshot }, loading: false,
+  return { ...state, ...queueProjection(state,snapshot.queuedMessages,snapshot.cursor), binding: { ...state.binding, ...snapshot }, loading: false,
     config: snapshot.config || state.config, capabilities: snapshot.capabilities || state.capabilities,
     commands: Array.isArray(snapshot.commands) ? snapshot.commands : state.commands,
     running: snapshot.busy === true || snapshot.status === 'prompting' || snapshot.status === 'starting',
@@ -93,6 +102,7 @@ export function reduceEvent(previous, event) {
   const key = itemKey(event), items = state.items;
   const rootEvent = !event.rootSessionId || event.rootSessionId === event.sessionId;
   switch (event.type) {
+    case 'queue_snapshot': return rootEvent?{...state,...queueProjection(state,event.queuedMessages,state.cursor)}:state;
     case 'text': return { ...state, items: appendText(items, event, 'assistant') };
     case 'thought': return { ...state, items: appendText(items, event, 'thought') };
     case 'user_message': return { ...state, running: true, items: upsert(items,
@@ -182,7 +192,8 @@ export function reduceEvent(previous, event) {
   }
 }
 export function replay(events, snapshot, previous = initialState()) {
-  let state = { ...initialState(), binding: previous.binding, capabilities: previous.capabilities, config: previous.config, loading: false };
+  let state = { ...initialState(), binding: previous.binding, capabilities: previous.capabilities, config: previous.config,
+    queuedMessages:previous.queuedMessages||[],queueCursor:previous.queueCursor||{generation:'',seq:0},loading: false };
   for (const event of events.slice().sort((a, b) => a.seq - b.seq)) state = reduceEvent(state, event);
   return applySnapshot(state, snapshot || previous.binding || {});
 }

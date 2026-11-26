@@ -63,6 +63,20 @@ test('older history response cannot overwrite newer live execution state',async 
  older.resolve({ok:true,session:snapshot,events:[ev(1,{type:'user_message',text:'old'})],cursor:{generation:'g',seq:1},oldestSeq:1,hasEarlier:false});
  await pending;assert.equal(client.state.running,true);assert.equal(client.state.cursor.seq,11);assert.equal(client.state.items[0].text,'old');
 });
+test('late history after reattach cannot roll back the latest command roster',async t=>{
+  const older=deferred();
+  const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq!=null?older.promise:undefined});
+  await client.connect();
+  const previous=[{name:'old-skill',description:'old description'}];
+  const current=[{name:'skills',description:'List skills'},...Array.from({length:48},(_,i)=>({name:`skill-${i}`,description:'恢复后的中文技能说明 mixed English '.repeat(20)}))];
+  event(ev(10,{type:'commands',commands:previous}));
+  const pending=client.history(10);
+  event(ev(11,{type:'commands',commands:current}));
+  older.resolve({ok:true,session:{...snapshot,commands:previous},events:[],cursor:{generation:'g',seq:10},oldestSeq:1,hasEarlier:false});
+  await pending;
+  assert.deepEqual(client.state.commands,current);
+  assert.equal(client.state.commands.length,49);
+});
 test('failed startup is explicit and never sends a prompt or changes backend',async t=>{
  const {client,calls}=fixture(t,{api:method=>method==='acpStart'?{ok:false,code:'remote_prepare_required',error:'prepare',needsPrepare:true}:undefined});
  await client.connect();assert.equal(client.state.failure.needsPrepare,true);assert.equal(client.state.error,'prepare');

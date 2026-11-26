@@ -29,8 +29,10 @@ import toolCss from './tool-stream.css';
 import attachmentCss from './attachments.css';
 import sentAttachmentCss from './sent-attachments.css';
 import nativeMessageCss from './native-message-view.css';
+import turnSummaryCss from './turn-summary-view.css';
 import nativeToolRowCss from './native-tool-row.css';
 import nativeComposerCss from './native-composer-view.css';
+import queueCss from './native-queue-view.css';
 import nativeAttachmentCss from './native-attachment-view.css';
 
 function RemoteConversation(props) {
@@ -38,6 +40,7 @@ function RemoteConversation(props) {
   const routing = props.useRemoteBackend(value => value);
   const title = props.useSessions(value => value.byId[props.sessionId]?.displayTitle || '');
   const preferences=props.useChatPreferences(snapshot=>snapshot.value);
+  const conversationPreferences=props.useConversationPreferences(snapshot=>snapshot.value);
   const conversationSelected=props.usePanelInfo(info=>info.activePanelId===null);
   const viewing=conversationSelected&&routing.phase==='remote'&&routing.sessionId===props.sessionId;
   useEffect(()=>viewing?props.trackSessionView(props.sessionId):undefined,[viewing,props.sessionId,props.trackSessionView]);
@@ -49,7 +52,7 @@ function RemoteConversation(props) {
         workspaceId: routing.value.workspace.shellWorkspaceId, createSession: props.createRemoteSession, openSession: props.openSession, beginNavigation: props.beginNavigation }) : null,
       routing.value?.backend ? props.renderFactorySlot('contextMenu.button', {target:{kind:'remote-agent-session',value:{sessionId:props.sessionId}},label:t('session.more'),size:'sm'}) : null,
       h(ui.Button, { size: 'sm', variant: 'ghost', 'aria-label': t('acp.sidebar'), onClick: props.toggleFiles }, h(ui.IconFolderOpenOutline16, { size: 16 }))),
-    routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, clients:props.clients, preferences, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile })
+    routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, clients:props.clients, preferences, busyEnter:conversationPreferences?.busyEnter, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile })
       : routing.phase === 'selection' ? h(SessionSetup, { key: props.sessionId, backend: routing.value, onSelected: props.refreshBackend })
       : h(ConversationStatus, { kind: routing.phase === 'loading' ? 'loading' : 'error',
         title: t(routing.phase === 'loading' ? 'session.setup.loading' : 'session.setup.loadFailed'),
@@ -67,12 +70,12 @@ export function apply(ctx) {
   locale.t = ctx.locale.bind(NAMESPACE);
   locale.subscribe = listener => ctx.locale.subscribe(listener);
   locale.getSnapshot = () => ctx.locale.getSnapshot();
-  installSessionActions(ctx);
+  installSessionActions(ctx,{onClosed:(sessionId,snapshot)=>clients.markClosed(sessionId,snapshot)});
   const sessionStatuses=new SessionStatusStore();
   installSessionStatus(ctx,sessionStatuses);
   ctx.effect(()=>{sessionStatuses.start();return ()=>sessionStatuses.dispose();});
   ctx.effect(() => {
-    const style = document.createElement('style'); style.textContent = nativeControlsCss + "\n" + nativeOverlaysCss + "\n" + nativeTextCss + "\n" + uiCss + "\n" + toolCss + "\n" + css + "\n" + nativeMessageCss + "\n" + nativeToolRowCss + "\n" + nativeComposerCss + "\n" + nativeAttachmentCss + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss; document.head.appendChild(style);
+    const style = document.createElement('style'); style.textContent = nativeControlsCss + "\n" + nativeOverlaysCss + "\n" + nativeTextCss + "\n" + uiCss + "\n" + toolCss + "\n" + css + "\n" + nativeMessageCss + "\n" + turnSummaryCss + "\n" + nativeToolRowCss + "\n" + nativeComposerCss + "\n" + queueCss + "\n" + nativeAttachmentCss + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss; document.head.appendChild(style);
     return () => style.remove();
   });
 
@@ -116,7 +119,7 @@ export function apply(ctx) {
       load: sessionId => api('sessionBackend', { sessionId }),
       show: active => {
         if (active && !disposeMain) disposeMain = slots.register({ name: 'main.conversation', priority: -100, locale: NAMESPACE,
-          inject: () => ({ clients, trackSessionView, hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat') }, refreshBackend: () => router.refresh(),
+          inject: () => ({ clients, trackSessionView, hooks: { remoteBackend: router, chatPreferences:ctx.configForms.get('ui-chat'), conversationPreferences:ctx.configForms.get('ui-conversation') }, refreshBackend: () => router.refresh(),
             beginNavigation: () => ctx.layout.beginNavigation(),
             createRemoteSession: options => ctx.sessions.create(options),
             openSession: id => ctx.uiWorkspace.openSession(id),

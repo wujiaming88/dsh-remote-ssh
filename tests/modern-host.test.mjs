@@ -46,6 +46,13 @@ function runtimeFixture() {
       const session = new acpModule.AcpSession({ ...options, id: 'a' + calls.create, connectImpl: () => controller });
       await session.start(); live.set(session.id, session); saved.set(session.id, session.state()); return session;
     },
+    close: async (id, args = {}) => {
+      const session = live.get(id); if (session) await session.close();
+      const state = session?.state() || saved.get(id);
+      assert.equal(args.preserveHistory, true);
+      saved.set(id, { ...state, status: 'closed', closedAt: Date.now(), resumable: false }); live.delete(id);
+      return { ok: true, closed: true, removed: false, historyPreserved: true, dshSessionId: state.dshSessionId };
+    },
     shutdownSession: async id => { await live.get(id)?.dispose(); live.delete(id); }, shutdown: async () => { calls.shutdown++; for (const session of live.values()) await session.dispose(); live.clear(); },
     events: () => ({ events: [], cursor: { generation: 'g', seq: 0 }, reset: false, hasMore: false })
   };
@@ -82,6 +89,33 @@ if (!installed) {
     assert.match(result.stdout, /tests [1-9][0-9]*/); process.stdout.write(result.stdout);
   });
 } else {
+test('explicit close requires original identity and confirmation, retains history, and reopens without remote execution', async () => {
+  const f = await fixture();
+  try {
+    const native = f.root.sessions.create('close-fixture', { meta: { cwd: f.mirror } });
+    await f.host.api.selectSessionBackend({ sessionId: native.id, backend: { type: 'claude', permission: 'plan' } });
+    const started = await f.host.api.acpStart({ dshSessionId: native.id });
+    const args = { id: started.session.id, dshSessionId: native.id, confirm: true };
+    await assert.rejects(f.host.api.acpClose({ ...args, confirm: false }), { code: 'confirmation_required' });
+    await assert.rejects(f.host.api.acpClose({ ...args, dshSessionId: 'other' }), { code: 'binding_mismatch' });
+    await assert.rejects(f.host.api.acpClose({ ...args, sessionId: 'other' }), { code: 'binding_mismatch' });
+    const close = f.runtime.close;
+    f.runtime.close = async () => { throw Object.assign(new Error('unconfirmed remote owner'), { code: 'remote_broker_lost' }); };
+    await assert.rejects(f.host.api.acpClose(args), { code: 'remote_broker_lost' });
+    assert.equal(f.runtime.get(args.id).alive, true); assert.ok(f.runtime.store.get(args.id));
+    f.runtime.close = close;
+    const ended = await f.host.api.acpClose(args);
+    assert.equal(ended.session.status, 'closed'); assert.equal(ended.historyPreserved, true); assert.equal(f.writes(), 0);
+    const before = { create: f.calls.create, probe: f.calls.probe };
+    f.root.workspaceRegistry.archivedSessionIds.push(native.id);
+    assert.equal((await f.host.api.acpResume(args)).session.status, 'closed');
+    assert.equal((await f.host.api.acpStart({ dshSessionId: native.id })).session.status, 'closed');
+    assert.equal((await f.host.api.acpEvents(args)).ok, true);
+    assert.deepEqual({ create: f.calls.create, probe: f.calls.probe }, before);
+    await assert.rejects(f.host.api.acpSetMode({ ...args, modeId: 'plan' }), { code: 'session_closed' });
+    assert.equal((await f.host.api.sessionBackend({ sessionId: native.id })).backend.type, 'claude');
+  } finally { await f.close(); }
+});
 test('modern Config consists only of current volatile fields', { skip: !installed }, () => {
   const value = configModule.Config({});
   assert.deepEqual(Object.keys(value).sort(), ['profiles', 'schemaVersion', 'workspacesV3']);
@@ -321,7 +355,7 @@ test('actual RemoteAccess policy denies authenticated non-owner file/prompt/appr
     root.provide('webServer', { register: route => { routes.push(route); return () => {}; } });
     await root.plugin(hostModule, {});
     const route = routes.find(route => route.path === HTTP_BASE + '/api'); assert.ok(route);
-    for (const method of ['sessionBackend', 'selectSessionBackend', 'sessionFiles', 'acpPrompt', 'acpPermission', 'acpPrepareRuntime']) {
+    for (const method of ['sessionBackend', 'selectSessionBackend', 'sessionFiles', 'acpPrompt', 'acpPermission', 'acpPrepareRuntime', 'acpClose']) {
       const request = Readable.from([Buffer.from(JSON.stringify({ sessionId: 'fixture', id: 'missing', action: 'write', path: 'file', content: 'no' }))]);
       request.method = 'POST'; request.url = HTTP_BASE + '/api/' + method; request.headers = { 'x-requested-with': 'XMLHttpRequest' };
       let status, payload;

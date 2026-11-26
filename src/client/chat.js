@@ -9,10 +9,13 @@ import {AcpPermissionCard,AcpElicitationCard} from './cards.js';
 import {Transcript,RunningTail} from './transcript.js';
 import {useTranscriptScroll} from './transcript-scroll.js';
 import {visibleTranscriptItem} from './transcript-model.js';
+import {remoteConnectionPresentation} from './stream-view-model.js';
 import {ConversationStatus,PrepareRuntimeDialog} from './status.js';
 import {AttachmentList} from './attachments.js';
 import {removeAttachmentById} from './attachments-model.js';
 import {NativeComposerView} from './native-composer-view.js';
+import {NativeQueueView} from './native-queue-view.js';
+import {resolveDeliveryMode,composerEnterGesture,deliveryConflicts} from './composer-delivery-model.js';
 import {composerConfiguration} from './native-composer-model.js';
 
 function useClient(backend,clients) {
@@ -33,19 +36,22 @@ export function ChatPane({backend,clients,...props}) {
   return client?h(ConnectedChatPane,{...props,key:client.viewKey,backend,client}):h(ConversationStatus,{kind:binding.error?'error':'loading',
     title:t(binding.error?'session.setup.loadFailed':'session.setup.loading'),description:binding.error?.message,onRetry:binding.error?binding.retry:undefined});
 }
-function ConnectedChatPane({ backend, client, openRemoteFile, preferences, renderFactorySlot }) {
+function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyEnter, renderFactorySlot }) {
   const t = useT(), labels = acpBlockLabels(t), sid = backend.sessionId;
   const state=React.useSyncExternalStore(client.subscribe,client.getSnapshot,client.getSnapshot);
+  const remoteStatus=remoteConnectionPresentation(state);
   const composer=client.composer;
   const composerState=React.useSyncExternalStore(composer.subscribe,composer.getSnapshot,composer.getSnapshot);
-  const {draft,attachments,sending,readingFiles,uploads}=composerState;
+  const {draft,attachments,sending,readingFiles,uploads,pendingKind}=composerState;
+  const inputUnavailable=remoteStatus.offline||remoteStatus.closed||!state.connected;
+  const primaryMode=resolveDeliveryMode(busyEnter,state.running);
   const draftRef=React.useRef(draft);draftRef.current=draft;
   const setDraft=value=>{composer.setDraft(value);draftRef.current=composer.getSnapshot().draft;};
   const setAttachments=composer.setAttachments;
   const attachmentInput=React.useRef(null);
   const [busy, setBusy] = React.useState('');
   const [actionError, setError] = React.useState('');
-  const error=actionError||composerState.error;
+  const error=actionError||composerState.error||(state.binding?.status==='closed'?state.error:'');
   const [preparePlan, setPreparePlan] = React.useState(null);
   const [commandOpen, setCommandOpen] = React.useState(false);
   const [fileQuery, setFileQuery] = React.useState(null);
@@ -89,10 +95,14 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
     input(draftRef.current.replace(/@[^\s]*$/, ''));
   }
   function chooseCommand(command) { input(`/${acpCommandName(command)} `); setCommandOpen(false); }
-  async function send() {
-    if (!client || sending || readingFiles || (!draft.trim() && !attachments.length)) return;
+  async function send(gesture='enter') {
+    if (!client || inputUnavailable || busy || sending || readingFiles || (!draft.trim() && !attachments.length)) return;
+    const mode=resolveDeliveryMode(busyEnter,state.running,gesture);
+    if(pendingKind&&gesture==='accelerated'&&deliveryConflicts(pendingKind,mode,state.running)) {
+      setError(t('acp.deliveryLocked'));return;
+    }
     setError(''); scroll.latest();
-    try { await client.sendDraft(); }
+    try { await client.sendDraft(pendingKind?'retry':mode); }
     catch { /* The retained composer records the current attempt's outcome. */ }
   }
   async function action(method, payload, key = method) {
@@ -173,6 +183,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
     : h('div', { className: 'ra-acp' },
       error ? h('p', { role: 'alert', className: 'ra-acp-error rssh-output-alert' }, error) : null,
       !state.connected&&state.transportError?h('p',{role:'alert',className:'ra-acp-error rssh-output-alert'},state.transportError):null,
+      remoteStatus.offline?h('div',{role:'status',className:'rssh-output-alert'},
+        h('p',null,t('flow.remoteOffline')),
+        state.binding.lastTransportError?h('p',null,state.binding.lastTransportError):null,
+        remoteStatus.retryable?h(ui.Button,{onClick:()=>client.connect()},t('acp.retry')):null):null,
       state.binding.status === 'error' ? h(ui.Button, {className:'rssh-output-retry', onClick: () => client.connect() }, t('acp.retry')) : null,
       h('div',{className:'rssh-transcript-frame'},
         h('div', {className:'ra-acp-messages',ref:scroll.viewportRef,tabIndex:0,role:'region','aria-label':t('acp.messageHistory'),onScroll:scroll.onScroll,onWheel:scroll.onWheel,onKeyDown:scroll.onKeyDown,onPointerDown:scroll.onPointerDown,onTouchStart:scroll.onTouchStart,onTouchMove:scroll.onTouchMove,onTouchEnd:scroll.onTouchEnd,onTouchCancel:scroll.onTouchEnd},
@@ -182,7 +196,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
                 scroll.history.error?t(scroll.history.error.code==='history_no_progress'?'acp.historyNoProgress':'acp.historyFailed'):
                 scroll.history.loading?t('acp.historyLoading'):state.hasEarlier?t('acp.historyScrollHint'):hasVisibleContent?t('acp.historyStart'):''),
               scroll.history.error?h(ui.Button,{variant:'ghost',size:'sm',onClick:scroll.retryHistory},t('acp.historyRetry')):null),
-            hasVisibleContent?h(Transcript,{items:state.items,running:state.running,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId,attachmentContext:{id:state.binding.id,dshSessionId:sid}}):null,
+            hasVisibleContent?h(Transcript,{items:state.items,running:state.running&&!remoteStatus.offline,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId,attachmentContext:{id:state.binding.id,dshSessionId:sid}}):null,
             !hasVisibleContent&&!state.running&&!waiting&&state.connected?h('div',{className:'ra-acp-empty-state'},t('acp.emptyHint')):null,
             h(RunningTail,{state,t}))),
         scroll.showLatest?h(ui.Button,{variant:'outline',className:'rssh-jump-latest','aria-label':t('flow.latest'),title:t('flow.latest'),onClick:()=>{
@@ -195,7 +209,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
       !state.running && state.suggestions.length ? h('div', {className:'ra-acp-suggestions', 'aria-label':t('acp.suggestions')},
         state.suggestions.filter(value=>value.text && Array.isArray(value.content) && value.content.every(block=>block.type==='text')).map((value,index)=>
           h(ui.Button, {key:index,variant:'ghost',size:'sm',onClick:()=>input(value.text)}, value.text))) : null,
+      remoteStatus.closed?h('p',{className:'rssh-output-alert',role:'status'},t('flow.closedReadOnly')):h('div',{className:'rssh-native-composer-stack'},
+      h(NativeQueueView,{items:state.queuedMessages,disabled:inputUnavailable,onRemove:targetRequestId=>client.action('acpRemoveQueued',{targetRequestId}),t}),
       h(NativeComposerView, {
+        notice: pendingKind&&!sending?t('acp.pendingSubmissionNotice'):null,
         cardProps: {onDragOver: event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); },
         onDrop: event => {
           if ([...event.dataTransfer.items].some(item=>item.webkitGetAsEntry?.()?.isDirectory)) {
@@ -206,7 +223,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
         overlay: commandOpen || fileQuery !== null ? h('div', { ref: pickerPanel, className: 'ra-acp-cmd-panel', role: 'dialog', 'aria-label': t(fileQuery !== null ? 'acp.fileMentions' : 'acp.commandsPanel') },
         (fileQuery !== null ? fileOptions : commands).length === 0
           ? h('div', { className: 'ra-acp-cmd-empty', role: 'status' }, t(fileQuery !== null ? 'acp.noFiles' : 'acp.noCommands'))
-          : (fileQuery !== null ? fileOptions : commands).map((value, index) => h(ui.Button, { key: value.path || value.name, size: 'sm', variant: 'ghost',
+          : (fileQuery !== null ? fileOptions : commands).map((value, index) => h('button', { key: value.path || value.name, type: 'button',
           className: 'ra-acp-cmd-row' + (index === activeChoice ? ' ra-acp-command-selected' : ''),
           'aria-current': index === activeChoice ? 'true' : undefined,
           title: value.description || value.path || `/${acpCommandName(value)}`,
@@ -223,7 +240,9 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
         editor: {value: draft, readOnly: sending, 'aria-label': t('acp.composerPlaceholder'),
           onChange: event => input(event.target.value), onPaste: event => { if (event.clipboardData.files.length) { event.preventDefault(); receiveFiles([...event.clipboardData.files]); } },
           onKeyDown: event => {
-            if (event.isComposing || event.nativeEvent.isComposing) return;
+            if (event.isComposing || event.nativeEvent.isComposing || event.keyCode===229 || event.nativeEvent.keyCode===229) return;
+            const gesture=composerEnterGesture(event);
+            if(event.key==='Enter'&&gesture===null)return;
             if ((commandOpen || fileQuery !== null) && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
               if (event.key === 'Escape') { event.preventDefault(); setCommandOpen(false); setFileQuery(null); return; }
               const values = fileQuery !== null ? fileOptions : commands;
@@ -235,13 +254,14 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, rende
                 return;
               }
             }
-            if (event.key === 'Enter' && !event.shiftKey && !event.altKey) { event.preventDefault(); send(); }
+            if (gesture!==null) { event.preventDefault(); send(gesture); }
           }},
         placeholder: t('acp.composerPlaceholder'), showPlaceholder: !draft && !attachments.length,
         add: h(AttachmentButton,{disabled:sending||readingFiles,onClick:()=>attachmentInput.current?.click()}),
         modes: permission, controls: configs,
         primary: h(ComposerControls, {running:state.running,draft,attachments,sending,readingFiles,busy,status:state.binding.status,
-          onStop:()=>action('acpCancel'),onSend:send}),
+          mode:primaryMode,pendingKind,disabled:inputUnavailable,
+          onStop:()=>action('acpCancel'),onSend:()=>send()}),
         dock: h(React.Fragment,null,h(SessionStatsPill,{state}),h(UsagePill,{state}),h(UsageMeter,{state})),
-      })));
+      }))));
 }

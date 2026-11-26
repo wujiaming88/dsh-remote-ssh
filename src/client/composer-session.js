@@ -1,4 +1,4 @@
-import {prepareSubmission,acknowledgeSubmission} from './submission.js';
+import {prepareSubmission,acknowledgeSubmission,submissionSignature} from './submission.js';
 import {prepareFileAttachments} from './file-intake.js';
 
 // Draft/ack lifetime is independent of a mounted ChatPane and its HTTP subscription.
@@ -8,13 +8,14 @@ export class ComposerSession {
     this.key=`remote-acp.draft.v3.${sessionId}`;
     try { this.storage=storage===undefined?(typeof window==='undefined'?null:window.localStorage):storage; } catch {}
     let draft='';try { draft=this.storage?.getItem(this.key)||''; } catch {}
-    this.state={draft,attachments:[],sending:false,readingFiles:false,uploads:{},error:''};
+    this.state={draft,attachments:[],sending:false,readingFiles:false,uploads:{},error:'',pendingKind:null};
     this.pending=null;this.attempt=0;this.intakeEpoch=0;this.listeners=new Set();
   }
   getSnapshot=()=>this.state;
   subscribe=listener=>{this.listeners.add(listener);return()=>this.listeners.delete(listener);};
   publish(patch) {
     this.state={...this.state,...patch};
+    this.state.pendingKind=this.pending?.signature===submissionSignature(this.state.draft,this.state.attachments)?this.pending.kind:null;
     if(Object.hasOwn(patch,'draft'))try { this.storage?.setItem(this.key,this.state.draft); } catch {}
     for(const listener of this.listeners)listener();
   }
@@ -46,11 +47,12 @@ export class ComposerSession {
     if(this.state.readingFiles)throw new Error('Files are still being read');
     if(this.state.sending)throw new Error('A submission is awaiting acknowledgment');
     const request=prepareSubmission(this.state.draft,this.state.attachments,this.pending);
-    if((request.kind||kind)==='steer'&&request.attachments.length) {
-      const error=Object.assign(new Error('Keep attachments in the draft until the current turn ends'),{code:'steer_attachments_unsupported'});
+    if(!['prompt','queue','steer'].includes(kind))throw Object.assign(new Error('Invalid message submission mode'),{code:'bad_request'});
+    if(request.kind&&request.kind!==kind) {
+      const error=Object.assign(new Error('The previous message is awaiting confirmation. Retry its original mode before changing modes.'),{code:'submission_mode_locked'});
       this.publish({error:error.message});throw error;
     }
-    this.pending={...request,kind:request.kind||kind};
+    this.pending={...request,kind};
     const attempt=++this.attempt;
     this.publish({sending:true,error:''});
     return {request:this.pending,attempt};
@@ -62,6 +64,14 @@ export class ComposerSession {
   }
   finish(request,attempt,error) {
     if(this.attempt!==attempt||this.pending?.requestId!==request.requestId)return;
+    // These outcomes prove the adapter never consumed this message. Keep the
+    // draft, but allow a fresh explicitly selected mode. Unknown outcomes keep
+    // the immutable request identity and require an explicit same-mode retry.
+    const unconsumed=['steering_not_injected','steering_unsupported','steer_content_unsupported','no_active_turn','queue_full','bad_attachment','bad_prompt','attachment_unsupported'].includes(error?.code);
+    // A retry's local validation failure says nothing about the earlier attempt
+    // whose receipt was lost. Never release that identity and blindly resend.
+    if(unconsumed&&!request.uncertain)this.pending=null;
+    else if(error)this.pending={...this.pending,uncertain:true};
     this.publish({sending:false,error:error?.message||''});
   }
   get hasContent() {return !!(this.state.draft||this.state.attachments.length||this.state.readingFiles||this.pending);}

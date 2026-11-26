@@ -126,6 +126,21 @@ if (!installed) {
       async close() { await actions.stop(); await recorder.dispose(); await actions.dispose(); for (const s of live.values()) await s.dispose(); await nativeHandle.dispose(); await root.fiber.dispose(); }
     };
   }
+  test('shutdown detaches before waiting for a title and persists an unknown outcome', { timeout: 1500 }, async () => {
+    const f = await fixture(), started = deferred(), pending = deferred();
+    let detached = 0;
+    f.runtime.detachTransports = async () => { detached++; pending.reject(Object.assign(new Error('transport detached'), { code: 'remote_detached' })); };
+    f.setTitle(async () => { started.resolve(); return pending.promise; });
+    try {
+      const rename = f.actions.api.sessionRename({ sessionId: f.native.id, title: 'Accepted or unknown' });
+      await started.promise; await f.actions.stop();
+      const result = await rename;
+      assert.ok(detached > 0); assert.equal(result.titleSync.status, 'unknown'); assert.equal(result.titleSync.mayHaveChangedRemote, true);
+      const saved = JSON.parse(await readFile(join(f.directory, 'session-actions.json'), 'utf8'));
+      assert.equal(saved.titles[f.native.id].status, 'unknown');
+      assert.equal(f.source.status, 'ready');
+    } finally { await f.close(); }
+  });
   test('scoped Cordis menu metadata uses declared services without remote or native execution', async () => {
     const f = await fixture({ scopedContext: true });
     try {

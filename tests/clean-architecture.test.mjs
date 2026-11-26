@@ -22,6 +22,12 @@ test('all production Host modules are reachable from the actual package entries'
   for(const node of tree.body){const spec=node.source?.value;if(spec?.startsWith('.'))visit(resolve(dirname(path),spec));}
  }
  visit(join(root,'lib/index.js'));visit(join(root,'lib/client.js'));
+ // This executable is uploaded as data, not imported into the Host process.
+ assert.match(read('build-remote.mjs'),/lib\/durable-worker\.js/);
+ assert.match(read('build-remote.mjs'),/lib\/durable-worker-bundle\.js/);
+ assert.match(read('lib/durable-launch.js'),/new URL\(['"]\.\/durable-worker-bundle\.js['"],import\.meta\.url\)/);
+ assert.match(pkg.scripts.build,/node build-remote\.mjs/);
+ visit(join(root,'lib/durable-worker.js'));visit(join(root,'lib/durable-worker-bundle.js'));
  const files=readdirSync(join(root,'lib')).filter(name=>name.endsWith('.js')).map(name=>resolve(root,'lib',name));
  assert.deepEqual(files.filter(file=>!seen.has(file)),[],'unreachable production files must be deleted');
 });

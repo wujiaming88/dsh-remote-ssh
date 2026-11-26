@@ -26,12 +26,12 @@ function walk(node, visit) {
 // Tests inspect syntax and plain SVG data only. No React/DOM emulation, bundle
 // execution, or connected-page access is used.
 
-const required = ['send', 'stop', 'spinner', 'add', 'plus', 'close', 'remove', 'chevron-down', 'chevron-right', 'chevron-up', 'folder', 'folder-open', 'sidebar', 'file', 'code', 'image', 'copy', 'check', 'wrap', 'nowrap', 'tool', 'process', 'agent', 'subagent', 'state-check', 'plan', 'message', 'native', 'source', 'thought', 'lightbulb', 'running', 'clock', 'pause', 'refresh', 'upload', 'download', 'more', 'warning', 'shield', 'permission', 'usage', 'stats'];
+const required = ['queue', 'send', 'stop', 'spinner', 'add', 'plus', 'close', 'remove', 'chevron-down', 'chevron-right', 'chevron-up', 'folder', 'folder-open', 'sidebar', 'file', 'code', 'image', 'copy', 'check', 'wrap', 'nowrap', 'tool', 'process', 'agent', 'subagent', 'state-check', 'plan', 'message', 'native', 'source', 'thought', 'lightbulb', 'running', 'clock', 'pause', 'refresh', 'upload', 'download', 'more', 'warning', 'shield', 'permission', 'usage', 'stats'];
 
 test('all requested icon roles point to documented copied native shapes', () => {
   assert.equal(exportedLiteral('NATIVE_ICON_VERSION'), '0.2.2-rc.5');
   assert.equal(exportedLiteral('NATIVE_ICON_SOURCE_SHA256'), '65411dabad4de33466b12643cf30376d3d41ea1b7ce10ce329e97c89992d308b');
-  assert.equal(Object.keys(data).length, 55);
+  assert.equal(Object.keys(data).length, 56);
   for (const role of required) {
     assert.ok(sources[role], role);
     assert.ok(data[sources[role].key], role);
@@ -43,10 +43,10 @@ test('all requested icon roles point to documented copied native shapes', () => 
 });
 
 test('copied geometry and SVG structure retain their reviewed snapshot', () => {
-  const {'checklist-outline': checklist, 'browse-outline': read, 'api-outline': terminal, sparkle,
+  const {'queue-outline': queue, 'checklist-outline': checklist, 'browse-outline': read, 'api-outline': terminal, sparkle,
     'close-fill': close, 'composer-send': send, 'composer-stop': stop, 'composer-sending': sending, ...previousShapes} = data;
   assert.ok(read && terminal && sparkle && close && send && stop && sending);
-  assert.ok(checklist);
+  assert.ok(checklist && queue);
   assert.equal(createHash('sha256').update(JSON.stringify(previousShapes)).digest('hex'), 'bf7b8cda6aede64daa8ae17706c4864a6a0f2b238abdb0d641d3c43c4fc7dd11');
   assert.equal(data['send-outline'][1].viewBox, '0 0 16 16');
   assert.equal(data['send-outline'][2][1][1].d, 'M7.97571 14.5732L8.02421 2.34139');
@@ -54,6 +54,24 @@ test('copied geometry and SVG structure retain their reviewed snapshot', () => {
   assert.equal(data['reference-file'][2][0][1].d, 'M4.9375 5.90295H11.0625');
   assert.equal(data['fish-logo'][1].viewBox, '0 0 23.16 17.04');
   assert.equal(data['file-image'][2][2][1].transform, 'translate(14 16) scale(1.12) translate(-14 -16)');
+});
+
+test('queue glyph retains all native paths through the central icon boundary', () => {
+  assert.equal(sources.queue.key, 'queue-outline');
+  assert.match(sources.queue.symbol, /IconQueueOutlineRegular/);
+  assert.equal(sources.queue.line, 129);
+  assert.match(sources.queue.compiled, /index-Ciz7DZxv\.js/);
+  const icon = data['queue-outline'];
+  assert.deepEqual(icon[1], {xmlns:'http://www.w3.org/2000/svg',viewBox:'0 0 16 16',fill:'none',strokeWidth:'$stroke'});
+  assert.deepEqual(icon[2].map(node => node[1].d), [
+    'M5 6.75H11',
+    'M5 9H8',
+    'M2.37067 11.2497C1.5872 9.89252 1.32042 8.29798 1.61945 6.7597C1.91847 5.22141 2.76317 3.84293 3.99801 2.87809C5.23285 1.91325 6.7747 1.427 8.33964 1.50888C9.90458 1.59076 11.3873 2.23526 12.5147 3.32369C13.6422 4.41232 14.3384 5.8717 14.4751 7.43304C14.6118 8.99438 14.1797 10.5525 13.2585 11.8205C12.3372 13.0885 10.9889 13.9809 9.4617 14.3334C8.18666 14.6277 6.8587 14.529 5.64964 14.0601C5.17095 13.8745 4.76937 13.4929 4.26509 13.3963C3.67389 13.2832 2.95232 13.5595 2.0377 14.3334',
+  ]);
+  assert.ok(icon[2].every(node => node[0] === 'path' && node[1].stroke === 'currentColor' && node[2].length === 0));
+  const view = readFileSync(new URL('../src/client/native-queue-view.js', import.meta.url), 'utf8');
+  assert.equal((view.match(/h\(NativeIcon,\{name:'queue',size:14\}\)/g)||[]).length, 2);
+  assert.doesNotMatch(view, /h\(['"](?:svg|path)['"]|function QueueIcon/);
 });
 
 test('process groups use the copied native step list rather than a hash or completion glyph', () => {

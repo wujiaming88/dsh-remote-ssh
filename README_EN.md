@@ -2,19 +2,20 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.17** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.18** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
 ## Current capabilities
 
 - **Remote Claude Code / Codex**: connect over SSH or Kerberos/GSSAPI and execute in the actual remote working directory, without taking over local DSH conversations.
-- **Native-style conversations**: locally adapt message, tool-row, composer and attachment views from distributed DSH 0.2.2-rc.5 source. Action names sit next to paths, and each assistant segment has one copy icon. Copy controls appear on hover or keyboard focus on hover-capable devices and stay visible on devices without hover support.
+- **Native-style conversations**: locally adapt message, tool-row, composer and attachment views from distributed DSH 0.2.2-rc.5 source. Action names sit next to paths, and only the final reply of each authoritatively completed turn has a message-copy icon. Copy controls appear on hover or keyboard focus on hover-capable devices and stay visible on devices without hover support.
 - **Conversation controls**: streaming, permission and form requests, model/mode selection, send/stop, history loading, reconnect, and remote-session rename, pin and fork.
 - **Attachments and files**: text, images and ordinary files; ordinary files upload on Send and provide verified remote-path references. Remote file browsing, editing, upload/download and optional Git worktrees are also supported.
+- **Durable execution and message delivery**: newly created durable tasks keep their remote owner across local network loss or Host exit, with native steering and removable queued input. Finish legacy tasks before upgrading; see [recovery and upgrade boundaries](<docs/DURABLE_EXECUTION.md>) and [delivery contracts](<docs/MESSAGE_DELIVERY.md>).
 - **Factual status**: turn status and elapsed time, context occupancy and unread-completion indicators, without inventing statistics absent from the protocol.
 
-Version **3.0.0-rc.17** passes **766 automated tests** and the **76-module client build**. Real GUI visual and interaction acceptance remains pending.
+Version **3.0.0-rc.18** passes **902 automated tests**, the **83-module client build** and the **11-module remote worker build**. Real GUI visual and interaction acceptance remains pending.
 
 [Changelog](./CHANGELOG.md) · [Native UI sources and adaptation boundaries](./docs/NATIVE_UI.md)
 
@@ -49,17 +50,17 @@ Local directories use native DSH and its native directory picker. Remote workspa
 
 ### Chat
 
-- Enter sends, Shift+Enter adds a newline. Drafts clear after Host acknowledgement (no persistent Enter hint line).
+- Enter / the primary send button use DSH's native `busyEnter` preference: Queue by default while running. Ctrl/Cmd+Enter uses the other mode (Steer by default); Shift+Enter adds a newline. Drafts clear after Host acknowledgement.
 - While running, the primary button becomes an icon Stop instead of the text button; a non-empty draft keeps Send/Steer.
 - Model, reasoning and mode controls follow actual adapter capabilities and update after confirmation.
-- In-turn input uses steering or the Host's serial queue. Unknown delivery is not blindly resent.
+- Explicit Queue uses the durable remote owner's FIFO; native Steer reaches Codex `turn/steer` or Claude Code streaming input without cancel-and-resend. The native-style queue supports viewing/removing unsubmitted messages. Unsupported or expired steering retains the draft rather than silently queueing; unknown outcomes retry the original ID/mode. See [delivery contracts](<docs/MESSAGE_DELIVERY.md>).
 - Stop cancels execution/queued work without deleting history.
 - Permission requests and form elicitation support choices, multiple selection and custom answers, including AskUserQuestion. Unsupported schemas decline explicitly; URL/OAuth elicitation is not advertised.
 - `/` opens actual commands/skills; arrows select, Enter/Tab insert and Escape dismisses. The command roster is restored from the session snapshot, so it survives long/resumed sessions.
 - `@` browses workspace files. Text/image references use a bounded snapshot both for actual ACP input and native durable recording. This snapshot picker does not read archives or other binary content; for an ordinary file already on the remote host, include its path in the message.
 - Select with “+”, drop, or paste files. Text/images retain their existing input flow and image capability checks. Other ordinary files (ZIP, PDF, Office, audio/video, etc.) upload only when Send is clicked, then contribute a remote-path text reference—not binary/base64 model input.
 - Up to 16 attachments per message: 1 MiB total text, 2 MiB total images; other files are limited to 64 MiB each and 256 MiB combined. Uploaded files live under the remote workspace's `.dsh-attachments/<session scope>/<upload ID>/<safe filename>` without overwriting same-name files. Transfer support does not guarantee the remote parsing tools are installed.
-- Cards show pending/uploading/uploaded/failed states. Failures retain drafts; retry reuses upload IDs and confirmed receipts. Attachment steering is refused before upload, and the unchanged draft can be sent after the turn ends. Selecting does not upload; the plugin never automatically extracts or executes files. Removing a card does not delete remote files already uploaded.
+- Cards show pending/uploading/uploaded/failed states. Failures retain drafts; retry reuses upload IDs and confirmed receipts. Queue and Steer share attachment authorization/admission checks. Native steering accepts only validated supported content; unsupported content is explicitly rejected and the draft remains available for queued send. Selecting does not upload; the plugin never automatically extracts or executes files. Removing a card does not delete remote files already uploaded.
 - Unsent files and upload receipts remain in page-process memory across session switches, not in localStorage. Refreshing or closing the application does not restore local File objects; text drafts remain persisted. References are checked by size and SHA-256 before admission: moved/modified files cause explicit failure, not overwrite. If an earlier submission had an unknown outcome, check history first; a reference-validation failure does not establish that the earlier message was never delivered.
 - The transcript uses native presentation: user messages are right-aligned bubbles, assistant text is full-width; thoughts, tool calls, subagents, plans, terminals, session messages, notices and compaction are lightweight disclosure rows with turn/parent identity.
 
@@ -116,8 +117,8 @@ The client imports only Host React, not Harness Client UI packages. Base control
 ## Build and install
 
 ```bash
-node build-client.mjs
-node --test tests/*.test.mjs
+npm run build
+npm test
 ```
 
 `lib/client.js` is generated with one module factory. Install a candidate using DSH **Plugins → Add plugin → Local directory**; Git commits and version tags do not imply an npm release; verify the actual package source and version before installation.
@@ -127,7 +128,7 @@ HTTP routes live under `/remote-ssh/v3/` and use one JSON envelope, current DSH 
 ## Boundaries
 
 - Journal pages currently use sequential disk scans, without automatic permanent-history deletion.
-- Remote process survival after network/host failure depends on SSH and the CLI.
+- SSH loss or a local Host restart does not cancel a durable remote owner. Remote machine reboot, owner/adapter crash, and login policies that kill an entire cgroup are different failures: an unknown owner is never automatically replaced. Same-UID/root processes remain trusted; no user service or linger setting is enabled implicitly. See [execution, recovery and resource limits](<docs/DURABLE_EXECUTION.md>).
 - No password authentication, native ACP audio content blocks, arbitrary URI attachments, old-data migration or automatic per-session worktree allocation. Audio/video files can upload as ordinary files, but remote parsing capabilities are not guaranteed.
 - ACP reports only `used/size/cost`: no system/tools/messages context breakdown, per-turn input/output/cache tokens, tokens-per-second or LLM/tool timing. The UI shows current-context tokens, a single occupancy segment, turn count and running state; session age appears in statistics details, not as execution time. Cost data is not displayed, and missing native metrics are not fabricated.
 - There is no public general-purpose Markdown factory, so body text uses the plugin's own safe Markdown subset (no HTML execution, no inline executable documents); full CommonMark is not claimed.

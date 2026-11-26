@@ -17,6 +17,8 @@ export const messages={
     'session.newAfterUnknown':'我已了解前次恢复信息，明确发起一个新的分叉操作。',
     'session.forked':'远端会话已分叉','session.openFork':'打开分叉会话','session.openFailed':'无法打开分叉会话',
     'session.syncFailed':'读取会话操作状态失败','session.nameRequired':'请输入非空名称',
+    'session.terminate':'结束远端会话','session.terminateTitle':'确认结束远端会话','session.terminateDescription':'这会终止当前任务、取消待处理审批，并永久关闭此远端会话。历史记录、SSH 配置和工作区文件会保留。此操作不可撤销；仅关闭窗口或归档不会结束远端任务。',
+    'session.terminating':'正在确认远端会话结束…','session.terminated':'远端会话已结束，历史记录仍可查看','session.terminateFailed':'未能确认远端会话已结束。恢复信息已保留，请重连后核实。',
   },
   en:{
     'session.viewSync':'View synchronization','session.renameUnsynced':'Rename (remote unsynced)','session.more':'Session actions','session.rename':'Rename','session.pin':'Pin','session.unpin':'Unpin',
@@ -32,6 +34,8 @@ export const messages={
     'session.newAfterUnknown':'I have reviewed the previous recovery information and explicitly want a new fork operation.',
     'session.forked':'Remote conversation forked','session.openFork':'Open fork','session.openFailed':'Could not open fork',
     'session.syncFailed':'Could not read session actions','session.nameRequired':'Enter a nonempty name',
+    'session.terminate':'End remote session','session.terminateTitle':'Confirm ending the remote session','session.terminateDescription':'This terminates the current task, cancels pending approvals, and permanently closes this remote session. History, SSH configuration, and workspace files are retained. This cannot be undone; closing a window or archiving does not end the remote task.',
+    'session.terminating':'Confirming remote termination…','session.terminated':'Remote session ended; its history remains readable','session.terminateFailed':'Remote termination could not be confirmed. Recovery information is retained; reconnect and check again.',
   },
 };
 
@@ -40,31 +44,31 @@ function ActionsDialog(props) {
   const [title,setTitle]=React.useState('');
   React.useEffect(()=>{setTitle(dialog?.title||'');},[dialog?.key]);
   if(!dialog)return null;
-  const fork=dialog.kind==='fork';
-  const unknown=!!dialog.operation && dialog.operation.phase!=='completed' && !dialog.operation.recoverable;
-  const canSubmit=fork
+  const fork=dialog.kind==='fork',terminate=dialog.kind==='terminate';
+  const unknown=fork&&!!dialog.operation && dialog.operation.phase!=='completed' && !dialog.operation.recoverable;
+  const canSubmit=terminate ? !dialog.busy&&dialog.metadata.canClose===true : fork
     ? !dialog.busy && !dialog.metadata.archived && (!unknown||dialog.allowNew) && (dialog.metadata.canFork||dialog.operation?.recoverable)
     : !dialog.busy && title.trim().length>0;
-  return h(ui.Modal,{open:true,title:t(fork?'session.forkTitle':'session.renameTitle'),closeLabel:t('session.close'),
+  return h(ui.Modal,{open:true,title:t(terminate?'session.terminateTitle':fork?'session.forkTitle':'session.renameTitle'),closeLabel:t('session.close'),
     onClose:()=>{if(!dialog.busy)props.dismissAction();},
     footer:h(React.Fragment,null,
       h(ui.Button,{variant:'outline',disabled:dialog.busy,onClick:props.dismissAction},t('session.close')),
       h(ui.Button,{variant:'primary',disabled:!canSubmit,onClick:()=>props.submitAction(title)},
-        t(dialog.busy?(fork?'session.forking':'session.renaming'):fork?(dialog.operation?.recoverable?'session.recoverFork':'session.fork'):'session.save')))},
+        t(terminate?(dialog.busy?'session.terminating':'session.terminate'):dialog.busy?(fork?'session.forking':'session.renaming'):fork?(dialog.operation?.recoverable?'session.recoverFork':'session.fork'):'session.save')))},
     h('div',{className:'rssh-session-action-dialog'},
       h('strong',null,dialog.title),
-      fork?h('p',null,t('session.forkDescription')):h('label',null,t('session.title'),h(ui.Input,{value:title,disabled:dialog.busy,'data-modal-autofocus':'true',onChange:event=>setTitle(event.target.value),onKeyDown:event=>{
+      terminate?h('p',{role:'alert'},t('session.terminateDescription')):fork?h('p',null,t('session.forkDescription')):h('label',null,t('session.title'),h(ui.Input,{value:title,disabled:dialog.busy,'data-modal-autofocus':'true',onChange:event=>setTitle(event.target.value),onKeyDown:event=>{
         if(event.key==='Enter'&&!event.isComposing&&!event.nativeEvent?.isComposing&&canSubmit){event.preventDefault();props.submitAction(title);}
       }})),
       fork&&(dialog.metadata.archived||!dialog.metadata.canFork&&!dialog.operation?.recoverable)?h('p',{role:'status'},t('session.forkBusy')):null,
-      !fork&&dialog.syncStatus==='pending'&&!dialog.busy?h('p',{role:'status'},t('session.renaming')):null,
+      dialog.kind==='rename'&&dialog.syncStatus==='pending'&&!dialog.busy?h('p',{role:'status'},t('session.renaming')):null,
       dialog.error?h('p',{className:'ra-acp-error',role:'alert'},dialog.error):null,
       unknown?h(React.Fragment,null,h('p',{role:'alert'},t(dialog.operation?.outcome==='unknown'?'session.unknownFork':'session.incompleteFork')),
         h(ui.Checkbox,{checked:dialog.allowNew,disabled:dialog.busy,label:t('session.newAfterUnknown'),onChange:props.allowNewFork})):null,
       dialog.operation?h('details',null,h('summary',null,dialog.operation.operationId),h('pre',{className:'ra-acp-json'},JSON.stringify(dialog.operation,null,2))):null));
 }
 
-export function installSessionActions(ctx, {watch=stream} = {}) {
+export function installSessionActions(ctx, {watch=stream,onClosed=()=>{}} = {}) {
   let current=null,disposed=false,eventController,retryTimer,retries=0;
   const titleSeen=new Map();
   const listeners=new Set();
@@ -81,18 +85,22 @@ export function installSessionActions(ctx, {watch=stream} = {}) {
   async function submit(title) {
     const dialog=current;if(!dialog||dialog.busy)return;
     if(dialog.kind==='fork' && (dialog.metadata.archived || (!dialog.metadata.canFork&&!dialog.operation?.recoverable) || (dialog.operation&&dialog.operation.phase!=='completed'&&!dialog.operation.recoverable&&!dialog.allowNew)))return;
+    if(dialog.kind==='terminate'&&dialog.metadata.canClose!==true)return;
     if(dialog.kind==='rename'&&!title.trim()){publish({...dialog,error:t('session.nameRequired')});return;}
     const operationId=dialog.allowNew?crypto.randomUUID():dialog.operationId;
     publish({...dialog,operationId,busy:true,error:''});
-    const result=dialog.kind==='rename'
+    const result=dialog.kind==='terminate'
+      ?await api('acpClose',{id:dialog.metadata.acpId,dshSessionId:dialog.sessionId,confirm:true})
+      :dialog.kind==='rename'
       ?await api('sessionRename',{sessionId:dialog.sessionId,title})
       :await api('sessionFork',{sessionId:dialog.sessionId,operationId});
     if(disposed||current?.key!==dialog.key)return;
-    if(!result.ok){publish({...current,busy:false,allowNew:false,error:formatError(result),operation:result.operation||current.operation});return;}
+    if(!result.ok){publish({...current,busy:false,allowNew:false,error:(dialog.kind==='terminate'?t('session.terminateFailed')+' ':'')+formatError(result),operation:result.operation||current.operation});return;}
     if(dialog.kind==='rename'&&result.titleSync?.status!=='synced'){
       publish({...current,busy:false,title:result.title,error:t(result.titleSync?.status==='unknown'?'session.renameUnknown':'session.renamePartial')+formatError(result.titleSync?.error,String(result.titleSync?.status||''))});return;
     }
     publish(null);
+    if(dialog.kind==='terminate'){onClosed(dialog.sessionId,result.session);ctx.contextMenus.notify(t('session.terminated'),true);}
     if(dialog.kind==='fork'){
       if(ctx.uiSession.adapter.current.getSnapshot().key===dialog.sessionId)openSession(result.sessionId);
       else ctx.contextMenus.notify(t('session.forked'),true,{label:t('session.openFork'),run:()=>openSession(result.sessionId),failureLabel:t('session.openFailed')});
@@ -107,12 +115,13 @@ export function installSessionActions(ctx, {watch=stream} = {}) {
     resolve:async(target,signal)=>{
       const metadata=await getMetadata(target,signal);if(!metadata.remote)return[];
       return[
-        {id:'rename',label:t(metadata.titleSync&&['failed','unknown'].includes(metadata.titleSync.status)?'session.renameUnsynced':'session.rename'),icon:{key:'workspace.rename'},commandId:'session.rename',run:()=>openDialog('rename',metadata),failureLabel:t('session.renameFailed')},
+        {id:'rename',label:t(metadata.titleSync&&['failed','unknown'].includes(metadata.titleSync.status)?'session.renameUnsynced':'session.rename'),icon:{key:'workspace.rename'},commandId:'session.rename',disabled:metadata.closed===true,run:()=>openDialog('rename',metadata),failureLabel:t('session.renameFailed')},
         {id:'pin',label:t(metadata.pinned?'session.unpin':'session.pin'),icon:{key:metadata.pinned?'workspace.unpin':'workspace.pin'},disabled:metadata.archived===true,run:async()=>{
           const result=await api('sessionPin',{sessionId:target.sessionId,pinned:!metadata.pinned});if(!result.ok)throw new Error(formatError(result));
         },failureLabel:t('session.pinFailed')},
         {id:'fork',label:t('session.fork'),icon:{key:'workspace.fork'},disabled:metadata.archived===true||!metadata.canFork&&!metadata.forkOperation?.recoverable,
           run:()=>openDialog('fork',metadata),failureLabel:t('session.forkFailed')},
+        {id:'terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')},
       ];
     }}));
   // Native rename/pin remain native. Its ordinary fork cannot clone remote CLI
@@ -125,7 +134,8 @@ export function installSessionActions(ctx, {watch=stream} = {}) {
       if(projection?.remote!==true)return[];
       const metadata=await getMetadata(target,signal);if(!metadata.remote)return[];
       return[{id:'remote-fork',label:t('session.remoteFork'),icon:{key:'workspace.fork'},disabled:metadata.archived===true||!metadata.canFork&&!metadata.forkOperation?.recoverable,
-        run:()=>openDialog('fork',metadata),failureLabel:t('session.forkFailed')}];
+        run:()=>openDialog('fork',metadata),failureLabel:t('session.forkFailed')},
+        {id:'remote-terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')}];
     }}));
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'remote-session.actions',locale:NAMESPACE,
     inject:()=>({hooks:{actionDialog:source},dismissAction:()=>{if(!current?.busy)publish(null);},submitAction:submit,

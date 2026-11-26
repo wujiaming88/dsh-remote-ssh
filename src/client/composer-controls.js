@@ -15,7 +15,7 @@ export function ComposerControls(props) {
   const keepFocus=event=>{if(event.button===0)event.preventDefault();};
   const stopLabel=t(controls.stopping?'acp.stopping':'acp.stop');
   return h(React.Fragment,null,
-    controls.independentStop?h('button',{type:'button',className:'rssh-native-composer-primary',disabled:!!props.busy,
+    controls.independentStop?h('button',{type:'button',className:'rssh-native-composer-primary',disabled:!!props.busy||!!props.disabled,
       title:stopLabel,'aria-label':stopLabel,'aria-busy':controls.stopping,onMouseDown:keepFocus,onClick:props.onStop},
       h(controls.stopping?Spinner:StopIcon)):null,
     h('button',{type:'button',className:'rssh-native-composer-primary',disabled:controls.primaryDisabled,

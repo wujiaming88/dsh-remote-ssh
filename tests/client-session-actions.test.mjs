@@ -11,7 +11,7 @@ const install=new Function('api','formatError','NAMESPACE','REMOTE_SESSION_PROJE
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes});return{promise,resolve}};
 function fixture(t,handle){
  const providers=new Map(),calls=[],opened=[],toasts=[],cleanup=[];let dialogRegistration,current='remote',onUpdate;
- const metadata={ok:true,remote:true,sessionId:'remote',title:'Source',pinned:false,canFork:true,busy:false,archived:false,titleSync:null,forkOperation:null};
+ const metadata={ok:true,remote:true,sessionId:'remote',title:'Source',pinned:false,canFork:true,canClose:true,acpId:'remote-acp',busy:false,archived:false,titleSync:null,forkOperation:null};
  const api=async(method,args,signal)=>{calls.push({method,args,signal});const overridden=await handle?.(method,args);if(overridden!==undefined)return overridden;
   if(method==='sessionActions')return{...metadata,sessionId:args.sessionId};
   if(method==='sessionRename')return{ok:true,title:args.title,titleSync:{status:'synced'}};
@@ -33,7 +33,7 @@ function fixture(t,handle){
 }
 async function header(f){return f.providers.get('remote-agent-session').resolve({sessionId:'remote'},new AbortController().signal)}
 test('header uses native structured actions and local row menus remain untouched',async t=>{
- const f=fixture(t);const actions=await header(f);assert.deepEqual(actions.map(action=>action.id),['rename','pin','fork']);
+ const f=fixture(t);const actions=await header(f);assert.deepEqual(actions.map(action=>action.id),['rename','pin','fork','terminate']);
  const count=f.calls.length;assert.deepEqual(await f.providers.get('session').resolve({sessionId:'local'},new AbortController().signal),[]);assert.equal(f.calls.length,count);
 });
 test('pin operates on the captured session, not whichever session is now selected',async t=>{
@@ -80,4 +80,30 @@ test('archival blocks fork recovery instead of bypassing normal admission',async
  const f=fixture(t);f.metadata.archived=true;f.metadata.canFork=false;f.metadata.forkOperation={operationId:'recover',phase:'remoteCreated',outcome:'completed',recoverable:true};
  const actions=await header(f);assert.equal(actions.find(action=>action.id==='fork').disabled,true);assert.equal(actions.find(action=>action.id==='pin').disabled,true);
  actions.find(action=>action.id==='fork').run();const count=f.calls.length;await f.props().submitAction();assert.equal(f.calls.length,count);
+});
+
+
+test('ending a remote session opens a confirmation and targets the captured original session', async t=>{
+ const f=fixture(t),actions=await header(f),end=actions.find(action=>action.id==='terminate');
+ assert.equal(end.disabled,false);end.run();assert.equal(f.dialog().kind,'terminate');
+ assert.equal(f.calls.filter(call=>call.method==='acpClose').length,0);
+ f.select('other');await f.props().submitAction();
+ assert.deepEqual(f.calls.find(call=>call.method==='acpClose').args,{id:'remote-acp',dshSessionId:'remote',confirm:true});
+ assert.equal(f.dialog(),null);assert.equal(f.toasts.at(-1)[0],'session.terminated');
+});
+test('unconfirmed termination retains the confirmation and recovery error, never claims completion', async t=>{
+ const f=fixture(t,method=>method==='acpClose'?{ok:false,code:'remote_broker_lost',error:'owner unavailable'}:undefined);
+ (await header(f)).find(action=>action.id==='terminate').run();await f.props().submitAction();
+ assert.equal(f.dialog().kind,'terminate');assert.equal(f.dialog().busy,false);assert.match(f.dialog().error,/owner unavailable/);
+ assert.equal(f.toasts.length,0);
+});
+test('archived sessions can be explicitly ended but already-closed or absent owners cannot', async t=>{
+ const f=fixture(t);f.metadata.archived=true;assert.equal((await header(f)).find(action=>action.id==='terminate').disabled,false);
+ f.metadata.canClose=false;f.metadata.closed=true;
+ const action=(await header(f)).find(action=>action.id==='terminate');assert.equal(action.disabled,true);
+ action.run();const count=f.calls.length;await f.props().submitAction();assert.equal(f.calls.length,count);
+});
+test('termination confirmation describes irreversible task cancellation and preserved files in both locales',()=>{
+ assert.match(source,/结束远端会话/);assert.match(source,/End remote session/);
+ assert.match(source,/历史记录、SSH 配置和工作区文件会保留/);assert.match(source,/History, SSH configuration, and workspace files are retained/);
 });

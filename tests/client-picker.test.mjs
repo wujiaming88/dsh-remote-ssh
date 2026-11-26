@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parse } from 'acorn';
+import { transform } from 'esbuild';
 import { pickerScrollTop } from '../src/client/picker.js';
 import { acpCommandGroups } from '../src/client/presentation.js';
 
@@ -28,6 +29,11 @@ function walk(node, visitor) {
 test('candidate rows cannot shrink into adjacent long descriptions', () => {
   const row = declarations('.ra-acp-cmd-row');
   assert.equal(row.flex, '0 0 auto');
+  assert.equal(row.height, 'auto');
+  assert.equal(row['min-height'], '30px');
+  assert.equal(row['justify-content'], 'flex-start');
+  assert.equal(row['align-items'], 'flex-start');
+  assert.equal(row['box-sizing'], 'border-box');
   assert.equal(row['font-size'], '13px');
   assert.equal(row['line-height'], '20px');
   assert.equal(row.overflow, 'hidden');
@@ -36,6 +42,32 @@ test('candidate rows cannot shrink into adjacent long descriptions', () => {
   assert.equal(panel['overflow-x'], 'hidden');
   assert.equal(panel['min-height'], '0');
   assert.equal(panel.position, 'relative');
+  assert.equal(panel['box-sizing'], 'border-box');
+});
+test('multiline slash and file candidates avoid fixed-height generic Button classes', () => {
+  const rows = [];
+  walk(ast, node => {
+    if (node.type !== 'CallExpression' || node.callee.name !== 'h' || node.arguments[1]?.type !== 'ObjectExpression') return;
+    const props = node.arguments[1].properties;
+    const name = props.find(property => property.key?.name === 'className')?.value;
+    if (name?.left?.value === 'ra-acp-cmd-row') rows.push(node);
+  });
+  assert.equal(rows.length, 1);
+  const row = rows[0], props = new Map(row.arguments[1].properties.map(property => [property.key.name, property.value]));
+  assert.equal(row.arguments[0].value, 'button');
+  assert.equal(props.get('type').value, 'button');
+  assert.equal(props.has('size'), false);
+  assert.equal(props.has('variant'), false);
+  assert.ok(props.has('title'));
+  assert.equal(props.get('onClick').body.type, 'ConditionalExpression');
+  assert.equal(props.get('onClick').body.consequent.callee.name, 'chooseFile');
+  assert.equal(props.get('onClick').body.alternate.callee.name, 'chooseCommand');
+});
+test('standalone picker buttons retain an inset visible keyboard focus ring', async () => {
+  const focus = declarations('.ra-acp-cmd-row:focus-visible');
+  assert.equal(focus.outline, '2px solid var(--dsw-alias-state-business-primary)');
+  assert.equal(focus['outline-offset'], '-2px');
+  assert.equal((await transform(css, {loader:'css'})).warnings.length, 0);
 });
 test('names ellipsize and descriptions have a bounded two-line footprint', () => {
   const name = declarations('.ra-acp-cmd-label');

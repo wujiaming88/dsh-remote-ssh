@@ -189,7 +189,7 @@ test('unknown ACK retains requestId and receipts; retry does not upload again or
   assert.equal(h.composer.getSnapshot().uploads[selected.uploadId].status, 'uploaded');
   assert.equal(h.composer.getSnapshot().attachments[0], selected);
   h.client.publish({running: true});
-  await h.client.sendDraft();
+  await h.client.sendDraft('retry');
   assert.equal(h.uploads.length, 1);
   assert.deepEqual(h.prompts.map(call => call.method), ['acpPrompt', 'acpPrompt']);
   assert.deepEqual(h.prompts.map(call => call.args.requestId), [requestId, requestId]);
@@ -348,11 +348,11 @@ test('pool view release and eviction retain the draft, request identity and rece
   restored.release();
 });
 
-test('steering rejects file uploads before creating any remote file', async t => {
+test('unavailable native steering rejects file uploads before creating any remote file', async t => {
   const h = fixture(t);
   const [selected] = await select(h.composer);
   h.client.publish({running: true});
-  await assert.rejects(h.client.sendDraft(), {code: 'steer_attachments_unsupported'});
+  await assert.rejects(h.client.sendDraft('steer'), {code: 'steering_unsupported'});
   assert.equal(h.uploads.length, 0);
   assert.equal(h.prompts.length, 0);
   assert.equal(h.actions.length, 0);
@@ -363,7 +363,7 @@ test('a rejected attachment steer can be sent unchanged as a prompt after the ac
   const h = fixture(t);
   const [selected] = await select(h.composer);
   h.client.publish({running: true});
-  await assert.rejects(h.client.sendDraft(), {code: 'steer_attachments_unsupported'});
+  await assert.rejects(h.client.sendDraft('steer'), {code: 'steering_unsupported'});
   assert.equal(h.uploads.length, 0);
   h.client.publish({running: false});
   await h.client.sendDraft();
@@ -382,11 +382,11 @@ for (const kind of ['text', 'image']) {
     const h = fixture(t);
     const [selected] = await select(h.composer, [file()]);
     h.client.publish({running: true});
-    await assert.rejects(h.client.sendDraft(), {code: 'steer_attachments_unsupported'});
+    await assert.rejects(h.client.sendDraft('steer'), {code: 'steering_unsupported'});
     assert.equal(h.composer.pending, null);
     assert.equal(h.composer.getSnapshot().sending, false);
     assert.equal(h.composer.getSnapshot().attachments[0], selected);
-    assert.match(h.composer.getSnapshot().error, /Keep attachments/);
+    assert.match(h.composer.getSnapshot().error, /does not advertise native steering/);
     assert.equal(h.uploads.length, 0);
     assert.equal(h.prompts.length, 0);
     assert.equal(h.actions.length, 0);
@@ -405,7 +405,7 @@ for (const kind of ['text', 'image']) {
     await assert.rejects(h.client.sendDraft(), {code: 'acknowledgment_unknown'});
     const requestId = h.composer.pending.requestId;
     h.client.publish({running: true});
-    await h.client.sendDraft();
+    await h.client.sendDraft('retry');
     assert.deepEqual(h.prompts.map(call => call.method), ['acpPrompt', 'acpPrompt']);
     assert.deepEqual(h.prompts.map(call => call.args.requestId), [requestId, requestId]);
     assert.equal(h.actions.some(call => call.method === 'acpSteer'), false);

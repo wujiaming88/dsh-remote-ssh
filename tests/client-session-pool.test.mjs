@@ -97,7 +97,7 @@ test('uncertain send survives connection eviction and retries the same UUID and 
   const failed=assert.rejects(first,/lost/);original.reject(new Error('lost acknowledgment'));await failed;
   const requestId=original.args.requestId;a.release();const b=await h.acquire('b');b.release();const c=await h.acquire('c');c.release();
   const back=await h.acquire('a');back.client.publish({running:true});
-  const retry=back.client.sendDraft();await tick();const last=h.streams.filter(s=>s.method==='acpPrompt').at(-1);
+  const retry=back.client.sendDraft('retry');await tick();const last=h.streams.filter(s=>s.method==='acpPrompt').at(-1);
   assert.equal(last.args.requestId,requestId);assert.equal(h.calls.filter(c=>c.method==='acpSteer').length,0);
   h.attached('a').emit(ev(1,{type:'request_ack',requestId}));last.resolve();await retry;
 });
@@ -113,7 +113,8 @@ test('ACK does not clear a newer draft or replacement attachment identities',asy
 test('stale completion cannot release a newer attempt for the same pending request',()=>{
   const composer=new ComposerSession('a',null);composer.setDraft('hello');
   const first=composer.begin('prompt');composer.finish(first.request,first.attempt,new Error('unknown'));
-  const next=composer.begin('steer');assert.equal(next.request.requestId,first.request.requestId);assert.equal(next.request.kind,'prompt');
+  assert.throws(()=>composer.begin('steer'),{code:'submission_mode_locked'});
+  const next=composer.begin('prompt');assert.equal(next.request.requestId,first.request.requestId);assert.equal(next.request.kind,'prompt');
   composer.finish(first.request,first.attempt);assert.equal(composer.getSnapshot().sending,true);
   composer.acknowledge(next.request.requestId);assert.equal(composer.getSnapshot().sending,false);
 });
@@ -136,6 +137,40 @@ test('EOF retries from the newest cursor without repeating start/resume or idlin
   await h.fire(1000);assert.equal(h.attached('a').args.cursor.seq,5);assert.equal(a.client.state.connected,true);
   assert.equal(h.calls.filter(c=>c.method==='acpStart'||c.method==='acpResume').length,1);
 });
+for(const evicted of [false,true])test(`Host disconnect and reopen restores long command rosters without duplicates (${evicted?'cold client':'warm client'})`,async t=>{
+  const initial=Array.from({length:48},(_,i)=>({name:`skill-${i}`,description:'中文说明 / mixed English '.repeat(30)}));
+  let roster=initial;
+  const cursor={generation:'g',seq:10};
+  const restored=()=>({...snapshot('a'),transportState:'connected',cursor,commands:roster});
+  const h=harness(t,{api:(method,args)=>{
+    if(method==='acpResume'&&args.id==='acp:a')return {ok:true,session:restored()};
+    if(method==='acpEvents'&&args.id==='acp:a')return {ok:true,session:restored(),events:[ev(10,{type:'text',text:'retained history'})],cursor,oldestSeq:10,hasEarlier:true};
+  }});
+  const a=await h.acquire('a');a.client.composer.setDraft('/');
+  const original=h.attached('a');
+  original.emit({type:'snapshot',state:{...restored(),transportState:'disconnected'}});
+  assert.equal(a.client.state.binding.transportState,'disconnected');
+  original.reject(new Error('Host network disconnected'));await tick();
+  assert.equal(a.client.state.connected,false);a.release();
+  if(evicted){await h.fire(600000);assert.equal(a.client.disposed,true);}
+  roster=[{name:'skills',description:'List available skills'},...initial];
+  const back=await h.acquire({...backend('a'),binding:{id:'acp:a'}});
+  assert.equal(back.client===a.client,!evicted);
+  assert.equal(back.client.state.connected,true);
+  assert.equal(back.client.state.binding.transportState,'connected');
+  assert.equal(back.client.composer.getSnapshot().draft,'/');
+  const current=h.attached('a');
+  current.emit(ev(11,{type:'commands',commands:roster}));
+  current.emit(ev(11,{type:'commands',commands:roster}));
+  assert.equal(back.client.state.commands.length,49);
+  assert.deepEqual(back.client.state.commands,roster);
+  assert.equal(new Set(back.client.state.commands.map(item=>item.name)).size,49);
+  assert.equal(h.calls.filter(call=>call.method==='acpStart').length,1);
+  assert.equal(h.calls.filter(call=>call.method==='acpResume').length,1);
+  assert.equal(h.streams.filter(row=>!row.signal.aborted&&row!==original).length,1);
+  assert.ok(!h.calls.some(call=>['acpPrompt','acpQueue','acpSteer','acpCancel','acpClose'].includes(call.method)));
+});
+
 test('missing heartbeats abort only the HTTP subscription and trigger a real reconnect',async t=>{
   const h=harness(t),a=await h.acquire('a'),first=h.attached('a');a.client.publish({running:true});
   await h.fire(45000);assert.equal(first.signal.aborted,true);assert.equal(a.client.state.connected,false);assert.equal(a.client.state.running,true);
@@ -216,6 +251,14 @@ test('Retry resumes a fatal runtime rather than merely retaining its old attach'
   assert.equal(a.client.state.binding.status,'error');
   await a.client.connect();await tick();assert.equal(h.calls.filter(c=>c.method==='acpResume').length,1);
   assert.equal(a.client.state.binding.status,'ready');
+});
+test('explicit Retry reattaches a failed SSH owner even when its HTTP subscription is healthy',async t=>{
+  const h=harness(t),a=await h.acquire('a');
+  a.client.state={...a.client.state,binding:{...a.client.state.binding,transportState:'error',remoteExecution:{id:'owner'}}};
+  assert.equal(a.client.state.connected,true);
+  await a.client.connect();await tick();
+  assert.equal(h.calls.filter(call=>call.method==='acpResume').length,1);
+  assert.equal(h.calls.filter(call=>call.method==='acpStart').length,1);
 });
 test('prompt EOF without an ACK stays explicitly uncertain and never clears the draft',async t=>{
   const h=harness(t),a=await h.acquire('a');a.client.composer.setDraft('message');

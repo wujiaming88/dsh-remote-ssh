@@ -46,6 +46,12 @@ export class SessionClient {
     this.composer.acknowledge(requestId);
     for(const listener of this.acknowledgements)listener(requestId);
   }
+  markClosed(snapshot) {
+    if(this.disposed||!snapshot||snapshot.id!==this.state.binding?.id)return;
+    this.ready=false;this.retryBlocked=true;
+    this.cancelTimer(this.retryTimer);this.cancelTimer(this.heartbeatTimer);this.attachController?.abort();
+    this.publish({...applySnapshot(this.state,{...snapshot,status:'closed',busy:false,pendingPermissions:[],pendingElicitations:[]}),connected:false,transportError:'',failure:null,error:snapshot.lastError||''});
+  }
   invalidate(error) {
     this.epoch++;this.retryBlocked=true;this.ready=false;
     this.cancelTimer(this.retryTimer);this.cancelTimer(this.heartbeatTimer);
@@ -60,6 +66,14 @@ export class SessionClient {
   }
   receive = event => {
     if (this.disposed||this.retryBlocked||event?.type==='heartbeat') return;
+    if(event?.type==='snapshot'){
+      const snapshot=event.state,cursor=snapshot?.cursor;
+      // A control snapshot may not skip history, roll it back, or change binding.
+      if(!snapshot||snapshot.id!==this.state.binding?.id||!cursor||cursor.seq!==this.state.cursor.seq||cursor.generation!==this.state.cursor.generation)return;
+      if(snapshot.status==='closed')this.markClosed(snapshot);
+      else this.publish(applySnapshot(this.state,snapshot));
+      return;
+    }
     const reset=event.type==='replay'&&event.reset||event.generation&&this.state.cursor.generation&&event.generation!==this.state.cursor.generation;
     if(reset){this.events.clear();this.replayRevision++;}
     if (Number.isSafeInteger(event.seq)) this.events.set(event.seq, event);
@@ -92,7 +106,7 @@ export class SessionClient {
   connect() {
     if(this.disposed)return Promise.resolve();
     if (this.connecting) return this.connecting;
-    if(this.ready&&!this.state.failure&&this.state.binding?.status!=='error'){this.attach();return Promise.resolve();}
+    if(this.ready&&!this.state.failure&&this.state.binding?.status!=='error'&&!['error','disconnected','detached'].includes(this.state.binding?.transportState)){this.attach();return Promise.resolve();}
     this.retryBlocked=false;
     this.connecting = this.startConnection().finally(() => { this.connecting = null; });
     return this.connecting;
@@ -112,8 +126,9 @@ export class SessionClient {
       this.state = applySnapshot(this.state, result.session);
       await this.history();
       if(this.disposed||this.retryBlocked||epoch!==this.epoch)return;
-      this.ready=true;this.onAuthorized();
-      this.attach();
+      this.onAuthorized();
+      if(this.state.binding?.status==='closed'){this.markClosed(this.state.binding);return;}
+      this.ready=true;this.attach();
     } catch (error) {
       if (!this.disposed&&epoch===this.epoch) this.publish({ loading: false, error: error.message, failure: error.result || { code: error.code } });
     }
@@ -133,7 +148,9 @@ export class SessionClient {
     if(reset){this.events.clear();this.replayRevision++;}
     for (const event of result.events) this.events.set(event.seq, event);
     const next = replay([...this.events.values()], result.session, current);
-    if (advanced) for (const key of ['binding', 'running', 'permissions', 'elicitations', 'config', 'capabilities', 'error', 'title']) next[key] = current[key];
+    // Reopening may race command announcements with an older history snapshot.
+    // Keep the live roster just like other current execution/configuration state.
+    if (advanced) for (const key of ['binding', 'running', 'permissions', 'elicitations', 'config', 'capabilities', 'commands', 'error', 'title']) next[key] = current[key];
     if(!reset)beforeApply?.();
     this.publish({ ...next, replayRevision:this.replayRevision, connected:current.connected, everConnected:current.everConnected, transportError:current.transportError, oldestSeq: result.oldestSeq, hasEarlier: !!result.hasEarlier });
     for (const event of result.events) if ((event.type === 'user_message' || event.type === 'request_ack') && event.requestId) this.acknowledge(event.requestId);
@@ -158,7 +175,7 @@ export class SessionClient {
       if (this.disposed||controller.signal.aborted||this.retryBlocked) return;
       this.retryCount = 0;watch();
       if(event.type!=='heartbeat')this.receive(event);
-      if (!this.state.connected||this.state.transportError) this.publish({ connected: true, everConnected:true, transportError:'' });
+      if (!controller.signal.aborted&&!this.retryBlocked&&(!this.state.connected||this.state.transportError)) this.publish({ connected: true, everConnected:true, transportError:'' });
     })).catch(error => {
       if(controller.signal.aborted||this.disposed)return;
       if(ACCESS_DENIED.has(error.code)){this.onAccessDenied(error);return;}
@@ -185,9 +202,6 @@ export class SessionClient {
   }
   async prepareUploads(request,attempt) {
     if(!this.state.binding)throw new Error('Agent is not connected');
-    // Steering cannot carry attachments. Do not create remote files for a request
-    // which the existing steering contract will refuse.
-    if(request.kind==='steer')throw Object.assign(new Error('Keep attachments in the draft until the current turn ends'),{code:'steer_attachments_unsupported'});
     const epoch=this.epoch,controller=this.controller();
     const active=()=>!this.disposed&&!this.retryBlocked&&!controller.signal.aborted&&epoch===this.epoch&&
       this.composer.pending?.requestId===request.requestId&&this.composer.attempt===attempt;
@@ -220,8 +234,15 @@ export class SessionClient {
       throw error;
     } finally {this.controllers.delete(controller);}
   }
-  async sendDraft() {
-    const {request,attempt}=this.composer.begin(this.state.running?'steer':'prompt');
+  async sendDraft(mode='queue') {
+    const pendingKind=this.composer.getSnapshot().pendingKind;
+    const kind=mode==='retry'&&pendingKind?pendingKind:this.state.running?(mode==='steer'?'steer':'queue'):'prompt';
+    if(!['queue','steer','retry'].includes(mode))throw Object.assign(new Error('Invalid message submission mode'),{code:'bad_request'});
+    if(kind==='steer'&&!pendingKind&&this.state.capabilities?.steering?.supported!==true){
+      const error=Object.assign(new Error('This adapter does not advertise native steering. Choose queue instead.'),{code:'steering_unsupported'});
+      this.composer.publish({error:error.message});throw error;
+    }
+    const {request,attempt}=this.composer.begin(kind);
     let failure;
     try {
       let submission=request;
@@ -243,8 +264,12 @@ export class SessionClient {
     this.publish({ error: '' });
     const epoch=this.epoch;
     const payload = { id: this.state.binding.id, dshSessionId: this.backend.sessionId, text, attachments, requestId };
-    if (kind ? kind==='steer' : this.state.running) {
-      const result = await this.action('acpSteer', payload);
+    const submissionKind=kind||(this.state.running?'queue':'prompt');
+    if (submissionKind==='steer'||submissionKind==='queue') {
+      const result = await this.action(submissionKind==='steer'?'acpSteer':'acpQueue', payload);
+      if(submissionKind==='steer'&&result.requestId===requestId&&result.outcome==='promptRequired')throw Object.assign(new Error('The running turn ended before injection. Your draft was kept; send again or choose queue.'),{code:'steering_not_injected'});
+      const accepted=result.requestId===requestId&&(submissionKind==='steer'?result.outcome==='injected':result.accepted===true&&['queued','started'].includes(result.outcome));
+      if(!accepted)throw Object.assign(new Error('Message acknowledgment is unknown. Retry the original request; it was not resent.'),{code:'acknowledgment_unknown'});
       this.acknowledge(requestId);
       return result;
     }

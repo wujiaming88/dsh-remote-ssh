@@ -220,7 +220,7 @@ test('Host resolves remote_file first even with a malicious legacy path, then sh
   const files = { referenceAttachment: async args => { calls.push(args); return { type: 'text', text: 'verified', name: 'safe.pdf' }; }, snapshotAttachment: () => { throw Error('Must not snapshot a remote_file'); } };
   let admitted;
   const recorder = { prepare: async (_session, _text, options) => { admitted = options.attachments; }, flush: async () => {} };
-  const prepare = new Function('record', 'files', 'normalizeAttachments', 'attachRecorder', 'recorder', 'error', 'BATCH_ATTACHMENT_LIMIT', `${functionCode('preparePrompt')} return preparePrompt;`)(async () => ({ session, resolved }), files, normalizeAttachments, async () => {}, recorder, error, BATCH_ATTACHMENT_LIMIT);
+  const prepare = new Function('record', 'files', 'normalizeAttachments', 'attachRecorder', 'recorder', 'error', 'BATCH_ATTACHMENT_LIMIT', 'randomUUID', `${functionCode('preparePrompt')} return preparePrompt;`)(async () => ({ session, resolved }), files, normalizeAttachments, async () => {}, recorder, error, BATCH_ATTACHMENT_LIMIT, randomUUID);
   const result = await prepare({ attachments: [{ type: 'remote_file', path: '/etc/passwd', sessionId: 'B', name: 'safe.pdf' }] });
   assert.equal(calls[0].sessionId, 'A'); assert.strictEqual(result.attachments, admitted); assert.equal(admitted[0].text, 'verified');
 });
@@ -229,7 +229,7 @@ test('Host enforces 256 MiB batch before remote reads and accepts the exact boun
   let reads = 0, admissions = 0;
   const files = { referenceAttachment: async args => { reads++; return attachmentText({ name: 'safe.pdf', remotePath: '/remote/safe.pdf', size: args.size }); } };
   const recorder = { prepare: async () => { admissions++; } };
-  const prepare = new Function('record', 'files', 'normalizeAttachments', 'attachRecorder', 'recorder', 'error', 'BATCH_ATTACHMENT_LIMIT', `${functionCode('preparePrompt')} return preparePrompt;`)(async () => ({ session: {}, resolved: { sessionId: 'A' } }), files, normalizeAttachments, async () => {}, recorder, error, BATCH_ATTACHMENT_LIMIT);
+  const prepare = new Function('record', 'files', 'normalizeAttachments', 'attachRecorder', 'recorder', 'error', 'BATCH_ATTACHMENT_LIMIT', 'randomUUID', `${functionCode('preparePrompt')} return preparePrompt;`)(async () => ({ session: {}, resolved: { sessionId: 'A' } }), files, normalizeAttachments, async () => {}, recorder, error, BATCH_ATTACHMENT_LIMIT, randomUUID);
   const attachments = Array.from({ length: 4 }, () => ({ type: 'remote_file', size: TRANSFER_LIMIT }));
   await assert.rejects(prepare({ attachments: [...attachments, { type: 'remote_file', size: 1 }] }), { code: 'attachment_too_large' });
   assert.equal(reads, 0); assert.equal(admissions, 0);

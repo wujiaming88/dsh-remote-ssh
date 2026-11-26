@@ -74,7 +74,8 @@ test('native body views retain full commands, output, raw errors, sources and ch
   parse(disclosure,{ecmaVersion:'latest',sourceType:'module'});
   for(const name of ['DiffBlock','TerminalBlock','ReadBlock'])assert.match(cards,new RegExp('h\\(ui\\.'+name));
   assert.match(cards,/className:'rssh-native-tool-terminal-body',labels:labels\.terminal,maxLines:Number\.MAX_SAFE_INTEGER/);
-  assert.match(cards,/\[tool\.title,model\.title,model\.description\]/);
+  assert.match(cards,/originalTitles=toolDetailTitles\(tool,model\)/);
+  assert.match(read('tool-model.js'),/\[tool\.title,model\.title,model\.description\]/);
   assert.match(cards,/\['title','name','command','errorMessage','error','exitStatus','exitCode'\]/);
   assert.match(cards,/h\(AcpMarkdown,\{text,labels:labels\.markdown\}\)/);
   assert.doesNotMatch(cards,/lines\.slice\(0,20\)/);

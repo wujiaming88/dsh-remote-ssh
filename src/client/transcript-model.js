@@ -13,6 +13,10 @@ export function transcriptPolicy(preferences={},defaultMode='detailed') {
 }
 export function visibleTranscriptItem(item) {
   if (!item) return false;
+  // Unsubmitted inputs belong to the native queue dock, not duplicate chat
+  // bubbles. The canonical turn_start makes accepted input visible later.
+  if (item.type==='user'&&['queued','cancelled'].includes(item.delivery)) return false;
+  if (item.type==='system'&&item.submitted===false&&item.stopReason==='cancelled') return false;
   if (['assistant','thought'].includes(item.type)) return !!String(item.text || '').trim();
   if (item.type === 'state' && !item.error && !item.errorMessage && !item.stopReason) return false;
   if (item.type === 'native_event' && ['title','lifecycle'].includes(item.event?.type)) return false;

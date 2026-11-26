@@ -88,6 +88,9 @@ export class SessionClientPool {
     // Keep only user-owned draft/uncertain-send data, never another transcript cache.
     if(!entry.client.composer.hasContent){this.drafts.delete(entry.key);this.identities.delete(id);}
   }
+  markClosed(sessionId,snapshot) {
+    this.entries.get(sessionId)?.client.markClosed(snapshot);
+  }
   invalidate(error) {
     this.denied=error;
     for(const entry of this.entries.values())entry.client.invalidate(error);

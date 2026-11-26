@@ -84,11 +84,12 @@ test('serial queue emits a single terminal stop per turn and keeps busy while qu
   assert.equal(stops.at(-1).turnId,cr.turnId); assert.equal(f.session.busy,false)
 })
 
-test('cancel clears unsubmitted turns and unsupported steering queues without calling extension', async t => {
+test('cancel clears explicit queued turns while unsupported steering refuses without calling extension', async t => {
   const f=fixture(t); await f.session.start(); f.session.capabilities.steering.supported=false
   let steeringCalls=0; f.controller.steer=()=>{steeringCalls++;throw Error('must not be called')}
   const a=f.session.prompt('active'); await tick()
-  const queued=await f.session.steer('queued',{requestId:'q'})
+  await assert.rejects(f.session.steer('queued',{requestId:'not-injected'}),{code:'steering_unsupported'})
+  const queued=await f.session.queue('queued',{requestId:'q'})
   assert.equal(queued.outcome,'queued'); assert.equal(steeringCalls,0); assert.deepEqual(f.calls,['active'])
   const cancelled=await f.session.cancel(); await a; await tick()
   assert.equal(cancelled.cancelledQueued,1); assert.deepEqual(f.calls,['active'])

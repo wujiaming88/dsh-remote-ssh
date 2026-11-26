@@ -22,6 +22,16 @@ function freeze(value) {
 }
 
 export const NATIVE_ICON_DATA = freeze({
+  // COPY: installed index-Ciz7DZxv.js:129, queue-outline symbol (size 14).
+  "queue-outline": [
+    "svg",
+    {"xmlns": "http://www.w3.org/2000/svg", "viewBox": "0 0 16 16", "fill": "none", "strokeWidth": "$stroke"},
+    [
+      ["path", {"d": "M5 6.75H11", "stroke": "currentColor"}, []],
+      ["path", {"d": "M5 9H8", "stroke": "currentColor"}, []],
+      ["path", {"d": "M2.37067 11.2497C1.5872 9.89252 1.32042 8.29798 1.61945 6.7597C1.91847 5.22141 2.76317 3.84293 3.99801 2.87809C5.23285 1.91325 6.7747 1.427 8.33964 1.50888C9.90458 1.59076 11.3873 2.23526 12.5147 3.32369C13.6422 4.41232 14.3384 5.8717 14.4751 7.43304C14.6118 8.99438 14.1797 10.5525 13.2585 11.8205C12.3372 13.0885 10.9889 13.9809 9.4617 14.3334C8.18666 14.6277 6.8587 14.529 5.64964 14.0601C5.17095 13.8745 4.76937 13.4929 4.26509 13.3963C3.67389 13.2832 2.95232 13.5595 2.0377 14.3334", "stroke": "currentColor"}, []]
+    ]
+  ],
   "browse-outline": [
     "svg",
     {
@@ -1713,6 +1723,7 @@ export const NATIVE_ICON_DATA = freeze({
 });
 
 export const NATIVE_ICON_SOURCES = freeze({
+  "queue": {"key": "queue-outline", "symbol": "IconQueueOutlineRegular / ICON_SYMBOLS[queue-outline]", "compiled": "index-Ciz7DZxv.js / rV / M", "line": 129, "note": "Native QueueDock lead; original symbol size 14, regular stroke 1 / medium 1.3. Same installed artifact SHA-256 as NATIVE_ICON_SOURCE_SHA256."},
   "read": {"key": "browse-outline", "symbol": "ICON_SYMBOLS[dsw-icon-browse-outline-regular]", "compiled": "Vw / M (RU)", "line": 17312},
   "terminal": {"key": "api-outline", "symbol": "ICON_SYMBOLS[dsw-icon-api-outline-regular]", "compiled": "Vw / M (IF)", "line": 17312},
   "composer-add": {"key": "plus-outline", "symbol": "IconPlusOutlineMedium", "compiled": "Vw / M", "line": 17312, "note": "InputBar plus uses weight medium (1.3)."},

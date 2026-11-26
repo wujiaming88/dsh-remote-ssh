@@ -44,7 +44,16 @@ export function processTreeSummary(entry,childMap={}) {
 }
 // Connection state is not evidence of model progress. Never infer authorization
 // or task completion from assistant prose, a clicked URL, or an old turn's tail.
+export function remoteConnectionPresentation(state) {
+  const closed=state.binding?.status==='closed';
+  const transport=state.binding?.transportState;
+  const offline=!closed&&!!state.binding?.remoteExecution&&!!transport&&transport!=='connected';
+  return {closed,offline,retryable:offline&&['error','disconnected','detached'].includes(transport)};
+}
 export function conversationActivity(state) {
+  const remote=remoteConnectionPresentation(state);
+  if(remote.closed)return {kind:'idle'};
+  if(remote.offline)return {kind:remote.retryable?'idle':'reconnecting'};
   if(!state.connected)return {kind:state.everConnected?'reconnecting':'connecting'};
   if(state.permissions?.length)return {kind:'permission'};
   if(state.elicitations?.length)return {kind:'question'};
@@ -57,6 +66,21 @@ export function conversationActivity(state) {
   if(active.length)return {kind:'activity',item:active.at(-1),count:active.length,scope};
   const latest=items.at(-1);
   return {kind:latest?.type==='assistant'?'replying':latest?.type==='thought'&&latest.streaming!==false?'thinking':'working',scope,item:latest};
+}
+// Select once across the full transcript, not separately inside each process
+// disclosure. A turn gets one copy action only after an authoritative completion;
+// being the current tail, losing the connection, or starting another turn is not
+// evidence that an in-progress assistant message is the final answer.
+export function completedResponseCopyKeys(items=[],turns={}) {
+  const finalByScope=new Map();
+  for(const item of items){
+    if(item?.type!=='assistant'||!item.key||!String(item.text||'').trim())continue;
+    const scope=transcriptScope(item),turn=turns[scope],seq=item.lastSeq??item.seq;
+    if(turn?.status!=='completed'||!Number.isSafeInteger(turn.endSeq)||!Number.isSafeInteger(seq)||seq<1||seq>=turn.endSeq)continue;
+    const previous=finalByScope.get(scope);
+    if(!previous||seq>(previous.lastSeq??previous.seq))finalByScope.set(scope,item);
+  }
+  return new Set([...finalByScope.values()].map(item=>item.key));
 }
 export function responseCopyParts(item,entry={}) {
   const part=String(item?.text||'');

@@ -23,13 +23,22 @@ export function processRowSummary(summary,showProcessSummary,failed,error) {
 export function toolRowStatus(model,tool={}) {
   return model.failed?'acp.toolFailed':model.running?'acp.toolRunning':tool.status==='completed'?undefined:'acp.toolPending';
 }
+// ACP adapters may repeat the entire command in title. Keep it once in the
+// native terminal surface, never once more as whitespace-collapsing prose.
+// Distinct descriptions remain visible and original fields remain in raw details.
+export function toolDetailTitles(tool,model) {
+  const commands=new Set([model.command,...model.terminals.map(terminal=>terminal.command)]
+    .filter(value=>typeof value==='string'&&value.trim()).map(value=>value.trim()));
+  return [...new Set([tool.title,model.title,model.description]
+    .filter(value=>typeof value==='string'&&value.trim()&&!commands.has(value.trim())))];
+}
 export function toolFlowModel(tool={}) {
   const content=Array.isArray(tool.content)?tool.content:[];
   const diffs=Array.isArray(tool.diffs)&&tool.diffs.length?tool.diffs:content.filter(block=>block?.type==='diff');
   const terminals=Array.isArray(tool.terminals)&&tool.terminals.length?tool.terminals:content.filter(block=>block?.type==='terminal');
   const locations=Array.isArray(tool.locations)?tool.locations:[];
   const raw=tool.rawInput;
-  const command=typeof raw==='string'?raw:raw&&typeof raw==='object'&&!raw.truncated?String(raw.command||raw.cmd||raw.command_line||raw.commandLine||''):'';
+  const command=typeof tool.command==='string'?tool.command:typeof raw==='string'?raw:raw&&typeof raw==='object'&&!raw.truncated?String(raw.command||raw.cmd||raw.command_line||raw.commandLine||''):'';
   const contentOutput=acpContentText(content.filter(block=>block?.type!=='diff'&&block?.type!=='terminal'));
   const suppliedOutput=typeof tool.output==='string'?tool.output:tool.output!=null?fullPayloadText(tool.output):'';
   const output=suppliedOutput||contentOutput;
