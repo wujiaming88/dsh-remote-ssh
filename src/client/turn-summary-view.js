@@ -19,5 +19,6 @@ export function NativeTurnSummary({summary,t,open,collapsible,controls,onToggle,
   },h('span',{className:'rssh-turn-summary-label'},label,
     parts.length?h('time',{dateTime:`PT${summary.seconds}S`},parts.map((part,index)=>h('span',{key:index,className:part.numeric?'rssh-turn-summary-number':undefined},part.text))):null,
     warning?h('span',{className:'rssh-turn-summary-warning'},warning):null),
-    collapsible?h(NativeIcon,{name:'chevron-down',size:14,className:'rssh-turn-summary-chevron','aria-hidden':true}):null);
+    collapsible?h('span',{className:'rssh-turn-summary-toggle','aria-hidden':true},
+      h(NativeIcon,{name:'chevron-down',size:14,className:'rssh-turn-summary-chevron'})):null);
 }

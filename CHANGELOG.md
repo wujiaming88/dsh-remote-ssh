@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-rc.28 — circular turn disclosure button
+
+- Restyle the completed-turn process chevron as a native circular outlined button: 28px round target, thin theme border, base background, hover fill, and preserved open-state rotation. The whole summary row remains the single accessible expand/collapse control, so no nested button or duplicate focus stop is introduced.
+- Keep collapsed process wrappers, duration facts, focus protection and reduced-motion behavior unchanged. Add source/CSS contracts for the circular wrapper and updated geometry. All 1051 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.27 — per-turn usage details
 
 - Make the completed-turn usage footer open a native-style “Turn usage” popover. It reports the full total token count, provider/model, cache-hit percentage, uncached input, cache read, cache write and output tokens for that turn.
