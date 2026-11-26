@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-rc.33 — name the sleep switch explicitly
+
+- Rename the Host sleep setting to exactly **“运行时防止系统休眠”** (English: “Prevent system sleep while running”), with the checkbox labeled “开启 / On”. Documentation uses the same name.
+- No behavior change to the persisted `preventHostSleep` preference, activity gating, assertion lifecycle or platform commands. The switch remains **on by default**, including for existing configs that lack the field. All 1060 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.32 — plugin switch for Host sleep inhibition
 
 - Add a persisted `preventHostSleep` plugin preference, enabled by default. Plugin settings now expose a “Host runtime / Prevent Host sleep while running” switch with optimistic save and error rollback.

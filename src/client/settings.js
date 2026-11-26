@@ -32,9 +32,9 @@ export const messages = {
     'rssh.settings.removeConfirm': '我确认移除上方显示的远端 worktree 目录', 'rssh.settings.saved': '配置已保存',
     'rssh.settings.loading': '加载中…', 'rssh.settings.loadFailed': '加载失败，请重试。', 'rssh.settings.owned': 'Owned worktree',
     'rssh.settings.hostRuntime': 'Host 运行设置', 'rssh.settings.hostDescription': '控制 DSH Host 本机在远端任务期间的系统电源行为。',
-    'rssh.settings.preventSleepTitle': '运行期间防止本机休眠',
+    'rssh.settings.preventSleepTitle': '运行时防止系统休眠',
     'rssh.settings.preventSleepDescription': '有远端 turn 正在运行或等待输入时保持 Host 唤醒；锁屏但保持通电时可继续执行。全部结束后自动释放。关闭后系统可照常休眠。',
-    'rssh.settings.preventSleepEnable': '启用防休眠',
+    'rssh.settings.preventSleepEnable': '开启',
     'rssh.settings.preventSleepFailed': '无法保存防休眠设置，请重试。',
   },
   en: {
@@ -65,9 +65,9 @@ export const messages = {
     'rssh.settings.removeConfirm': 'I confirm removal of the remote worktree directory shown above', 'rssh.settings.saved': 'Configuration saved',
     'rssh.settings.loading': 'Loading…', 'rssh.settings.loadFailed': 'Could not load. Please retry.', 'rssh.settings.owned': 'Owned worktree',
     'rssh.settings.hostRuntime': 'Host runtime', 'rssh.settings.hostDescription': 'Control the local DSH Host power behavior while remote work is active.',
-    'rssh.settings.preventSleepTitle': 'Prevent Host sleep while running',
+    'rssh.settings.preventSleepTitle': 'Prevent system sleep while running',
     'rssh.settings.preventSleepDescription': 'Keep the Host awake while a remote turn is running or waiting for input. A locked screen on power can keep working, and the assertion is released when everything settles. Turn this off to let the system sleep normally.',
-    'rssh.settings.preventSleepEnable': 'Enable sleep inhibition',
+    'rssh.settings.preventSleepEnable': 'On',
     'rssh.settings.preventSleepFailed': 'Could not save the sleep setting. Please retry.',
   },
 };

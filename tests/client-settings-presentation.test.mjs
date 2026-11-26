@@ -59,6 +59,9 @@ test('Host sleep inhibition is an explicit persisted switch in plugin settings',
   assert.match(source,/setPreventHostSleep\(previous\)/);
   assert.match(source,/rssh\.settings\.preventSleepFailed/);
   for(const key of ['hostRuntime','hostDescription','preventSleepTitle','preventSleepDescription','preventSleepEnable','preventSleepFailed'])assert.ok(source.includes(`rssh.settings.${key}`));
+  assert.match(source,/'rssh\.settings\.preventSleepTitle': '运行时防止系统休眠'/);
+  assert.match(source,/const \[preventHostSleep, setPreventHostSleep\] = React\.useState\(true\)/);
+  assert.match(source,/setPreventHostSleep\(pref\.preventHostSleep !== false\)/);
 });
 test('primary action and modal styling stay scoped to SSH settings',()=>{
   assert.match(source,/variant:'primary',onClick:\(\)=>setDialog\(\{kind:'profile',target:null\}\)/);
