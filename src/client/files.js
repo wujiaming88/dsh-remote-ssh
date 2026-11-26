@@ -3,13 +3,16 @@ import React from "react";
 import {h,ui,api,useT,formatError,FileGlyph,NativeIcon} from "./shared.js";
 import {fileParentTarget} from './ui-pure.js';
 import {formatFileSize,fileEntryPath,fileDirectory,fileViewState} from './files-model.js';
+import {filePreviewKind} from './file-type-model.js';
+import {HIGHLIGHT_LIMIT,languageForFile} from './syntax-highlight.js';
+import {SyntaxPreview} from './syntax-preview.js';
 export const messages = {
   zh: { 'files.root': '工作区', 'files.location': '当前位置', 'files.empty': '此目录为空', 'files.failed': '无法读取远端文件',
     'files.retry': '重试读取', 'files.modified': '未保存', 'files.saved': '已保存', 'files.items': '{count} 项',
-    'files.truncated': '仅显示前 2000 项，请进入子目录继续浏览。', 'files.imageFailed': '图片预览加载失败，可尝试刷新或下载。' },
+    'files.truncated': '仅显示前 2000 项，请进入子目录继续浏览。', 'files.imageFailed': '图片预览加载失败，可尝试刷新或下载。', 'files.edit': '编辑源码', 'files.preview': '预览' },
   en: { 'files.root': 'Workspace', 'files.location': 'Current location', 'files.empty': 'This directory is empty', 'files.failed': 'Could not read remote files',
     'files.retry': 'Retry loading', 'files.modified': 'Unsaved', 'files.saved': 'Saved', 'files.items': '{count} items',
-    'files.truncated': 'Showing the first 2,000 entries. Open a subdirectory to browse further.', 'files.imageFailed': 'Image preview could not load. Try refreshing or downloading.' },
+    'files.truncated': 'Showing the first 2,000 entries. Open a subdirectory to browse further.', 'files.imageFailed': 'Image preview could not load. Try refreshing or downloading.', 'files.edit': 'Edit source', 'files.preview': 'Preview' },
 };
 function FileActionIcon({kind}) { return h(NativeIcon,{name:kind==='up'?'chevron-up':kind,size:15}); }
 const remoteFileEditors = new Map();
@@ -36,6 +39,7 @@ export function RemoteFilesSidebar(props) {
   var lastRequest = React.useRef({path:".",read:false});
   var [preview, setPreview] = React.useState(null);
   var [content, setContent] = React.useState("");
+  var [sourceMode, setSourceMode] = React.useState(false);
   var [busy, setBusy] = React.useState(false);
   var [error, setError] = React.useState("");
   var [uploadPending, setUploadPending] = React.useState(null);
@@ -72,9 +76,9 @@ export function RemoteFilesSidebar(props) {
       if (read) {
         var file = Object.assign({}, r, { path: path, content: String(r.content || ""), viewRevision:version });
         setDir(fileDirectory(path));
-        setPreview(file); setContent(file.content);
+        setPreview(file); setContent(file.content); setSourceMode(false);
       } else {
-        setDir(path || "."); setEntries(r.entries || []); setLoaded(true); setTruncated(!!r.truncated); setPreview(null); setContent("");
+        setDir(path || "."); setEntries(r.entries || []); setLoaded(true); setTruncated(!!r.truncated); setPreview(null); setContent(""); setSourceMode(false);
       }
     });
   }
@@ -121,6 +125,16 @@ export function RemoteFilesSidebar(props) {
     });
   }
   const view = fileViewState({busy,loaded,preview,entries,error});
+  const fileKind = preview ? filePreviewKind(preview.path) : 'text';
+  const language = preview ? languageForFile(preview.path) : 'plain';
+  let jsonText = null;
+  if (fileKind === 'json' && content.length <= HIGHLIGHT_LIMIT) {
+    try { jsonText = JSON.stringify(JSON.parse(content), null, 2); } catch { jsonText = null; }
+  }
+  const jsonView = !sourceMode && !dirty ? jsonText : null;
+  const markdownView = fileKind === 'markdown' && !sourceMode && !dirty;
+  const codeView = !preview?.binary && !markdownView && !jsonView && language !== 'plain' && !sourceMode && !dirty && content.length <= HIGHLIGHT_LIMIT;
+  const canTogglePreview = !preview?.binary && (fileKind === 'markdown' || !!jsonText || (language !== 'plain' && content.length <= HIGHLIGHT_LIMIT));
   const location = preview ? preview.path : dir;
   const displayPath = (remotePath || location).replace(/^\.\//, '');
   const leafStart = displayPath.lastIndexOf('/') + 1;
@@ -152,14 +166,22 @@ export function RemoteFilesSidebar(props) {
         h('span',{className:'rssh-files-document-meta'},
           dirty ? h('span',{className:'rssh-files-dirty'},t('files.modified')) : formatFileSize(preview.size)),
         h('div',{className:'rssh-files-document-actions'},
+          canTogglePreview ? h(ui.Button,{variant:'ghost',size:'sm',disabled:busy||dirty,onClick:()=>setSourceMode(value=>!value)},
+            t(sourceMode?'files.preview':'files.edit')) : null,
           !preview.binary ? h(ui.Button,{variant:dirty?'primary':'ghost',size:'sm',disabled:busy||!dirty,onClick:save},t('acp.saveFile')) : null,
           dirty ? h(ui.Button,{variant:'ghost',size:'sm',disabled:busy,onClick:()=>setContent(preview.content)},t('acp.discardFile')) : null,
           h('a',{className:'rssh-native-button rssh-native-button-sm rssh-native-button-ghost rssh-files-tool','data-variant':'ghost',href:remoteFileUrl(sid,preview.path,false),download:'',title:t('agents.download'),'aria-label':t('agents.download')},h(FileActionIcon,{kind:'download'})))),
       preview.binary
-        ? (!preview.tooLarge && /\.(png|jpe?g|gif|webp)$/i.test(preview.path)
+        ? (!preview.tooLarge && fileKind === 'image'
           ? h('div',{className:'rssh-files-image-view'},h('img',{key:preview.viewRevision,className:'rssh-files-image',src:remoteFileUrl(sid,preview.path,true),alt:preview.path,onError:()=>setError(t('files.imageFailed'))}))
           : empty(t(preview.tooLarge?'acp.previewTooLarge':'agents.binary')))
-        : h('textarea',{className:'rssh-file-editor',value:content,readOnly:busy,'aria-label':preview.path,spellCheck:false,wrap:'off',onChange:event=>setContent(event.target.value)}))
+        : markdownView
+          ? h('div',{className:'rssh-files-markdown'},h(ui.MarkdownText,{text:content,labels:{}}))
+          : jsonView !== null
+            ? h(SyntaxPreview,{text:jsonView,language:'json',label:preview.path})
+            : codeView
+              ? h(SyntaxPreview,{text:content,language,label:preview.path})
+              : h('textarea',{className:'rssh-file-editor',value:content,readOnly:busy,'aria-label':preview.path,spellCheck:false,wrap:'off',onChange:event=>setContent(event.target.value)}))
       : view==='loading' ? empty(t('agents.loading'))
       : view==='error' ? empty(t('files.failed'))
       : view==='empty' ? empty(t('files.empty'))

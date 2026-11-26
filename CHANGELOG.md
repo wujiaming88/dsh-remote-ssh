@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.34 — VS Code-style file icons and type-aware previews
+
+- Replace the three-state file icon with a plugin-owned VS Code-style glyph registry: language, config, lockfile, document and image types get distinct brand colors and short marks (JS, TS, Py, Go, Java, JSON, YAML, shell, Docker, Make, etc.). No VS Code theme asset is copied, and unknown files stay neutral.
+- Add a dependency-free syntax preview for common programming languages, configuration formats and markup: JavaScript/TypeScript, Python, Java, Kotlin, Go, Rust, C/C++, C#, Ruby, PHP, Swift, shell/PowerShell, SQL, JSON, YAML, TOML, INI/properties, XML/HTML, CSS, Dockerfile and Makefile. Markdown renders through the existing safe parser; JSON is formatted first.
+- Code/config previews are read-only with line numbers and an explicit **Edit source** toggle; saving/discarding semantics and the dirty-file guard are unchanged. Rendering uses React text nodes only, never HTML injection or a remote highlighter runtime.
+- Expand raster image previews to AVIF, BMP and ICO in addition to PNG/JPEG/GIF/WebP. SVG remains a safe XML source preview rather than executable markup.
+- Cap highlighting at 300k characters / 60k tokens and fall back to plain text, keeping very large files responsive.
+- Add file type, tokenizer, preview-wiring, icon and Host MIME regressions. All 1066 automated tests pass with 91 client modules built; the real component/CSS was additionally rendered in headless Chrome at 1200px and 1600px in light/dark themes, exercising source/preview toggles, long-name ellipsis, wrapped code, sticky line numbers, Markdown, images, error states and overflow geometry.
+
 ## 3.0.0-rc.33 — name the sleep switch explicitly
 
 - Rename the Host sleep setting to exactly **“运行时防止系统休眠”** (English: “Prevent system sleep while running”), with the checkbox labeled “开启 / On”. Documentation uses the same name.

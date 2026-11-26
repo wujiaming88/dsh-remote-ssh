@@ -27,7 +27,7 @@
 | 配置枚举选择 | 同一基础控件中的 SelectField | 当前基线没有独立通用 Select 导出；在复制的 Input 外壳中使用真实 HTML select 和原生 chevron，保留浏览器键盘操作、选项及 change 事件。此项是本地适配。 |
 | Menu / Modal | [浮层控件](../src/client/native-overlays.js)、[样式](../src/client/native-overlays.css) | 原符号 zp / Zu / Ed / db；复制原生视图组织及样式。定位、焦点、Escape、键盘、生命周期由插件自己的 dialog/popover 边界负责，不复制宿主私有 Portal、全局焦点管理器或状态。 |
 | 操作与状态图标 | [图标库](../src/client/native-icons.js) | 55 份原生 SVG 结构、61 个语义映射；每个映射记录原符号。“执行过程”使用 checklist-outline，读取使用 browse-outline，命令使用 api-outline，通用工具使用 sparkle；不再将工具行全部映射成形似 `#` 的 code-outline。使用真实 path/fill/stroke/viewBox，不再散落手绘替代图标。每个实例隔离 SVG id。 |
-| 文件图标 | 同一图标库及 [兼容入口](../src/client/ui.js) | 普通文件采用原生 ReferenceIcon，图像与代码文件采用原生 FileTypeIcon 几何；分类仍为插件的后缀策略，不宣称实现原生全部语言/文件类型图标。 |
+| 文件图标 | [类型映射](../src/client/file-type-model.js)、[渲染](../src/client/file-type-icon.js)、[入口](../src/client/ui.js) | 插件自有的 VS Code 风格文件 glyph：按扩展名/特殊文件名识别语言、配置格式和图片，使用品牌色页面轮廓与 JS/TS/Py/Go/Java/JSON/YAML/Shell 等短标识；不复制 VS Code 官方主题资产。未识别文件保持中性文档，目录继续使用原生 folder 图标。 |
 | 运行标记 | 同一图标库及 [运行反馈](../src/client/transcript.js) | 使用原生静态 FishLogo；不冒称使用原生 Chat 的 APNG 动画。实际 turn 用时、等待与断线语义不变。 |
 | Read / Diff / Terminal / Code / Markdown | [文本视图](../src/client/native-text-controls.js)、[样式](../src/client/native-text-controls.css) | 原符号 GB / rW / ZB / Zb / Bp 等。复制原生 DOM/CSS 视图；继续使用现有安全 Markdown parser、diffLines、终端控制序列清理与可靠复制生命周期。没有接入私有高亮、数学/脚注/文件服务或 ANSI 彩色引擎。 |
 | 用户/助手消息及操作栏 | [消息展示层](../src/client/native-message-view.js)、[样式](../src/client/native-message-view.css) | 复制 MessageItem/UserContent 用户栈、AssistantMarkdown 正文与停止标记、MessageIconActions。附件位于气泡前，操作栏在内容栈外；最新用户消息操作常显，历史用户消息及每轮最终完成回复的复制操作在 hover/focus 时显示；中途/流式助手回复不生成消息操作栏，取消/中断/结果未知不冒充完成。跨完整 transcript 按 session/turn 唯一选择最终回复，复制原文而不拼接过程消息；用户消息及工具输出复制不变。无 hover 能力设备保留可见入口，已有操作栏的显隐不改变布局高度。 |
@@ -38,6 +38,7 @@
 | 草稿与已发送附件 | [附件展示层](../src/client/native-attachment-view.js)、[样式](../src/client/native-attachment-view.css)、[尺寸/滚动模型](../src/client/native-attachment-model.js) | 复制 AttachmentRail/FileCard/MessageImage/ComposerAttachments 与 UserContent 附件行；64px 草稿 rail、单图 fit、多图 tile、原生文件卡。上传/接收记录与资源生命周期继续由远端适配层拥有。 |
 | 文件/设置及其它远端流程 | 对应页面样式与共享控件 | 使用已复制的原生控件，保留远端数据绑定、权限、流式阅读锚点、懒加载、错误恢复和交互状态。 |
 | 上下文占用进度环 | [usage](../src/client/usage.js) | 与原生 ContextMeter 的 14px viewBox、r=5.5、2px stroke、头尾角度和按百分比弧长对应。它是数据图表，不应换为静态图标；数据仍只取远端上报。 |
+| 远端文件预览 | [文件面板](../src/client/files.js)、[类型映射](../src/client/file-type-model.js)、[轻量高亮](../src/client/syntax-highlight.js)、[预览组件](../src/client/syntax-preview.js) | 代码与配置默认只读语法高亮（注释、字符串、数字、关键字、配置键、XML 标签），Markdown 使用现有安全解析器渲染，JSON 先格式化；所有类型可切回源码编辑。图片支持 png/jpeg/gif/webp/avif/bmp/ico；SVG 作为安全文本/XML 源码预览，不直接执行。不引入第三方高亮运行时，超过 300k 字符回退纯文本。 |
 | 历史分页与闪屏 | [滚动模型](../src/client/transcript-scroll.js)、[样式](../src/client/styles.css)、[历史分页](../src/client/history-pager.js) | 靠近顶部才加载，禁止定时自动翻页；每次追加旧消息前后用 item anchor 或 scrollHeight 差值还原阅读位置，滚动容器关闭浏览器自动 anchor，避免跳屏。快速页不显示加载文案（延迟 180ms），加载状态不触发整棵 transcript 重绘；历史请求与 live 订阅相互独立。 |
 
 ### 完整对话展示层与数据适配

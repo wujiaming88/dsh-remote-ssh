@@ -22,7 +22,7 @@ test('every direct native icon role exists and handmade SVGs stay confined to ex
         if(name?.type==='Literal'){assert.ok(names.has(name.value),`${file}: ${name.value}`);calls++;}
       }
       if(['svg','path','rect','circle','ellipse'].includes(node.arguments[0]?.value))
-        assert.ok(['native-controls.js','usage.js'].includes(file),`untracked handmade SVG in ${file}`);
+        assert.ok(['native-controls.js','usage.js','file-type-icon.js'].includes(file),`untracked handmade SVG in ${file}`);
     });
   }
   assert.ok(calls>=14,'actual page callsites, not just a manually curated icon list');

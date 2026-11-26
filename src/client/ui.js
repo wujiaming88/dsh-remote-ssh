@@ -3,6 +3,7 @@ import {createNativeControls} from "./native-controls.js";
 import {createNativeOverlays} from "./native-overlays.js";
 import {NativeIcon} from "./native-icons.js";
 import {createNativeTextControls} from "./native-text-controls.js";
+import {createFileTypeIcon} from "./file-type-icon.js";
 import {text} from "./ui-pure.js";
 
 export function createUi(React) {
@@ -36,11 +37,7 @@ export function createUi(React) {
         style:{flex:'none',verticalAlign:'middle',...props.style}});
     }
     function icon(name){return props=>h(Icon,{...props,name});}
-    function FileTypeIcon(props){
-      const path=text(props.path).toLowerCase();
-      const name=/\.(png|jpe?g|gif|svg|webp|avif|ico)$/.test(path)?'image':/\.(js|jsx|ts|tsx|py|sh|json|css|html|rs|go|java|c|cpp|h|yaml|yml)$/.test(path)?'file-code':'file';
-      return h(Icon,{...props,name});
-    }
+    const FileTypeIcon=createFileTypeIcon(React);
     const {Menu,Modal}=createNativeOverlays(React,{Button,Icon});
 
     // Owned safe text controls: no private renderer/module imports.

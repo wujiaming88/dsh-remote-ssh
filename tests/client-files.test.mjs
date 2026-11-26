@@ -5,6 +5,8 @@ import {parse} from 'acorn';
 import {formatFileSize,fileEntryPath,fileDirectory,fileViewState} from '../src/client/files-model.js';
 import {fileParentTarget} from '../src/client/ui-pure.js';
 import {formatError} from '../src/client/api.js';
+import {filePreviewKind} from '../src/client/file-type-model.js';
+import {HIGHLIGHT_LIMIT,languageForFile} from '../src/client/syntax-highlight.js';
 
 const source=readFileSync(new URL('../src/client/files.js',import.meta.url),'utf8');
 const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
@@ -14,7 +16,7 @@ const body=ast.body.filter(n=>n.type!=='ImportDeclaration').map(n=>{
   const declaration=n.type==='ExportNamedDeclaration'?n.declaration:n;
   return source.slice(declaration.start,declaration.end);
 }).join('\n');
-const create=new Function('React','h','ui','api','useT','formatError','FileGlyph','fileParentTarget','formatFileSize','fileEntryPath','fileDirectory','fileViewState','HTTP_BASE','window','fetch',body+';return {RemoteFilesSidebar,assertFileCloseAllowed,messages};');
+const create=new Function('React','h','ui','api','useT','formatError','FileGlyph','fileParentTarget','formatFileSize','fileEntryPath','fileDirectory','fileViewState','filePreviewKind','HIGHLIGHT_LIMIT','languageForFile','SyntaxPreview','HTTP_BASE','window','fetch',body+';return {RemoteFilesSidebar,assertFileCloseAllowed,messages};');
 const flat=node=>!node||typeof node!=='object'?[]:[node,...node.children.flatMap(flat)];
 const text=node=>typeof node==='string'?node:node?.children?.map(text).join('')||'';
 function fixture(t,path){
@@ -24,7 +26,7 @@ function fixture(t,path){
   const h=(type,props,...children)=>({type,props:props||{},children:children.flat(Infinity).filter(c=>c!==null&&c!==undefined&&c!==false)});
   const api=(method,args)=>new Promise(resolve=>requests.push({method,args,resolve}));
   const window={addEventListener:(type,fn)=>events.set(type,fn),removeEventListener:type=>events.delete(type)};
-  const {RemoteFilesSidebar,assertFileCloseAllowed,messages}=create(React,h,{Button:'Button',Modal:'Modal',StateDot:'StateDot'},api,()=> (key,args)=>key+(args?':'+args.count:''),formatError,'Glyph',fileParentTarget,formatFileSize,fileEntryPath,fileDirectory,fileViewState,'/remote',window,()=>{throw Error('Unexpected upload')});
+  const {RemoteFilesSidebar,assertFileCloseAllowed,messages}=create(React,h,{Button:'Button',Modal:'Modal',StateDot:'StateDot'},api,()=> (key,args)=>key+(args?':'+args.count:''),formatError,'Glyph',fileParentTarget,formatFileSize,fileEntryPath,fileDirectory,fileViewState,filePreviewKind,HIGHLIGHT_LIMIT,languageForFile,'SyntaxPreview','/remote',window,()=>{throw Error('Unexpected upload')});
   const props={sessionId:'s1',useTabInfo:()=>({tab:{id:'files',navigation:{revision:1,params:{path}}}})};
   function render(){let limit=20;do{changed=false;cursor=0;tree=RemoteFilesSidebar(props);while(effects.length)effects.shift()();assert.ok(--limit>0,'hook render converges');}while(changed);return tree;}
   t.after(()=>{for(const hook of hooks)hook?.cleanup?.();});
@@ -98,6 +100,14 @@ test('image retry remounts a failed image rather than merely clearing feedback',
   image.props.onError();f.render();f.button('files.retry').props.onClick();f.render();await f.reply({ok:true,binary:true});
   assert.notEqual(f.byClass('rssh-files-image').props.key,image.props.key);
 });
+test('code/config previews default to type-aware mode with an explicit source toggle',async t=>{
+  const f=fixture(t,'/repo/src/App.tsx');await f.reply({ok:true,content:'const x = 1;',binary:false,version:'v1',size:12});
+  const preview=f.all().find(n=>n.type==='SyntaxPreview');assert.ok(preview);assert.equal(preview.props.language,'typescript');assert.equal(preview.props.text,'const x = 1;');
+  f.button('files.edit').props.onClick();f.render();assert.equal(f.byClass('rssh-file-editor').props.value,'const x = 1;');
+  f.button('files.preview').props.onClick();f.render();assert.ok(f.all().find(n=>n.type==='SyntaxPreview'));
+  f.button('files.edit').props.onClick();f.render();f.byClass('rssh-file-editor').props.onChange({target:{value:'const x = 2;'}});f.render();
+  assert.equal(f.button('files.preview').props.disabled,true);assert.equal(f.button('acp.saveFile').props.disabled,false);
+});
 test('truncated directories are disclosed instead of displaying an exact total',async t=>{
   const f=fixture(t);await f.reply({ok:true,entries:[],truncated:true});assert.match(text(f.tree),/files.truncated/);assert.doesNotMatch(text(f.tree),/files.items/);
 });
@@ -108,5 +118,9 @@ test('full-height CSS has no legacy caps and bundle wires stylesheet and transla
   assert.match(rule('rssh-session-files'),/overflow: hidden/);assert.match(rule('rssh-files-list'),/flex: 1 1 0/);
   assert.match(rule('rssh-file-editor'),/resize: none/);assert.match(rule('rssh-files-toolbar'),/min-height: 38px/);
   assert.doesNotMatch(css,/max-height: (220|320)px|min-height: (240|360)px/);assert.doesNotMatch(legacy,/\.ra-file-list|\.rssh-file-editor/);
-  assert.match(css,/@container rssh-files/);assert.match(index,/import filesCss from '\.\/files.css'/);assert.match(index,/\+ filesCss/);assert.match(index,/\.\.\.fileMessages.zh/);assert.match(index,/\.\.\.fileMessages.en/);
+  assert.match(css,/@container rssh-files/);
+  assert.match(rule('rssh-files-document-bar'),/flex-wrap: wrap/);
+  assert.match(css,/\.rssh-files-code-content[^}]*white-space: pre-wrap[^}]*overflow-wrap: anywhere/);
+  assert.match(css,/\.rssh-files-code-number[^}]*position: sticky[^}]*left: 0/);
+  assert.match(css,/\.rssh-files-code-preview[^}]*overflow: auto/);assert.match(index,/import filesCss from '\.\/files.css'/);assert.match(index,/\+ filesCss/);assert.match(index,/\.\.\.fileMessages.zh/);assert.match(index,/\.\.\.fileMessages.en/);
 });
