@@ -37,7 +37,9 @@ export function ChatPane({backend,clients,...props}) {
     title:t(binding.error?'session.setup.loadFailed':'session.setup.loading'),description:binding.error?.message,onRetry:binding.error?binding.retry:undefined});
 }
 function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyEnter, renderFactorySlot }) {
-  const t = useT(), labels = acpBlockLabels(t), sid = backend.sessionId;
+  const t = useT(), sid = backend.sessionId;
+  const labels=React.useMemo(()=>acpBlockLabels(t),[t]);
+  const attachmentContext=React.useMemo(()=>({id:client.state.binding?.id,dshSessionId:sid}),[client,sid,client.state.binding?.id]);
   const state=React.useSyncExternalStore(client.subscribe,client.getSnapshot,client.getSnapshot);
   const remoteStatus=remoteConnectionPresentation(state);
   const composer=client.composer;
@@ -196,7 +198,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
                 scroll.history.error?t(scroll.history.error.code==='history_no_progress'?'acp.historyNoProgress':'acp.historyFailed'):
                 scroll.history.loading?t('acp.historyLoading'):state.hasEarlier?t('acp.historyScrollHint'):hasVisibleContent?t('acp.historyStart'):''),
               scroll.history.error?h(ui.Button,{variant:'ghost',size:'sm',onClick:scroll.retryHistory},t('acp.historyRetry')):null),
-            hasVisibleContent?h(Transcript,{items:state.items,running:state.running&&!remoteStatus.offline,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId,attachmentContext:{id:state.binding.id,dshSessionId:sid}}):null,
+            hasVisibleContent?h(Transcript,{items:state.items,running:state.running&&!remoteStatus.offline,turns:state.turns,preferences,t,labels,openFile,renderFactorySlot,rootSessionId:state.binding.sessionId,attachmentContext}):null,
             !hasVisibleContent&&!state.running&&!waiting&&state.connected?h('div',{className:'ra-acp-empty-state'},t('acp.emptyHint')):null,
             h(RunningTail,{state,t}))),
         scroll.showLatest?h(ui.Button,{variant:'outline',className:'rssh-jump-latest','aria-label':t('flow.latest'),title:t('flow.latest'),onClick:()=>{

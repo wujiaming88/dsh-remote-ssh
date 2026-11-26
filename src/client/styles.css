@@ -27,6 +27,7 @@
   min-width: 0;
   overflow-y: auto;
   overflow-x: clip;
+  overflow-anchor: none;
   overscroll-behavior-y: contain;
   padding: 16px 32px;
   border: none;

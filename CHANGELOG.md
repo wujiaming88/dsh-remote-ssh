@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.30 — smooth, incremental history paging
+
+- Fix the real history-paging bottleneck: the Host previously scanned and `JSON.parse`d the entire journal from byte zero for every older page. A 134.5 MB journal measured ~443 ms per page; the new backward reader and in-memory line-offset cache measure ~1.5 ms for the first tail page and ~0.8–1.5 ms for subsequent pages. The cache is not persisted and falls back safely on restart/shrink.
+- Preserve complete-line/Unicode handling and torn-tail tolerance while reading backwards across chunks; cached `beforeSeq` pages resume from the previous page’s byte offset, so newer history is never re-scanned.
+- Remove the scroll flash: disable browser automatic anchoring on the owned transcript scrollport, capture the pre-insert `scrollTop`/`scrollHeight`, and fall back to exact inserted-height compensation when no stable item anchor survives. Keep existing per-item anchor restoration when available.
+- Avoid fast-page flicker and unnecessary repaint: loading feedback now appears only after 180 ms, a completed fast page does not emit a second status update, the unused `prepending` render state is removed, labels/attachment context are memoized, and the already-projected transcript is wrapped in `React.memo` so scroll-status changes do not repaint every Markdown/tool row.
+- Add regressions for backwards paging across multi-chunk journals, cached cursors with newer appends, torn tails, Unicode chunk boundaries, and the scroll/loading/memo contracts. All 1054 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.29 — circular jump-to-latest button
 
 - Move the requested circular outlined treatment to the actual “Jump to latest” control at the lower right: 32px round target, 0.5px theme border, base background, no popup shadow, hover fill and existing keyboard/aria behavior.

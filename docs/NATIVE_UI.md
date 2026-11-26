@@ -38,6 +38,7 @@
 | 草稿与已发送附件 | [附件展示层](../src/client/native-attachment-view.js)、[样式](../src/client/native-attachment-view.css)、[尺寸/滚动模型](../src/client/native-attachment-model.js) | 复制 AttachmentRail/FileCard/MessageImage/ComposerAttachments 与 UserContent 附件行；64px 草稿 rail、单图 fit、多图 tile、原生文件卡。上传/接收记录与资源生命周期继续由远端适配层拥有。 |
 | 文件/设置及其它远端流程 | 对应页面样式与共享控件 | 使用已复制的原生控件，保留远端数据绑定、权限、流式阅读锚点、懒加载、错误恢复和交互状态。 |
 | 上下文占用进度环 | [usage](../src/client/usage.js) | 与原生 ContextMeter 的 14px viewBox、r=5.5、2px stroke、头尾角度和按百分比弧长对应。它是数据图表，不应换为静态图标；数据仍只取远端上报。 |
+| 历史分页与闪屏 | [滚动模型](../src/client/transcript-scroll.js)、[样式](../src/client/styles.css)、[历史分页](../src/client/history-pager.js) | 靠近顶部才加载，禁止定时自动翻页；每次追加旧消息前后用 item anchor 或 scrollHeight 差值还原阅读位置，滚动容器关闭浏览器自动 anchor，避免跳屏。快速页不显示加载文案（延迟 180ms），加载状态不触发整棵 transcript 重绘；历史请求与 live 订阅相互独立。 |
 
 ### 完整对话展示层与数据适配
 

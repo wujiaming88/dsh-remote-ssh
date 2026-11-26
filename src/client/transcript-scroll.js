@@ -22,13 +22,28 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
   const lastScrollTop=React.useRef(0),pendingRestore=React.useRef(null),lifetime=React.useRef(0);
   const readingAnchor=React.useRef(null);
   const historyRef=React.useRef(history);historyRef.current=history;
-  const [following,setFollowing]=React.useState(true),[prepending,setPrepending]=React.useState(false);
+  const [following,setFollowing]=React.useState(true);
   const [showLatest,setShowLatest]=React.useState(false),[historyStatus,setHistoryStatus]=React.useState({loading:false,error:null});
+  const historyStatusTimer=React.useRef(null);
   const pagerRef=React.useRef(null);
   if(!pagerRef.current)pagerRef.current=new HistoryPager({
     getPage:()=>historyRef.current?.getPage(),
     load:page=>prepend((beforeApply,canApply)=>historyRef.current.load(page,beforeApply,canApply)),
-    changed:state=>{if(live.current){setHistoryStatus(state);schedule();}},
+    changed:state=>{
+      if(!live.current)return;
+      // A fast page should not flash a loading label or repaint the transcript
+      // shell twice. Show it only after the request is genuinely slow.
+      if(state.loading){
+        if(historyStatusTimer.current===null)historyStatusTimer.current=globalThis.setTimeout(()=>{
+          historyStatusTimer.current=null;
+          if(live.current)setHistoryStatus(previous=>previous.loading?previous:{loading:true,error:null});
+        },180);
+      }else{
+        if(historyStatusTimer.current!==null){globalThis.clearTimeout(historyStatusTimer.current);historyStatusTimer.current=null;}
+        setHistoryStatus(previous=>previous.loading===false&&!previous.error&&!state.error?previous:{loading:false,error:state.error});
+      }
+      schedule();
+    },
   });
   const setFollow=value=>{follow.current=value;setFollowing(value);};
   const requestHistory=options=>pagerRef.current.check(viewportRef.current,options);
@@ -99,9 +114,17 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
       sameViewport:viewportRef.current===saved.viewport&&contentRef.current===saved.content&&lifetime.current===saved.lifetime,live:live.current})||follow.current)return;
     const adjustment=historyAnchorAdjustment(saved.anchors,measurements(saved.viewport,saved.content));
     if(adjustment)writeScroll(saved.viewport,anchoredScrollTop({currentTop:saved.viewport.scrollTop,...adjustment}));
+    else if(Number.isFinite(saved.scrollTop)&&Number.isFinite(saved.scrollHeight)){
+      // Native scroll anchoring is disabled on this owned scrollport. When no
+      // stable item anchor survives a page boundary, preserve the reader's
+      // viewport by the exact inserted height instead of jumping to the new top.
+      const inserted=saved.viewport.scrollHeight-saved.scrollHeight;
+      if(inserted!==0)writeScroll(saved.viewport,saved.scrollTop+inserted);
+    }
   }
   React.useLayoutEffect(()=>{
-    lifetime.current++;live.current=true;setFollow(true);setShowLatest(false);setPrepending(false);
+    lifetime.current++;live.current=true;setFollow(true);setShowLatest(false);
+    if(historyStatusTimer.current!==null){globalThis.clearTimeout(historyStatusTimer.current);historyStatusTimer.current=null;}
     interaction.current++;expectedScroll.current=null;pendingRestore.current=null;readingAnchor.current=null;scrollIntent.current=false;touchPoint.current=null;
     const viewport=viewportRef.current,content=contentRef.current;
     lastScrollTop.current=viewport?.scrollTop||0;
@@ -113,6 +136,7 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     schedule();
     return()=>{
       live.current=false;lifetime.current++;pendingRestore.current=null;readingAnchor.current=null;
+      if(historyStatusTimer.current!==null){globalThis.clearTimeout(historyStatusTimer.current);historyStatusTimer.current=null;}
       viewport?.removeEventListener('rssh:reading-intent',onReadingIntent);
       viewport?.removeEventListener('click',onReadingClick,true);
       pagerRef.current.activate(false,identity);observer?.disconnect();
@@ -188,11 +212,12 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     if(pendingPrepend.current)return pendingPrepend.current;
     const viewport=viewportRef.current,content=contentRef.current;if(!viewport||!content)return Promise.resolve();
     const epoch=lifetime.current;
-    setFollow(false);setPrepending(true);
+    setFollow(false);
     const beforeApply=()=>{
       if(!live.current||lifetime.current!==epoch||follow.current||viewportRef.current!==viewport||contentRef.current!==content)return;
       // Capture the CURRENT reader position after network latency, not where the wheel began.
       pendingRestore.current={task,viewport,content,lifetime:epoch,interaction:interaction.current,
+        scrollTop:viewport.scrollTop,scrollHeight:viewport.scrollHeight,
         anchors:measurements(viewport,content).filter(anchor=>anchor.bottom>0)};
     };
     const canApply=()=>live.current&&lifetime.current===epoch&&viewportRef.current===viewport&&contentRef.current===content;
@@ -203,11 +228,10 @@ export function useTranscriptScroll(identity,items,ready=true,history) {
     }).finally(()=>{
       if(pendingRestore.current?.task===task)pendingRestore.current=null;
       if(pendingPrepend.current===task)pendingPrepend.current=null;
-      if(live.current&&lifetime.current===epoch)setPrepending(false);
     });
     pendingPrepend.current=task;
     return task;
   }
-  return {viewportRef,contentRef,following,showLatest,prepending,history:historyStatus,retryHistory,
+  return {viewportRef,contentRef,following,showLatest,history:historyStatus,retryHistory,
     onScroll,onWheel,onKeyDown,onPointerDown,onTouchStart,onTouchMove,onTouchEnd,latest,prepend};
 }

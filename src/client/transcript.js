@@ -44,7 +44,7 @@ export const messages={
     'flow.working':'Waiting for Agent progress','flow.connecting':'Connecting','flow.connection':'Reconnecting','flow.remoteConnecting':'Connecting to remote SSH','flow.remoteReconnecting':'Restoring remote SSH connection','flow.syncConnecting':'Connecting to session message stream','flow.syncResuming':'Reattaching session message stream','flow.syncReconnecting':'Restoring session message sync','flow.source':'Unlinked source'},
 };
 
-export function Transcript({items,running,turns={},preferences,t,labels,openFile,renderFactorySlot,rootSessionId,attachmentContext}) {
+function TranscriptView({items,running,turns={},preferences,t,labels,openFile,renderFactorySlot,rootSessionId,attachmentContext}) {
   const [manual,setManual]=React.useState({});
   const [turnOpen,setTurnOpen]=React.useState({});
   const focusedProcess=React.useRef(null),turnRegionPrefix=React.useId();
@@ -181,6 +181,18 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         children:()=>entry.items.map(item=>render(item,entry.responses.get(item.key)))})));
   });
 }
+
+function sameTranscript(previous,next) {
+  return previous.items===next.items&&previous.running===next.running&&previous.turns===next.turns&&
+    previous.preferences===next.preferences&&previous.t===next.t&&previous.labels===next.labels&&
+    previous.openFile===next.openFile&&previous.renderFactorySlot===next.renderFactorySlot&&
+    previous.rootSessionId===next.rootSessionId&&previous.attachmentContext?.id===next.attachmentContext?.id&&
+    previous.attachmentContext?.dshSessionId===next.attachmentContext?.dshSessionId;
+}
+// Scroll/status updates live in the chat shell; they must not repaint every
+// already-projected Markdown/tool row. History or live event changes still pass
+// a new items array and render normally.
+export const Transcript=React.memo(TranscriptView,sameTranscript);
 
 function RunningGlyph({kind}) { const name=kind==='mark'?'running':['permission','question'].includes(kind)?'pause':kind==='activity'?'tool':kind==='replying'?'message':kind==='thinking'?'thought':'clock'; return h(NativeIcon,{name,size:16,className:'rssh-running-glyph'}); }
 

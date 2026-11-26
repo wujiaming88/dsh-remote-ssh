@@ -101,7 +101,7 @@ test('nested scroll geometry respects upward consumption and contained boundarie
 });
 test('UI replaces routine Load earlier button with feedback and an error-only retry',()=>{
   const read=name=>readFileSync(new URL('../src/client/'+name,import.meta.url),'utf8');
-  const chat=read('chat.js'),scroll=read('transcript-scroll.js'),css=read('styles.css');
+  const chat=read('chat.js'),scroll=read('transcript-scroll.js'),css=read('styles.css'),transcript=read('transcript.js');
   assert.doesNotMatch(chat,/acp\.loadEarlier|rssh-history-control/);
   assert.match(chat,/scroll.history.error\?h\(ui.Button/);assert.match(chat,/onClick:scroll.retryHistory/);
   assert.match(chat,/tabIndex:0,role:'region','aria-label':t\('acp.messageHistory'\)/);
@@ -112,4 +112,11 @@ test('UI replaces routine Load earlier button with feedback and an error-only re
   assert.match(css,/\.rssh-history-status\s*\{[^}]*height: 32px;/);
   assert.match(css,/\.ra-acp-messages:focus-visible/);
   for(const language of ['zh.js','en.js'])for(const key of ['messageHistory','historyScrollHint','historyLoading','historyFailed','historyNoProgress','historyRetry','historyStart'])assert.ok(read(language).includes(`acp.${key}`));
+  // Fast local pages must not flash a status label or repaint every Markdown row.
+  assert.match(scroll,/globalThis\.setTimeout\([\s\S]*?180/);
+  assert.match(scroll,/scrollHeight:viewport\.scrollHeight/);
+  assert.match(scroll,/const inserted=saved\.viewport\.scrollHeight-saved\.scrollHeight/);
+  assert.match(css,/\.ra-acp-messages\s*\{[^}]*overflow-anchor: none/);
+  assert.match(chat,/React\.useMemo\(\(\)=>acpBlockLabels\(t\)/);
+  assert.match(transcript,/React\.memo\(TranscriptView,sameTranscript\)/);
 });
