@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.25 — Claude queue follows the native tool boundary
+
+- Queue messages for Claude can now stay pending while a foreground tool runs and are injected at **later** priority when the last root tool call finishes, inside the same turn. This mirrors Claude Code's native queue: tool execution completes normally, the current answer is not preempted, and no second `session/prompt` starts. The queued card remains editable/removable until that boundary.
+- Add a bounded, exact, idempotent patch for the pinned `claude-agent-acp@0.109.1`: expose `_meta.steering.priorities` and honor a Host-selected `later`/`now` priority. Any source-layout mismatch leaves the package untouched and falls back to turn-boundary FIFO; no other adapter code is changed. The patch and fallback are covered by syntax, serialization and source-contract tests.
+- Explicit “Send now” still uses priority `now` and may interrupt/interleave according to Claude Code's own `Ctrl+Enter` semantics. Adapters without the patched priority capability keep the existing safe FIFO and disabled explanation.
+- Add regressions for steering priority negotiation, serialized remote patch delivery, queued text identity/order, later-priority injection after the last tool, no duplicate prompt, and editable cards until the tool boundary. All 1047 automated tests pass with 86 client modules built; real-browser and live remote acceptance remain separate.
+
 ## 3.0.0-rc.24 — edit queued messages and send them immediately
 
 - Add in-place editing for still-queued messages. Keep the original `requestId`, turn identity, FIFO position and admitted attachments; batch, prompt and queue-capacity validation still apply. The edited text updates both the browser projection and the Host-owned native admission, and long preview-only rows disable editing instead of risking truncated content.

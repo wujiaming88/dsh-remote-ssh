@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { parse } from 'acorn';
 import { EventEmitter } from 'node:events';
 import { PassThrough, Readable, Writable } from 'node:stream';
 import * as sdk from '@agentclientprotocol/sdk';
-import { connectAcp, normalizeCapabilities } from '../lib/acp-transport.js';
+import { connectAcp, normalizeCapabilities, patchClaudeSteeringSource, buildRemoteAcpLaunchSpec } from '../lib/acp-transport.js';
 import { prepareSteeringPrompt } from '../lib/acp-steering.js';
 
 const capabilities = { steering: { supported: true }, promptCapabilities: { image: true, embeddedContext: true } };
@@ -19,6 +20,31 @@ test('native steering is negotiated only by a literal boolean true', () => {
   assert.deepEqual(normalizeCapabilities({ _meta: { steering: { supported: true } } }).steering, { supported: true, protocol: '_session/steering' });
   // Claude's native prompt FIFO advertisement is not a steering advertisement.
   assert.equal(normalizeCapabilities({ agentCapabilities: { _meta: { claudeCode: { promptQueueing: true } } } }).steering.supported, false);
+});
+
+test('the Claude ACP priority patch is exact, idempotent and exposes later without changing defaults', () => {
+  const source = [
+    'const cap = { _meta: { steering: {',
+    '    supported: true,',
+    '} } };',
+    'userMessage.priority =',
+    '    (session.openUserInputs?.size ?? 0) > 0 ? STEER_PRIORITY_LATER : STEER_PRIORITY_NOW;',
+  ].join('\n');
+  const patched = patchClaudeSteeringSource(source);
+  assert.equal(patched.patched, true);
+  assert.match(patched.source, /priorities: \["now", "later"\]/);
+  assert.match(patched.source, /params\._meta\?\.steering\?\.priority === "later"/);
+  assert.equal(patched.source.includes('dsh-steering-priorities'), true);
+  parse(patched.source, { ecmaVersion: 'latest', sourceType: 'module' });
+  const serialized = new Function(`return (${patchClaudeSteeringSource.toString()})`)();
+  assert.equal(serialized(source).source, patched.source);
+  const launch = buildRemoteAcpLaunchSpec({ agent: 'claude', remotePath: '~/work', profile: { id: 'p', host: 'example', user: 'u', authMethod: 'key' } });
+  assert.match(launch.bootstrapSource, /patchClaudeSteeringSource/);
+  assert.doesNotThrow(() => new Function(launch.bootstrapSource));
+  assert.equal(patchClaudeSteeringSource(patched.source).source, patched.source);
+  assert.throws(() => patchClaudeSteeringSource('const unrelated = true;'), { code: 'steering_patch_unavailable' });
+  assert.deepEqual(normalizeCapabilities({ _meta: { steering: { supported: true, priorities: ['later', 'later', 'bogus', 'now'] } } }).steering,
+    { supported: true, protocol: '_session/steering', priorities: ['later', 'now'] });
 });
 
 test('native steering accepts common blocks intact without reading linked files', () => {
@@ -98,6 +124,14 @@ async function connectionFixture(t, { supported = true, outcome = { outcome: 'in
   await controller.ready;
   return { controller, calls, updates, promptStarted, promptFinish };
 }
+
+test('steering priority is carried only when explicitly requested', async t => {
+  const f = await connectionFixture(t);
+  await f.controller.steer('later', { priority: 'later' });
+  await f.controller.steer('default');
+  assert.deepEqual(f.calls[0].params._meta, { steering: { idleBehavior: 'promptRequired', priority: 'later' } });
+  assert.deepEqual(f.calls[1].params._meta, { steering: { idleBehavior: 'promptRequired' } });
+});
 
 test('real SDK sends native steering blocks and idle opt-in while prompt remains pending; ACK is not a stop', { timeout: 3000 }, async t => {
   const f = await connectionFixture(t);

@@ -5,18 +5,18 @@ import { AcpSession } from '../lib/acp.js';
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 function fixture(t) {
-  const prompts = [], steers = [], calls = { cancelled: 0 };
+  const prompts = [], steers = [], steerCalls = [], calls = { cancelled: 0 };
   const session = new AcpSession({ id: 'queue-test', agent: 'claude' });
   session.status = 'ready';
   session.capabilities = { agentCapabilities: { promptCapabilities: { image: true, embeddedContext: true } } };
   session.controller = {
     prompt(value) { const gate = deferred(); prompts.push({ value, ...gate }); return gate.promise; },
-    async steer(value) { steers.push(value); return { outcome: 'injected' }; },
+    async steer(value, options) { steers.push(value); steerCalls.push({ value, options }); return { outcome: 'injected' }; },
     async cancel() { calls.cancelled++; prompts.at(-1)?.resolve({ stopReason: 'cancelled' }); return true; },
     async close() {}, async dispose() {},
   };
   t.after(() => session.close());
-  return { session, prompts, steers, calls };
+  return { session, prompts, steers, steerCalls, calls };
 }
 
 test('queue acknowledges before model completion, preserves prompt completion API and FIFO', async t => {
@@ -101,15 +101,41 @@ test('editing retains admitted attachments and only replaces the text block', as
   assert.deepEqual(prompts[1].value, [{ type: 'text', text: 'after' }, { type: 'image', mimeType: 'image/png', data: 'KEEP' }]);
 });
 
+test('Claude later-priority queue waits for the foreground tool boundary and stays editable until then', async t => {
+  const { session, prompts, steerCalls, calls } = fixture(t);
+  session.capabilities.steering = { supported: true, priorities: ['now', 'later'] };
+  await session.queue('active', { requestId: 'active' });
+  await session.queue('after tool', { requestId: 'after' });
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(steerCalls.length, 0);
+  assert.deepEqual(session.state().queuedMessages.map(item => item.text), ['after tool']);
+  session._emit({ type: 'tool_call', toolCallId: 'tool-1', status: 'in_progress' });
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(steerCalls.length, 0);
+  assert.deepEqual(session.state().queuedMessages.map(item => item.text), ['after tool']);
+  session._emit({ type: 'tool_call_update', toolCallId: 'tool-1', status: 'completed' });
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(steerCalls.length, 1); assert.equal(steerCalls[0].options.priority, 'later');
+  assert.deepEqual(steerCalls[0].value, [{ type: 'text', text: 'after tool' }]);
+  assert.deepEqual(session.state().queuedMessages, []);
+  assert.equal(prompts.length, 1); assert.equal(session.busy, true); assert.equal(calls.cancelled, 0);
+  const message = session.events.filter(event => event.type === 'user_message' && event.requestId === 'after').at(-1);
+  assert.equal(message.delivery, 'steered');
+  assert.equal(message.turnId, session.activeTurn.id);
+  assert.equal(session.events.some(event => event.type === 'stop' && event.requestId === 'after'), false);
+  prompts[0].resolve({ stopReason: 'end_turn' }); await tick();
+  assert.equal(prompts.length, 1); assert.equal(session.busy, false);
+});
+
 test('promote injects into the active turn and removes only that queued identity', async t => {
-  const { session, prompts, steers, calls } = fixture(t);
+  const { session, prompts, steers, steerCalls, calls } = fixture(t);
   session.capabilities.steering = { supported: true };
   await session.queue('active', { requestId: 'active' });
   await session.queue('send now', { requestId: 'now' });
   await session.queue('keep', { requestId: 'keep' });
   const promoted = await session.promoteQueued({ targetRequestId: 'now' });
   assert.deepEqual(promoted, { promoted: true, outcome: 'injected', steering: true, targetRequestId: 'now', requestId: 'now', turnId: session.activeTurn.id });
-  assert.deepEqual(steers, [[{ type: 'text', text: 'send now' }]]); assert.equal(prompts.length, 1); assert.equal(calls.cancelled, 0);
+  assert.deepEqual(steers, [[{ type: 'text', text: 'send now' }]]); assert.equal(steerCalls[0].options.priority, 'now'); assert.equal(prompts.length, 1); assert.equal(calls.cancelled, 0);
   assert.deepEqual(session.state().queuedMessages.map(item => item.text), ['keep']);
   assert.equal(session.events.filter(event => event.type === 'user_message' && event.requestId === 'now').at(-1).delivery, 'steered');
   assert.equal(session.events.some(event => event.type === 'stop' && event.requestId === 'now'), false);
