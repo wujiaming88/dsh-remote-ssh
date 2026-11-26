@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { HEARTBEAT_INTERVAL_MS, streamAcpSubscription } from '../lib/stream-liveness.js';
+import { DRAIN_TIMEOUT_MS, MAX_PENDING_BYTES, HEARTBEAT_INTERVAL_MS, streamAcpSubscription } from '../lib/stream-liveness.js';
 
 class Clock {
   now = 0;
@@ -14,13 +14,20 @@ class Clock {
     return handle;
   };
   clearInterval = handle => { this.timers.delete(handle); };
+  setTimeout = (callback, delay) => {
+    const handle = this.setInterval(callback, delay);
+    this.timers.get(handle).once = true;
+    return handle;
+  };
+  clearTimeout = this.clearInterval;
   advance(ms) {
     const until = this.now + ms;
     for (;;) {
       const due = [...this.timers.entries()].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
       if (!due) break;
       this.now = due[1].at;
-      due[1].at += due[1].period;
+      if (due[1].once) this.timers.delete(due[0]);
+      else due[1].at += due[1].period;
       due[1].callback();
     }
     this.now = until;
@@ -38,6 +45,7 @@ class Response extends EventEmitter {
     return this.onWrite?.(this.frames.at(-1)) ?? true;
   }
   end() { this.ends++; this.writableEnded = true; this.emit('close'); }
+  destroy() { this.destroyed = true; this.emit('close'); }
 }
 function fixture(options = {}) {
   const clock = new Clock(), req = new EventEmitter(), res = new Response(), activeStreams = new Set();
@@ -59,7 +67,8 @@ function fixture(options = {}) {
   };
   const params = { session, req, res, cursor: 'generation:6', activeStreams,
     permitted: () => { state.checks++; if (state.policyError) throw new Error('policy unavailable'); return state.allowed; },
-    isDisposed: () => state.disposed, setInterval: clock.setInterval, clearInterval: clock.clearInterval };
+    isDisposed: () => state.disposed, setInterval: clock.setInterval, clearInterval: clock.clearInterval,
+    setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout };
   return { clock, req, res, state, journal, activeStreams, subscribers,
     start: extra => streamAcpSubscription({ ...params, ...extra }),
     emit: event => { for (const fn of [...subscribers]) fn(event); },
@@ -71,6 +80,7 @@ function clean(f) {
   assert.equal(f.subscribers.size, 0);
   assert.equal(f.res.listenerCount('close'), 0);
   assert.equal(f.res.listenerCount('error'), 0);
+  assert.equal(f.res.listenerCount('drain'), 0);
   assert.equal(f.req.listenerCount('aborted'), 0);
 }
 
@@ -154,11 +164,118 @@ test('synchronous response close inside subscribe leaves no orphan timer or subs
 });
 
 for (const type of ['replay', 'update', 'heartbeat']) {
-  test(`backpressure on ${type} closes rather than retaining a queue`, async () => {
+  test(`backpressure on ${type} waits for drain without duplicating an accepted frame`, async () => {
     const f = fixture(); f.res.onWrite = frame => frame.type !== type;
-    await f.start(); if (type === 'heartbeat') f.clock.advance(15_000);
-    assert.equal(f.res.frames.at(-1).type, type); assert.equal(f.res.ends, 1); clean(f);
-    const count = f.res.frames.length; f.clock.advance(60_000); assert.equal(f.res.frames.length, count);
+    const close = await f.start(); if (type === 'heartbeat') f.clock.advance(15_000);
+    assert.equal(f.res.frames.at(-1).type, type); assert.equal(f.res.ends, 0);
+    assert.equal(f.activeStreams.size, 1); assert.equal(f.res.listenerCount('drain'), 1);
+    const accepted = [...f.res.frames];
+    f.emit({ type: 'update', seq: 8, text: 'queued' });
+    assert.deepEqual(f.res.frames, accepted);
+    f.res.onWrite = () => true; f.res.emit('drain');
+    assert.deepEqual(f.res.frames.slice(0, accepted.length), accepted);
+    assert.equal(f.res.frames.filter(frame => frame.seq === 8).length, 1);
+    assert.equal(f.res.frames.filter(frame => frame.seq === 7).length, 1);
+    assert.equal(f.res.listenerCount('drain'), 0);
+    close(); clean(f);
+  });
+}
+
+test('large tiny-record queues compact without losing order or replaying accepted records', async () => {
+  const f = fixture(); f.res.onWrite = () => false;
+  const close = await f.start();
+  for (let seq = 8; seq < 4104; seq++) f.emit({ type: 'update', seq });
+  f.res.onWrite = () => true; f.res.emit('drain');
+  assert.deepEqual(f.res.frames.filter(frame => frame.type === 'update').map(frame => frame.seq),
+    Array.from({ length: 4097 }, (_, i) => i + 7));
+  f.emit({ type: 'update', seq: 4104 }); assert.equal(f.res.frames.at(-1).seq, 4104);
+  close(); clean(f);
+});
+
+test('drain timeout is independent of heartbeat and destroys retained socket buffers', async () => {
+  const f = fixture(); f.res.onWrite = () => false;
+  await f.start();
+  assert.ok(DRAIN_TIMEOUT_MS < HEARTBEAT_INTERVAL_MS);
+  f.clock.advance(DRAIN_TIMEOUT_MS - 1); assert.equal(f.activeStreams.size, 1);
+  f.clock.advance(1); assert.equal(f.res.destroyed, true); assert.equal(f.res.ends, 0); clean(f);
+});
+
+test('drain progress resets its deadline while persistent backpressure still times out', async () => {
+  const f = fixture(); f.res.onWrite = () => false;
+  await f.start();
+  f.clock.advance(DRAIN_TIMEOUT_MS - 1); f.res.emit('drain');
+  f.clock.advance(1); assert.equal(f.activeStreams.size, 1);
+  f.clock.advance(DRAIN_TIMEOUT_MS - 1); assert.equal(f.res.destroyed, true); clean(f);
+});
+
+test('pending budget counts UTF-8 queue bytes and Node accepted bytes', async () => {
+  const f = fixture(); const close = await f.start();
+  f.res.writableNeedDrain = true;
+  const event = { type: 'update', seq: 8, text: '界'.repeat(100) };
+  const bytes = Buffer.byteLength(JSON.stringify(event) + '\n');
+  f.res.writableLength = MAX_PENDING_BYTES - bytes * 2;
+  f.emit(event); f.emit(event);
+  assert.equal(f.activeStreams.size, 1, 'exact budget boundary remains accepted');
+  f.emit(event);
+  assert.equal(f.res.destroyed, true); assert.equal(f.res.frames.length, 2); clean(f); close();
+});
+
+test('legal large canonical records fit the pending ceiling', async () => {
+  const f = fixture(); const close = await f.start();
+  f.res.onWrite = () => false;
+  f.emit({ type: 'update', seq: 8, text: 'x'.repeat(16 * 1024 * 1024 - 1024) });
+  assert.equal(f.res.frames.at(-1).seq, 8); assert.equal(f.activeStreams.size, 1);
+  close(); clean(f);
+});
+
+test('overflow during synchronous replay detaches delivery but starts admitted prompt exactly once', async () => {
+  const f = fixture({ duringSubscribe: ({ fn, res }) => {
+    res.writableNeedDrain = true; res.writableLength = MAX_PENDING_BYTES;
+    fn({ type: 'update', seq: 8, text: 'over budget' });
+  } });
+  let prompts = 0;
+  await f.start({ prompt: () => { prompts++; } });
+  assert.equal(prompts, 1); assert.equal(f.res.destroyed, true); clean(f);
+});
+
+for (const reason of ['revoked', 'policy failure', 'disposed']) {
+  test(`drain rechecks ${reason} before releasing queued records`, async () => {
+    const f = fixture(); f.res.onWrite = () => false;
+    await f.start();
+    f.emit({ type: 'update', seq: 8, text: 'secret queued while authorized' });
+    if (reason === 'revoked') f.state.allowed = false;
+    if (reason === 'policy failure') f.state.policyError = true;
+    if (reason === 'disposed') f.state.disposed = true;
+    f.res.onWrite = () => true; f.res.emit('drain');
+    assert.equal(f.res.frames.some(frame => frame.seq === 8), false); clean(f);
+  });
+}
+
+for (const reason of ['response close', 'response error', 'request abort', 'Host dispose']) {
+  test(`${reason} while draining discards queue and cleans its deadline`, async () => {
+    const f = fixture(); f.res.onWrite = () => false; await f.start();
+    f.emit({ type: 'update', seq: 8, text: 'queued' });
+    if (reason === 'response close') { f.res.closed = true; f.res.emit('close'); }
+    if (reason === 'response error') f.res.emit('error', new Error('socket error'));
+    if (reason === 'request abort') { f.req.aborted = true; f.req.emit('aborted'); }
+    if (reason === 'Host dispose') { f.state.disposed = true; for (const close of [...f.activeStreams]) close(); }
+    clean(f); f.res.emit('drain');
+    assert.equal(f.res.frames.some(frame => frame.seq === 8), false);
+  });
+}
+
+for (const reject of [false, true]) {
+  test(`prompt ${reject ? 'failure' : 'completion'} drains queued terminal frames before EOF`, async () => {
+    const f = fixture(); f.res.onWrite = () => false;
+    await f.start({ prompt: () => {
+      f.emit({ type: 'done', seq: 8 });
+      if (reject) throw new Error('failed');
+    } });
+    assert.equal(f.res.ends, 0); assert.equal(f.subscribers.size, 0);
+    assert.equal(f.clock.timers.size, 1, 'drain deadline survives prompt completion, heartbeat does not');
+    f.res.onWrite = () => true; f.res.emit('drain');
+    assert.deepEqual(f.res.frames.map(frame => frame.type), reject ? ['replay', 'update', 'done', 'error'] : ['replay', 'update', 'done']);
+    assert.equal(f.res.ends, 1); clean(f);
   });
 }
 
@@ -202,6 +319,11 @@ for (const deliveryFailure of ['replay backpressure', 'update backpressure', 'br
     let prompts = 0, resolve;
     const task = f.start({ prompt: () => { prompts++; return new Promise(done => { resolve = done; }); } });
     assert.equal(prompts, 1, 'admitted work survives loss of HTTP delivery');
+    if (deliveryFailure.endsWith('backpressure')) {
+      assert.equal(f.activeStreams.size, 1);
+      f.clock.advance(DRAIN_TIMEOUT_MS);
+      assert.equal(f.res.destroyed, true, 'only an actual drain timeout detaches delivery');
+    }
     clean(f); const count = f.res.frames.length;
     f.clock.advance(60_000); assert.equal(f.res.frames.length, count);
     resolve(); await task; assert.equal(prompts, 1); clean(f);

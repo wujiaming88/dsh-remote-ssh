@@ -11,7 +11,8 @@ const origin = event => [event.sessionId, event.turnId, event.messageId, event.p
 export function initialState() {
   return { cursor: { generation: '', seq: 0 }, items: [], permissions: [], elicitations: [], commands: [],
     config: {}, capabilities: {}, usage: null, suggestions: [], binding: null, queuedMessages: [], queueCursor: { generation: '', seq: 0 },
-    running: false, loading: true, connected: false, error: '', title: '', turns: {}, hasEarlier: false, oldestSeq: null };
+    running: false, loading: true, connected: false, everConnected: false, transportError: '', subscriptionDiagnostic: null,
+    error: '', title: '', turns: {}, hasEarlier: false, oldestSeq: null };
 }
 // An HTTP receipt can race newer SSE queue events. Never resurrect a consumed
 // or removed row from an older snapshot, including after history pagination.

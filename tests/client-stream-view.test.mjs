@@ -2,11 +2,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {acpItemId} from '../src/client/presentation.js';
-import {conversationActivity,responseCopyParts,activeRootScope,actionLabel,processTreeSummary} from '../src/client/stream-view-model.js';
+import {conversationActivity,responseCopyParts,activeRootScope,actionLabel,processTreeSummary,connectionLabelKey} from '../src/client/stream-view-model.js';
 import {toolFlowModel,toolBodyParts,rawDetailEntries} from '../src/client/tool-model.js';
 const scope=JSON.stringify(['root','turn']);
 const state=patch=>({connected:true,running:true,binding:{sessionId:'root'},turns:{[scope]:{status:'running',startSeq:10}},items:[],permissions:[],elicitations:[],...patch});
 const assistant=(sessionId,turnId,text,seq)=>({type:'assistant',key:'a'+seq,sessionId,turnId,text,seq,lastSeq:seq});
+
+test('connection labels distinguish browser message subscription from remote SSH',()=>{
+  const binding={remoteExecution:{id:'owner'},transportState:'connected',status:'prompting'};
+  assert.equal(connectionLabelKey(state({binding,connected:false,everConnected:false})),'flow.syncConnecting');
+  for(const reason of ['error','heartbeat_timeout',undefined])assert.equal(connectionLabelKey(state({binding,connected:false,everConnected:true,subscriptionDiagnostic:{reason}})),'flow.syncReconnecting');
+  assert.equal(connectionLabelKey(state({binding,connected:false,everConnected:true,subscriptionDiagnostic:{reason:'eof'}})),'flow.syncResuming');
+  assert.equal(connectionLabelKey(state({binding})) ,null);
+});
+test('actual SSH transport recovery takes precedence over subscription state',()=>{
+  for(const connected of [false,true]){
+    const binding={remoteExecution:{id:'owner'},status:'prompting',transportState:'reconnecting'};
+    assert.equal(connectionLabelKey(state({binding,connected,subscriptionDiagnostic:{reason:'eof'}})),'flow.remoteReconnecting');
+    assert.equal(connectionLabelKey(state({binding:{...binding,transportState:'connecting'},connected})),'flow.remoteConnecting');
+    for(const transportState of ['error','disconnected','detached'])assert.equal(connectionLabelKey(state({binding:{...binding,transportState},connected})),null);
+    assert.equal(connectionLabelKey(state({binding:{...binding,status:'closed'},connected})),null);
+  }
+});
+test('running tail uses layer-specific localized connection labels without hiding recovery',()=>{
+  const source=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
+  assert.match(source,/t\(connectionLabelKey\(state\)\|\|keys\[activity.kind\]\)/);
+  for(const key of ['remoteConnecting','remoteReconnecting','syncConnecting','syncResuming','syncReconnecting'])assert.equal(source.split(`'flow.${key}':`).length-1,2);
+});
 
 test('default response copy is precisely the visible part; whole turn is explicitly separate',()=>{
   const item={text:'Second part'};

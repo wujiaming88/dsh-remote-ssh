@@ -5,6 +5,9 @@ import {ComposerSession} from './composer-session.js';
 let clientSequence=0;
 const ACCESS_DENIED=new Set(['unauthenticated','request_forbidden','remote_access_denied','http_401','http_403']);
 const TERMINAL_ATTACH=new Set(['acp_not_found','acp_not_running','binding_mismatch','session_archived','session_not_found']);
+// Diagnostics are bounded protocol identifiers, never remote error text or payloads.
+const subscriptionFailureCode=error=>ACCESS_DENIED.has(error.code)||TERMINAL_ATTACH.has(error.code)||
+  ['network_error','cancelled'].includes(error.code)||/^http_[1-5]\d{2}$/.test(error.code||'')?error.code:'stream_error';
 
 // Browser subscription lifetime is independent from the remote agent lifetime.
 export class SessionClient {
@@ -27,6 +30,8 @@ export class SessionClient {
     this.ready = false;
     this.epoch = 0;
     this.replayRevision = 0;
+    // Control snapshots can change SSH/runtime state without advancing the journal.
+    this.snapshotRevision = 0;
     this.attachController = null;
     this.onAuthorized = dependencies.onAuthorized || (()=>{});
     this.onBinding = dependencies.onBinding || (()=>{});
@@ -48,9 +53,9 @@ export class SessionClient {
   }
   markClosed(snapshot) {
     if(this.disposed||!snapshot||snapshot.id!==this.state.binding?.id)return;
-    this.ready=false;this.retryBlocked=true;
+    this.ready=false;this.retryBlocked=true;this.snapshotRevision++;
     this.cancelTimer(this.retryTimer);this.cancelTimer(this.heartbeatTimer);this.attachController?.abort();
-    this.publish({...applySnapshot(this.state,{...snapshot,status:'closed',busy:false,pendingPermissions:[],pendingElicitations:[]}),connected:false,transportError:'',failure:null,error:snapshot.lastError||''});
+    this.publish({...applySnapshot(this.state,{...snapshot,status:'closed',busy:false,pendingPermissions:[],pendingElicitations:[]}),connected:false,transportError:'',subscriptionDiagnostic:null,failure:null,error:snapshot.lastError||''});
   }
   invalidate(error) {
     this.epoch++;this.retryBlocked=true;this.ready=false;
@@ -71,14 +76,15 @@ export class SessionClient {
       // A control snapshot may not skip history, roll it back, or change binding.
       if(!snapshot||snapshot.id!==this.state.binding?.id||!cursor||cursor.seq!==this.state.cursor.seq||cursor.generation!==this.state.cursor.generation)return;
       if(snapshot.status==='closed')this.markClosed(snapshot);
-      else this.publish(applySnapshot(this.state,snapshot));
+      else {this.snapshotRevision++;this.publish(applySnapshot(this.state,snapshot));}
       return;
     }
     const reset=event.type==='replay'&&event.reset||event.generation&&this.state.cursor.generation&&event.generation!==this.state.cursor.generation;
     if(reset){this.events.clear();this.replayRevision++;}
     if (Number.isSafeInteger(event.seq)) this.events.set(event.seq, event);
     // Transport state is not journal state: replay/reset cannot disconnect a live stream.
-    this.state = {...reduceEvent(this.state, event),connected:this.state.connected,everConnected:this.state.everConnected,replayRevision:this.replayRevision};
+    this.state = {...reduceEvent(this.state, event),connected:this.state.connected,everConnected:this.state.everConnected,
+      transportError:this.state.transportError,subscriptionDiagnostic:this.state.subscriptionDiagnostic,replayRevision:this.replayRevision};
     if ((event.type === 'request_ack' || event.type === 'user_message') && event.requestId) this.acknowledge(event.requestId);
     for (const listener of this.listeners) listener();
   };
@@ -134,7 +140,7 @@ export class SessionClient {
     }
   }
   async history(beforeSeq,{beforeApply,canApply}={}) {
-    const epoch=this.epoch,revision=this.replayRevision;
+    const epoch=this.epoch,revision=this.replayRevision,snapshotRevision=this.snapshotRevision;
     const id = this.state.binding?.id;
     if (!id) return;
     const startingCursor = this.state.cursor;
@@ -144,15 +150,25 @@ export class SessionClient {
     const current = this.state;
     const advanced = current.cursor.generation !== startingCursor.generation || current.cursor.seq > startingCursor.seq;
     if (advanced && result.cursor?.generation !== current.cursor.generation) return;
+    const snapshotChanged=snapshotRevision!==this.snapshotRevision;
+    const sameGeneration=result.cursor?.generation===current.cursor.generation;
+    // A late page from another journal cannot revive an observed terminal close.
+    if(snapshotChanged&&current.binding?.status==='closed'&&!sameGeneration)return;
     const reset=result.reset||result.cursor?.generation&&current.cursor.generation&&result.cursor.generation!==current.cursor.generation;
     if(reset){this.events.clear();this.replayRevision++;}
     for (const event of result.events) this.events.set(event.seq, event);
     const next = replay([...this.events.values()], result.session, current);
-    // Reopening may race command announcements with an older history snapshot.
-    // Keep the live roster just like other current execution/configuration state.
-    if (advanced) for (const key of ['binding', 'running', 'permissions', 'elicitations', 'config', 'capabilities', 'commands', 'error', 'title']) next[key] = current[key];
+    // An empty journal has no event from which to learn its generation. Only a
+    // zero-head history cursor can establish it without skipping unseen events.
+    if(!next.cursor.generation&&next.cursor.seq===0&&result.cursor?.seq===0&&
+      typeof result.cursor.generation==='string'&&result.cursor.generation)
+      next.cursor={generation:result.cursor.generation,seq:0};
+    // Journal updates and same-generation control snapshots supersede a history
+    // request's snapshot. Never carry old-journal runtime state across a reset.
+    if (advanced||snapshotChanged&&sameGeneration) for (const key of ['binding', 'running', 'permissions', 'elicitations', 'config', 'capabilities', 'commands', 'error', 'title']) next[key] = current[key];
     if(!reset)beforeApply?.();
-    this.publish({ ...next, replayRevision:this.replayRevision, connected:current.connected, everConnected:current.everConnected, transportError:current.transportError, oldestSeq: result.oldestSeq, hasEarlier: !!result.hasEarlier });
+    this.publish({ ...next, replayRevision:this.replayRevision, connected:current.connected, everConnected:current.everConnected,
+      transportError:current.transportError,subscriptionDiagnostic:current.subscriptionDiagnostic,oldestSeq: result.oldestSeq, hasEarlier: !!result.hasEarlier });
     for (const event of result.events) if ((event.type === 'user_message' || event.type === 'request_ack') && event.requestId) this.acknowledge(event.requestId);
   }
   attach() {
@@ -162,11 +178,14 @@ export class SessionClient {
     const controller = this.controller();
     this.attachController=controller;
     const id = this.state.binding.id;
+    let outcome=null;
+    const diagnostic=(reason,code=null)=>({reason,code,retryAttempt:Math.min(this.retryCount+1,Number.MAX_SAFE_INTEGER)});
     const watch=()=>{
       this.cancelTimer(this.heartbeatTimer);
       this.heartbeatTimer=this.later(()=>{
         if(this.disposed||controller.signal.aborted)return;
-        this.publish({connected:false,transportError:'Connection heartbeat timed out'});
+        outcome='heartbeat_timeout';
+        this.publish({connected:false,transportError:'Connection heartbeat timed out',subscriptionDiagnostic:diagnostic(outcome)});
         controller.abort();
       },this.heartbeatMs);
     };
@@ -175,7 +194,8 @@ export class SessionClient {
       if (this.disposed||controller.signal.aborted||this.retryBlocked) return;
       this.retryCount = 0;watch();
       if(event.type!=='heartbeat')this.receive(event);
-      if (!controller.signal.aborted&&!this.retryBlocked&&(!this.state.connected||this.state.transportError)) this.publish({ connected: true, everConnected:true, transportError:'' });
+      if (!controller.signal.aborted&&!this.retryBlocked&&(!this.state.connected||this.state.transportError||this.state.subscriptionDiagnostic))
+        this.publish({ connected: true, everConnected:true, transportError:'',subscriptionDiagnostic:null });
     })).catch(error => {
       if(controller.signal.aborted||this.disposed)return;
       if(ACCESS_DENIED.has(error.code)){this.onAccessDenied(error);return;}
@@ -183,21 +203,35 @@ export class SessionClient {
         this.retryBlocked=true;this.ready=false;
         this.publish({loading:false,failure:error.result||{code:error.code},error:error.message});
       }
-      this.publish({ connected: false, transportError: error.message });
+      outcome='error';
+      this.publish({ connected: false, transportError: error.message,subscriptionDiagnostic:diagnostic(outcome,subscriptionFailureCode(error)) });
     }).finally(() => {
       this.cancelTimer(this.heartbeatTimer);this.heartbeatTimer=null;
       this.controllers.delete(controller);
       this.attaching = false;this.attachController=null;
       if (this.disposed||this.retryBlocked||this.connecting&&!this.ready) return;
-      this.publish({ connected: false });
-      this.retryTimer = this.later(() => this.attach(), Math.min(1000 * 2 ** this.retryCount++, 10000));
+      this.publish({ connected: false,...(!outcome&&!controller.signal.aborted?{subscriptionDiagnostic:diagnostic('eof')}:{}) });
+      const delay=Math.min(1000 * 2 ** this.retryCount,10000);
+      this.retryCount=Math.min(this.retryCount+1,Number.MAX_SAFE_INTEGER);
+      this.retryTimer = this.later(() => this.attach(), delay);
     });
   }
   async action(method, payload = {}) {
-    const epoch=this.epoch;
-    const result = await this.request(method, { id: this.state.binding?.id, dshSessionId: this.backend.sessionId, ...payload });
+    const epoch=this.epoch,snapshotRevision=this.snapshotRevision,startingCursor=this.state.cursor,id=this.state.binding?.id;
+    const result = await this.request(method, { id, dshSessionId: this.backend.sessionId, ...payload });
     if(this.disposed||epoch!==this.epoch)throw Object.assign(new Error('Conversation detached'),{code:'cancelled'});
-    if (result.session) this.publish(applySnapshot(this.state, result.session));
+    if (result.session) {
+      const current=this.state,cursor=result.session.cursor;
+      const changed=snapshotRevision!==this.snapshotRevision||current.cursor.generation!==startingCursor.generation||current.cursor.seq>startingCursor.seq;
+      const newerHead=cursor?.generation===current.cursor.generation&&!!cursor.generation&&Number.isSafeInteger(cursor.seq)&&cursor.seq>current.cursor.seq;
+      const sameBinding=current.binding?.id===id&&(!result.session.id||result.session.id===current.binding?.id);
+      // An operation receipt is still returned, even when its snapshot lost the
+      // race to live delivery. Missing cursors cannot prove freshness; neither
+      // late receipts nor different bindings may revive an observed close.
+      if(sameBinding&&current.binding?.status!=='closed'&&(!changed||newerHead)){
+        this.snapshotRevision++;this.publish(applySnapshot(current,result.session));
+      }
+    }
     return result;
   }
   async prepareUploads(request,attempt) {

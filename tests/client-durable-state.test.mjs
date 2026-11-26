@@ -36,6 +36,28 @@ test('closed sessions reopen as read-only history without an attach or new promp
   assert.equal(conversationActivity(value.state).kind,'idle');assert.equal(value.retryBlocked,true);
 });
 
+test('empty journal history establishes only a zero-head generation for SSH control snapshots',async t=>{
+  const cursor={generation:'g',seq:0},empty={...snapshot,cursor};
+  const value=new SessionClient({sessionId:'host-session'},{api:async()=>({ok:true,session:empty,events:[],cursor})});
+  t.after(()=>value.dispose());value.state={...value.state,binding:empty,connected:true};
+  await value.history();assert.deepEqual(value.state.cursor,cursor);
+  for(const transportState of ['reconnecting','connected']){
+    value.receive({type:'snapshot',state:{...empty,transportState}});
+    assert.equal(value.state.binding.transportState,transportState);assert.equal(value.state.connected,true);
+  }
+  const before=value.state;
+  value.receive({type:'snapshot',state:{...empty,cursor:{generation:'g',seq:1},transportState:'error'}});
+  value.receive({type:'snapshot',state:{...empty,cursor:{generation:'other',seq:0},transportState:'error'}});
+  assert.equal(value.state,before);assert.equal(value.events.size,0);
+});
+test('empty history cannot jump to a positive head or let a control snapshot skip events',async t=>{
+  const value=new SessionClient({sessionId:'host-session'},{api:async()=>({ok:true,session:snapshot,events:[],cursor:snapshot.cursor})});
+  t.after(()=>value.dispose());value.state={...value.state,binding:snapshot,connected:true};
+  await value.history();assert.deepEqual(value.state.cursor,{generation:'',seq:0});
+  const before=value.state;value.receive({type:'snapshot',state:{...snapshot,transportState:'reconnecting'}});
+  assert.equal(value.state,before);
+});
+
 test('HTTP public-state subscription is unsequenced and detach releases both observers',async()=>{
   const req=new EventEmitter(),res=new EventEmitter(),frames=[],activeStreams=new Set();let callback,disposed=0;
   res.writeHead=()=>{};res.write=line=>{frames.push(JSON.parse(line));return true;};res.end=()=>{res.writableEnded=true;};

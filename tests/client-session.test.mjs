@@ -110,6 +110,94 @@ test('history from a new journal never restores an anchor from the old journal',
 });
 
 
+for(const [before,after] of [['reconnecting','connected'],['connected','reconnecting']])
+ test(`late history cannot revert same-cursor SSH ${before} → ${after}`,async t=>{
+  const older=deferred(),cursor={generation:'g',seq:2};
+  const old={...snapshot,cursor,remoteExecution:{id:'owner'},transportState:before};
+  const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===2?older.promise:undefined});
+  await client.connect();event(ev(2,{type:'text',text:'current'}));
+  event({type:'snapshot',state:old});
+  const pending=client.history(2);
+  const latest={...old,transportState:after,busy:true,pendingPermissions:[{requestId:'approval'}],commands:[{name:'latest'}]};
+  event({type:'snapshot',state:latest});
+  older.resolve({ok:true,session:old,events:[ev(1,{type:'user_message',text:'earlier'})],cursor:{generation:'g',seq:1},oldestSeq:1,hasEarlier:false});
+  await pending;
+  assert.equal(client.state.binding.transportState,after);assert.deepEqual(client.state.cursor,cursor);
+  assert.equal(client.state.running,true);assert.deepEqual(client.state.permissions,latest.pendingPermissions);
+  assert.deepEqual(client.state.commands,latest.commands);assert.equal(client.state.items[0].text,'earlier');
+  assert.equal(client.state.connected,true);assert.equal(client.state.everConnected,true);
+ });
+test('late history cannot reopen a Session closed by a same-cursor control snapshot',async t=>{
+  const older=deferred();const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===2?older.promise:undefined});
+  await client.connect();event(ev(2,{type:'text',text:'current'}));
+  const pending=client.history(2);
+  event({type:'snapshot',state:{...snapshot,cursor:{generation:'g',seq:2},status:'closed'}});
+  older.resolve({ok:true,session:snapshot,events:[ev(1,{type:'user_message',text:'earlier'})],cursor:{generation:'g',seq:1},oldestSeq:1});
+  await pending;assert.equal(client.state.binding.status,'closed');assert.equal(client.state.running,false);
+  assert.equal(client.state.connected,false);assert.equal(client.retryBlocked,true);
+ });
+
+for(const closed of [false,true])test(`cross-generation history after a zero-head control snapshot ${closed?'cannot revive closed state':'uses only the new journal runtime state'}`,async t=>{
+  const older=deferred(),cursor={generation:'old',seq:0};
+  const client=new SessionClient(backend,{api:()=>older.promise});t.after(()=>client.dispose());
+  const old={...snapshot,cursor,remoteExecution:{id:'owner'},transportState:'connected'};
+  client.state={...client.state,binding:old,cursor,connected:true,everConnected:true,loading:false};
+  const pending=client.history();
+  client.receive({type:'snapshot',state:{...old,status:closed?'closed':'prompting',busy:true,
+    transportState:'reconnecting',pendingPermissions:[{requestId:'old-approval'}],commands:[{name:'old-command'}]}});
+  const afterControl=client.state,nextCursor={generation:'new',seq:0};
+  const fresh={...snapshot,cursor:nextCursor,transportState:'connected',commands:[{name:'new-command'}]};
+  older.resolve({ok:true,reset:true,session:fresh,events:[],cursor:nextCursor});await pending;
+  if(closed){
+    assert.equal(client.state,afterControl);assert.equal(client.state.binding.status,'closed');
+    assert.deepEqual(client.state.cursor,cursor);assert.equal(client.state.connected,false);assert.equal(client.retryBlocked,true);
+  }else{
+    assert.deepEqual(client.state.cursor,nextCursor);assert.deepEqual(client.state.binding.cursor,nextCursor);
+    assert.equal(client.state.binding.transportState,'connected');assert.equal(client.state.running,false);
+    assert.deepEqual(client.state.permissions,[]);assert.deepEqual(client.state.commands,fresh.commands);
+    assert.equal(client.state.connected,true);assert.equal(client.state.everConnected,true);
+  }
+});
+
+for(const [before,after] of [['reconnecting','connected'],['connected','reconnecting']])
+ for(const seq of [1,2,null])test(`late action preserves SSH ${before} → ${after} with ${seq===null?'missing':seq} receipt cursor`,async t=>{
+  const receipt=deferred(),cursor={generation:'g',seq:2};
+  const {client,event,calls}=fixture(t,{api:method=>method==='acpState'?receipt.promise:undefined});
+  await client.connect();event(ev(2,{type:'text',text:'current'}));
+  const old={...snapshot,cursor,remoteExecution:{id:'owner'},transportState:before};
+  event({type:'snapshot',state:old});const pending=client.action('acpState');
+  event({type:'snapshot',state:{...old,transportState:after,busy:true,pendingPermissions:[{requestId:'current'}]}});
+  const latest=client.state,result={ok:true,outcome:'accepted',session:{...old,cursor:seq===null?undefined:{generation:'g',seq}}};
+  receipt.resolve(result);assert.equal(await pending,result);assert.equal(client.state,latest);
+  assert.equal(client.state.binding.transportState,after);assert.equal(calls.filter(call=>call.method==='acpState').length,1);
+ });
+for(const change of ['journal progress','new generation','closed','binding replacement','different receipt binding'])
+ test(`late action snapshot cannot roll back ${change}`,async t=>{
+  const receipt=deferred();const {client,event}=fixture(t,{api:method=>method==='acpState'?receipt.promise:undefined});
+  await client.connect();event(ev(2,{type:'text',text:'current'}));
+  const pending=client.action('acpState');
+  if(change==='journal progress')event(ev(3,{type:'turn_start',turnId:'next'}));
+  if(change==='new generation')event({...ev(1,{type:'turn_start',turnId:'new'}),generation:'replacement'});
+  if(change==='closed')event({type:'snapshot',state:{...snapshot,cursor:{generation:'g',seq:2},status:'closed'}});
+  if(change==='binding replacement')event(ev(3,{type:'session',session:{id:'replacement'}}));
+  const latest=client.state,result={ok:true,session:{...snapshot,id:change==='different receipt binding'?'other':snapshot.id,cursor:{generation:'g',seq:2}}};
+  receipt.resolve(result);assert.equal(await pending,result);assert.equal(client.state,latest);
+ });
+for(const kind of ['same head','newer head','legacy missing cursor'])
+ test(`valid setConfig receipt still applies with ${kind}`,async t=>{
+  const receipt=deferred();const {client,event}=fixture(t,{api:method=>method==='acpSetConfig'?receipt.promise:undefined});
+  await client.connect();event(ev(2,{type:'text',text:'current'}));
+  const pending=client.action('acpSetConfig',{configId:'mode',value:'plan'});
+  if(kind==='newer head'){
+    event(ev(3,{type:'turn_start',turnId:'latest'}));
+    event({type:'snapshot',state:{...snapshot,cursor:{generation:'g',seq:3},transportState:'reconnecting',busy:true}});
+  }
+  const seq=kind==='newer head'?4:2;
+  receipt.resolve({ok:true,session:{...snapshot,config:{mode:'plan'},transportState:'connected',cursor:kind==='legacy missing cursor'?undefined:{generation:'g',seq}}});
+  await pending;assert.equal(client.state.config.mode,'plan');assert.equal(client.state.binding.transportState,'connected');
+  assert.equal(client.state.cursor.seq,kind==='newer head'?3:2,'receipt must not skip journal events');
+ });
+
 test('a detached view cannot prepend into a client reused by another mounted view',async t=>{
   const older=deferred();const {client,event}=fixture(t,{api:(method,args)=>method==='acpEvents'&&args.beforeSeq===10?older.promise:undefined});
   await client.connect();event(ev(10,{type:'text',text:'current'}));

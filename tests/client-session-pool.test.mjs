@@ -134,7 +134,9 @@ test('heartbeat is not transcript data and renews the watchdog without changing 
 test('EOF retries from the newest cursor without repeating start/resume or idling a running turn',async t=>{
   const h=harness(t),a=await h.acquire('a');h.attached('a').emit(ev(5,{type:'turn_start',turnId:'t'}));
   h.attached('a').resolve();await tick();assert.equal(a.client.state.connected,false);assert.equal(a.client.state.running,true);
+  assert.deepEqual(a.client.state.subscriptionDiagnostic,{reason:'eof',code:null,retryAttempt:1});
   await h.fire(1000);assert.equal(h.attached('a').args.cursor.seq,5);assert.equal(a.client.state.connected,true);
+  assert.equal(a.client.state.subscriptionDiagnostic,null);
   assert.equal(h.calls.filter(c=>c.method==='acpStart'||c.method==='acpResume').length,1);
 });
 for(const evicted of [false,true])test(`Host disconnect and reopen restores long command rosters without duplicates (${evicted?'cold client':'warm client'})`,async t=>{
@@ -174,8 +176,9 @@ for(const evicted of [false,true])test(`Host disconnect and reopen restores long
 test('missing heartbeats abort only the HTTP subscription and trigger a real reconnect',async t=>{
   const h=harness(t),a=await h.acquire('a'),first=h.attached('a');a.client.publish({running:true});
   await h.fire(45000);assert.equal(first.signal.aborted,true);assert.equal(a.client.state.connected,false);assert.equal(a.client.state.running,true);
+  assert.deepEqual(a.client.state.subscriptionDiagnostic,{reason:'heartbeat_timeout',code:null,retryAttempt:1});
   await h.fire(1000);assert.notEqual(h.attached('a'),first);assert.equal(a.client.state.connected,true);
-  assert.equal(a.client.state.transportError,'');
+  assert.equal(a.client.state.transportError,'');assert.equal(a.client.state.subscriptionDiagnostic,null);
 });
 test('authorization loss clears pooled sensitive state and stops retries until explicit reauthorization',async t=>{
   const h=harness(t),a=await h.acquire('a');h.attached('a').emit(ev(1,{type:'text',text:'secret'}));a.client.composer.setDraft('private');a.release();
@@ -312,10 +315,22 @@ test('a replacement binding discovered only by startup also clears the old uncer
   a.release();const b=await h.acquire('b');b.release();const c=await h.acquire('c');c.release();replacement=true;
   const next=await h.acquire('a');assert.equal(next.client.composer.pending,null);assert.equal(next.client.composer.getSnapshot().draft,'');
 });
+test('HTTP diagnostics retain only bounded protocol codes and reset on recovered delivery',async t=>{
+  const h=harness(t),a=await h.acquire('a');
+  h.attached('a').reject(Object.assign(new Error('private error payload'),{code:'private/path/token'}));await tick();
+  assert.deepEqual(a.client.state.subscriptionDiagnostic,{reason:'error',code:'stream_error',retryAttempt:1});
+  await a.client.history();assert.equal(a.client.state.subscriptionDiagnostic.reason,'error');
+  a.client.receive({type:'replay',reset:true,cursor:{generation:'g',seq:0}});
+  assert.equal(a.client.state.subscriptionDiagnostic.reason,'error');
+  await h.fire(1000);assert.equal(a.client.state.subscriptionDiagnostic,null);
+  h.attached('a').reject(Object.assign(new Error('unavailable'),{code:'http_503'}));await tick();
+  assert.deepEqual(a.client.state.subscriptionDiagnostic,{reason:'error',code:'http_503',retryAttempt:1});
+});
 test('connection failures before the first frame back off up to ten seconds',async t=>{
   const h=harness(t,{stream:method=>method==='acpAttach'?Promise.reject(new Error('network unavailable')):undefined});
   const a=await h.acquire('a');await tick();
   for(const delay of [1000,2000,4000,8000,10000,10000])await h.fire(delay);
   assert.equal(a.client.state.connected,false);assert.equal(a.client.retryBlocked,false);
+  assert.deepEqual(a.client.state.subscriptionDiagnostic,{reason:'error',code:'stream_error',retryAttempt:7});
   assert.equal(h.calls.filter(c=>c.method==='acpStart').length,1);
 });

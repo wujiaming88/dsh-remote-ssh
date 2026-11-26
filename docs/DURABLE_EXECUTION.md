@@ -42,6 +42,14 @@ Host facade、网络连接和远端执行进程分别位于：
 
 权限和表单 deferred 保存在远端 owner 内。离线期间保持等待，不自动批准、拒绝或取消。operation journal 不记录表单原答案；用于去重的摘要为带 token 密钥的 HMAC，不是可枚举低熵答案的裸 hash。
 
+### 消息同步与 SSH 连接
+
+浏览器到 Host 的 HTTP 订阅与 Host 到远端 owner 的 SSH 连接是两层独立状态。正常 HTTP EOF 显示“正在续接会话消息流”，订阅错误/心跳超时显示“正在恢复会话消息同步”；只有远端 transport 投影处于 connecting/reconnecting 时显示 SSH 连接提示。恢复消息订阅不等于远端任务停止，也不会调用取消或重复提交。
+
+HTTP `res.write(false)` 表示数据已经被接收，但写缓冲需要排空，不是断线。订阅按顺序等待 `drain`，不重复写已接收的帧；每个订阅的队列加 Node 写缓冲总预算为 64 MiB，持续 10 秒无法排空才释放该 HTTP 连接，保留远端执行和持久游标。权限撤销、Host dispose 和浏览器 detach 仍清理订阅及计时器。
+
+SSH 控制 snapshot 不递增 journal cursor；前端另用状态 revision 防止较早发起的历史分页或同游标操作返回覆盖较新的连接/权限状态。订阅诊断只保留有界 reason、协议 code 和当前连续重试次数，不存储消息、凭据或远端错误正文。
+
 ### 安全与资源
 
 - token 仅在私有 Host store 和协议 stdin 内出现，不进入 argv、浏览器快照或普通日志。

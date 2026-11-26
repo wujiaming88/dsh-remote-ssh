@@ -12,7 +12,7 @@ import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
 import {NativeUserMessage,NativeAssistantMessage,NativeMessageActions,NativeMessageCopy} from './native-message-view.js';
 import {runningTailPresentation,formatTurnElapsed,subscribeRunningClock} from './running-tail-model.js';
-import {activeRootScope,actionLabel,conversationActivity,completedResponseCopyKeys,responseCopyParts,processTreeSummary} from './stream-view-model.js';
+import {activeRootScope,actionLabel,conversationActivity,completedResponseCopyKeys,responseCopyParts,processTreeSummary,connectionLabelKey} from './stream-view-model.js';
 
 export const messages={
   zh:{'flow.you':'你的消息','flow.agent':'Agent 回复','flow.copy':'复制','flow.copied':'已复制','flow.copyFailed':'复制失败，请选中文字手动复制。',
@@ -24,7 +24,7 @@ export const messages={
     'flow.permissionRecorded':'权限确认已处理','flow.permissionAllowed':'已允许此操作','flow.permissionDenied':'已拒绝此操作','flow.questionRecorded':'提问已处理','flow.questionDeclined':'已跳过此问题','flow.permissionCancelled':'权限确认已取消','flow.questionCancelled':'提问已取消',
     'flow.runStatus':'运行状态','flow.turnRunning':'本轮进行中','flow.turnWaiting':'等待你的操作','flow.turnElapsed':'本轮用时','flow.elapsedHint':'从本轮实际开始执行时计算，包含等待和连接中断时间，不代表模型推理耗时。','flow.hour':'小时','flow.minute':'分','flow.second':'秒',
     'flow.latest':'回到最新消息','flow.replying':'正在生成回复','flow.waitingPermission':'等待权限确认','flow.waitingQuestion':'等待你的回答',
-    'flow.working':'等待 Agent 进展','flow.connecting':'正在连接','flow.connection':'正在恢复连接','flow.source':'来源未关联'},
+    'flow.working':'等待 Agent 进展','flow.connecting':'正在连接','flow.connection':'正在恢复连接','flow.remoteConnecting':'正在建立远端 SSH 连接','flow.remoteReconnecting':'正在恢复远端 SSH 连接','flow.syncConnecting':'正在连接会话消息流','flow.syncResuming':'正在续接会话消息流','flow.syncReconnecting':'正在恢复会话消息同步','flow.source':'来源未关联'},
   en:{'flow.you':'Your message','flow.agent':'Agent response','flow.copy':'Copy','flow.copied':'Copied','flow.copyFailed':'Copy failed. Select the text and copy manually.',
     'flow.copyCommand':'Copy command','flow.categoryTool':'Tools','flow.categoryRead':'Reads','flow.categoryEdit':'Edits','flow.categoryExecute':'Commands','flow.categorySearch':'Searches','flow.categoryThought':'Reasoning','flow.categoryPlan':'Plans','flow.categoryAgent':'Agents','flow.categoryOther':'other types','flow.copyPart':'Copy this response','flow.copyTurn':'Copy turn responses','flow.process':'Activity','flow.processCount':'records','flow.stopped':'Stopped','flow.interrupted':'Interrupted',
     'flow.toolRead':'Read','flow.toolEdit':'Edit','flow.toolSearch':'Search','flow.toolExecute':'Run command','flow.toolFetch':'Fetch','flow.toolDelete':'Delete','flow.toolMove':'Move','flow.toolThink':'Reasoning','flow.toolOther':'Tool','flow.toolInput':'Input','flow.toolOutput':'Output',
@@ -34,7 +34,7 @@ export const messages={
     'flow.permissionRecorded':'Permission request handled','flow.permissionAllowed':'Operation allowed','flow.permissionDenied':'Operation denied','flow.questionRecorded':'Question handled','flow.questionDeclined':'Question skipped','flow.permissionCancelled':'Permission request cancelled','flow.questionCancelled':'Question cancelled',
     'flow.runStatus':'Run status','flow.turnRunning':'Turn in progress','flow.turnWaiting':'Awaiting your action','flow.turnElapsed':'Turn elapsed','flow.elapsedHint':'Time since this turn actually started, including waits and connection interruptions; not model reasoning time.','flow.hour':'h','flow.minute':'m','flow.second':'s',
     'flow.latest':'Jump to latest','flow.replying':'Generating a response','flow.waitingPermission':'Awaiting permission','flow.waitingQuestion':'Awaiting your answer',
-    'flow.working':'Waiting for Agent progress','flow.connecting':'Connecting','flow.connection':'Reconnecting','flow.source':'Unlinked source'},
+    'flow.working':'Waiting for Agent progress','flow.connecting':'Connecting','flow.connection':'Reconnecting','flow.remoteConnecting':'Connecting to remote SSH','flow.remoteReconnecting':'Restoring remote SSH connection','flow.syncConnecting':'Connecting to session message stream','flow.syncResuming':'Reattaching session message stream','flow.syncReconnecting':'Restoring session message sync','flow.source':'Unlinked source'},
 };
 
 export function Transcript({items,running,turns={},preferences,t,labels,openFile,renderFactorySlot,rootSessionId,attachmentContext}) {
@@ -175,7 +175,7 @@ export function RunningTail({state,t}) {
   React.useEffect(()=>presentation?.clock?subscribeRunningClock(()=>tick(value=>value+1)):undefined,[presentation?.clock,presentation?.scope,presentation?.startedAt]);
   if(!presentation)return null;
   const keys={connecting:'flow.connecting',reconnecting:'flow.connection',permission:'flow.waitingPermission',question:'flow.waitingQuestion',replying:'flow.replying',thinking:'flow.thinking',working:'flow.working'};
-  const label=activity.kind==='activity'?[actionLabel(activity.item,t),activity.count>1?`${activity.count} ${t('flow.runningCount')}`:null].filter(Boolean).join(' · '):t(keys[activity.kind]);
+  const label=activity.kind==='activity'?[actionLabel(activity.item,t),activity.count>1?`${activity.count} ${t('flow.runningCount')}`:null].filter(Boolean).join(' · '):t(connectionLabelKey(state)||keys[activity.kind]);
   const elapsed=formatTurnElapsed(presentation.seconds,t);
   return h('div',{className:'rssh-running-tail',role:'group','aria-label':t('flow.runStatus'),'data-phase':presentation.phase},
     presentation.showActivity?h('div',{className:'rssh-running-activity',role:'status','aria-live':'polite','aria-atomic':true},

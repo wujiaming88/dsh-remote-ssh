@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.22 — stable message subscriptions and accurate recovery state
+
+- Fix HTTP backpressure being treated as disconnection: an accepted `write(false)` now waits for drain, preserves ordered delivery, and never resends that accepted frame. Bound pending delivery to 64 MiB with an independent 10-second drain deadline; keep slow-consumer cleanup, authorization and admitted-prompt lifetime separate from delivery.
+- Prevent delayed history pages and action receipts from overwriting newer same-cursor control snapshots; preserve operation results without resending. Safely initialize an empty journal generation without skipping events; retain closed-session and generation boundaries.
+- Distinguish browser message-stream reattachment/recovery from actual remote SSH connection recovery, with bounded payload-free subscription diagnostics. Do not hide real failures or re-enable actions while the subscription is disconnected.
+- Add real localhost HTTP/socket regression tests using realistic snapshot sizes, 16/64 KiB high-water marks, replay bursts, paused consumers and prompt completion during drain. All 1005 tests pass with 83 client modules built. Live target checks remain read-only; no remote task is restarted or resent, and browser visual acceptance is still separate.
+
 ## 3.0.0-rc.21 — one process disclosure per turn
 
 - Group intermediate assistant prose, reasoning and tool activity into one stable process per Session/turn instead of splitting at each assistant message. Retain original content and order within the process; keep user messages, warnings and errors standalone.

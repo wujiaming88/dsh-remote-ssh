@@ -2,7 +2,7 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.21** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.22** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
@@ -15,7 +15,7 @@ Remote Claude Code / Codex conversations over SSH, integrated with DSH workspace
 - **Durable execution and message delivery**: newly created durable tasks keep their remote owner across local network loss or Host exit, with native steering and removable queued input. Finish legacy tasks before upgrading; see [recovery and upgrade boundaries](<docs/DURABLE_EXECUTION.md>) and [delivery contracts](<docs/MESSAGE_DELIVERY.md>).
 - **Factual status**: turn status and elapsed time, context occupancy and unread-completion indicators, without inventing statistics absent from the protocol.
 
-Version **3.0.0-rc.21** passes **956 automated tests**, the **83-module client build** and the **11-module remote worker build**. Real GUI visual and interaction acceptance remains pending.
+Version **3.0.0-rc.22** passes **1005 automated tests**, the **83-module client build** and the **11-module remote worker build**. Real GUI visual and interaction acceptance remains pending.
 
 [Changelog](./CHANGELOG.md) · [Native UI sources and adaptation boundaries](./docs/NATIVE_UI.md)
 
@@ -97,7 +97,7 @@ Workspace creation can explicitly create a Git worktree from a branch/base. The 
 ## Lifecycle and data
 
 - Switching views or closing the browser does not cancel remote work. The plugin keeps two recent browser clients warm; inactive clients expire after 10 minutes or are evicted by LRU, while mounted readers remain protected.
-- Unsequenced Host heartbeats arrive every 15 seconds. After 45 seconds without a frame the browser subscription reconnects from its cursor with 1–10-second backoff. Initial connection and reconnection are distinct, and history replay does not reset transport state. Heartbeats do not prove remote Agent health; missing runtimes or denied access require explicit retry.
+- Unsequenced Host heartbeats arrive every 15 seconds. After 45 seconds without a frame the browser subscription reconnects from its cursor with 1–10-second backoff. Accepted HTTP backpressure waits for drain instead of manufacturing a reconnect; each subscription has a 64 MiB pending budget and a 10-second stalled-drain deadline. Delayed history/action snapshots cannot replace newer same-cursor control state. Message-stream reattachment/recovery is labelled separately from remote SSH recovery. Heartbeats do not prove remote Agent health; missing runtimes or denied access require explicit retry.
 - Draft attachments and uncertain request metadata survive view changes and connection eviction within this client-plugin lifetime; only draft text is persisted. ACKs reconcile matching inputs without clearing later edits. Manual retries of uncertain sends retain the original request ID and operation. Plugin/page teardown loses in-memory attachments and pending metadata; identity changes or access revocation clear the corresponding cache.
 - Scroll near the top to load earlier pages using wheel, scrollbar, keyboard or touch. There is no routine Load earlier button; errors expose an explicit retry. Anchors are captured just before history publication, rather than using total height growth from independent tail output. No-progress pages stop; short/invisible pages continue for at most three loads per renewed reading gesture.
 - Permission/form activity participates in native archive checks. Plugin shutdown reclaims connections but keeps recovery data; profile/workspace removal stops related instances without deleting histories or directories.

@@ -52,6 +52,16 @@ export function remoteConnectionPresentation(state) {
   const offline=!closed&&!!state.binding?.remoteExecution&&!!transport&&transport!=='connected';
   return {closed,offline,retryable:offline&&['error','disconnected','detached'].includes(transport)};
 }
+// Browser subscription health and SSH transport health are independent. A normal
+// HTTP EOF must not tell the user that the remote SSH connection was lost.
+export function connectionLabelKey(state) {
+  const remote=remoteConnectionPresentation(state);
+  if(remote.closed)return null;
+  if(remote.offline)return remote.retryable?null:state.binding.transportState==='connecting'?'flow.remoteConnecting':'flow.remoteReconnecting';
+  if(state.connected)return null;
+  if(!state.everConnected)return 'flow.syncConnecting';
+  return state.subscriptionDiagnostic?.reason==='eof'?'flow.syncResuming':'flow.syncReconnecting';
+}
 export function conversationActivity(state) {
   const remote=remoteConnectionPresentation(state);
   if(remote.closed)return {kind:'idle'};
