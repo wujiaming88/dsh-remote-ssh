@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.35 — explain failed immediate sends
+
+- Stop collapsing every `立即发送` failure into one “could not send immediately” message. The UI now distinguishes: no injectable active turn / adapter requires a new prompt, message already started, unknown previous outcome, promotion already in flight, unsupported content, and adapter without steering.
+- Disable `立即发送` while no turn is active and label it “当前没有可注入的运行中 turn”; the queued message remains queued and is sent normally after the current turn. This removes the common race where a Codex turn had already ended but the upload action was still clickable.
+- Preserve the exact backend failure code through the client wrapper so the queue can show the real reason without ever cancelling or resending the message.
+- Keep the message queued in every failure path; no duplicate submission, no interruption of active work. All 1066 automated tests pass with 91 client modules built.
+
+## 3.0.0-rc.34 — VS Code-style file icons and type-aware previews
 ## 3.0.0-rc.34 — VS Code-style file icons and type-aware previews
 
 - Replace the three-state file icon with a plugin-owned VS Code-style glyph registry: language, config, lockfile, document and image types get distinct brand colors and short marks (JS, TS, Py, Go, Java, JSON, YAML, shell, Docker, Make, etc.). No VS Code theme asset is copied, and unknown files stay neutral.

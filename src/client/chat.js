@@ -212,11 +212,11 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
         state.suggestions.filter(value=>value.text && Array.isArray(value.content) && value.content.every(block=>block.type==='text')).map((value,index)=>
           h(ui.Button, {key:index,variant:'ghost',size:'sm',onClick:()=>input(value.text)}, value.text))) : null,
       remoteStatus.closed?h('p',{className:'rssh-output-alert',role:'status'},t('flow.closedReadOnly')):h('div',{className:'rssh-native-composer-stack'},
-      h(NativeQueueView,{items:state.queuedMessages,disabled:inputUnavailable,canSendNow:state.capabilities?.steering?.supported===true,
+      h(NativeQueueView,{items:state.queuedMessages,disabled:inputUnavailable,canSendNow:state.running===true&&state.capabilities?.steering?.supported===true,sendNowReason:state.running===true?'':'acp.queueSendNowNoTurn',
         onRemove:targetRequestId=>client.action('acpRemoveQueued',{targetRequestId}),
         onEdit:(targetRequestId,text)=>client.action('acpUpdateQueued',{targetRequestId,text}),
         onSendNow: async targetRequestId=>{const result=await client.action('acpPromoteQueued',{targetRequestId});
-          if(result?.outcome!=='injected')throw Object.assign(new Error('Queued message was not injected; it remains queued'),{code:'queue_not_injected'});
+          if(result?.outcome!=='injected')throw Object.assign(new Error('Queued message was not injected; it remains queued'),{code:result?.outcome==='promptRequired'?'queue_awaiting_turn':'queue_not_injected'});
           return result;},t}),
       h(NativeComposerView, {
         notice: pendingKind&&!sending?t('acp.pendingSubmissionNotice'):null,

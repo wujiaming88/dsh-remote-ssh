@@ -22,3 +22,16 @@ export function queueAttachment(file = {}) {
   // remotePath, URL, previewUrl or mimeType as an image URL.
   return {name, size, image: file.type === 'image'};
 }
+
+
+/** Map a failed promote attempt to a concrete, non-destructive explanation. */
+export function queueSendNowFailureKey(value) {
+  const code = typeof value?.code === 'string' ? value.code : '';
+  if (['queue_awaiting_turn', 'promptRequired', 'steering_not_injected', 'queue_not_injected', 'no_active_turn'].includes(code)) return 'acp.queueSendNowNoTurn';
+  if (code === 'queue_already_started') return 'acp.queueSendNowAlreadyStarted';
+  if (code === 'steering_unknown') return 'acp.queueSendNowUnknown';
+  if (code === 'queue_promotion_in_progress') return 'acp.queueSendNowBusy';
+  if (code === 'steer_content_unsupported') return 'acp.queueSendNowContentUnsupported';
+  if (code === 'steering_unsupported') return 'acp.queueSendNowUnsupported';
+  return 'acp.queueSendNowFailed';
+}

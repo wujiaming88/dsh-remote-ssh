@@ -2,7 +2,7 @@
 // 210–234,283–299 (MIT). Props-only remote snapshot; atomic edit/remove/promote.
 import React from 'react';
 import {h,NativeIcon} from './shared.js';
-import {queueRows,queuePresentation,queueAttachment} from './native-queue-model.js';
+import {queueRows,queuePresentation,queueAttachment,queueSendNowFailureKey} from './native-queue-model.js';
 
 function QueueAttachment({file,t}) {
   const view=queueAttachment(file),name=view.name||t(view.image?'acp.imageAttachment':'acp.fileAttachment');
@@ -11,7 +11,7 @@ function QueueAttachment({file,t}) {
     h('span',{className:'rssh-native-queue-fileName'},name),
     view.size?h('span',{className:'rssh-native-queue-fileSize'},view.size):null);
 }
-export function NativeQueueView({items=[],disabled=false,canSendNow=false,onRemove,onEdit,onSendNow,t}) {
+export function NativeQueueView({items=[],disabled=false,canSendNow=false,sendNowReason='',onRemove,onEdit,onSendNow,t}) {
   const rows=queueRows(items),[collapsed,setCollapsed]=React.useState(true),[busy,setBusy]=React.useState(null);
   const [busyKind,setBusyKind]=React.useState(null),[error,setError]=React.useState('');
   const [editing,setEditing]=React.useState(null);
@@ -24,11 +24,11 @@ export function NativeQueueView({items=[],disabled=false,canSendNow=false,onRemo
     if(disabled||inFlight.current)return false;
     inFlight.current=true;setBusy(requestId);setBusyKind(kind);setError('');
     try {await work();return true;}
-    catch {if(active.current)setError(t(failureKey));return false;}
+    catch (error) {if(active.current)setError(t(failureKey || queueSendNowFailureKey(error)));return false;}
     finally {inFlight.current=false;if(active.current){setBusy(null);setBusyKind(null);}}
   }
   function remove(requestId) { return run(requestId,'remove',()=>onRemove(requestId),'acp.queueRemoveFailed'); }
-  function promote(requestId) { return run(requestId,'promote',()=>onSendNow(requestId),'acp.queueSendNowFailed'); }
+  function promote(requestId) { return run(requestId,'promote',()=>onSendNow(requestId),null); }
   async function save() {
     if(!editing||!editing.text.trim())return;
     const requestId=editing.requestId,text=editing.text;
@@ -66,7 +66,7 @@ export function NativeQueueView({items=[],disabled=false,canSendNow=false,onRemo
               onClick:()=>{if(row.textTruncated)return;setError('');setEditing({requestId:row.requestId,text:String(row.text||'')});}},h(NativeIcon,{name:'edit',size:14})):null,
             h('button',{type:'button',className:'rssh-native-queue-action',disabled:disabled||!!busy,title:t(busy===row.requestId&&busyKind==='remove'?'acp.queueRemoving':'acp.queueRemove'),'aria-label':t('acp.queueRemove'),onClick:()=>void remove(row.requestId)},h(NativeIcon,{name:'trash',size:14})),
             onSendNow?h('button',{type:'button',className:'rssh-native-queue-action',disabled:disabled||!!busy||!canSendNow,
-              title:t(canSendNow?(busy===row.requestId&&busyKind==='promote'?'acp.queueSendingNow':'acp.queueSendNow'):'acp.queueSendNowUnsupported'),
+              title:t(canSendNow?(busy===row.requestId&&busyKind==='promote'?'acp.queueSendingNow':'acp.queueSendNow'):(sendNowReason||'acp.queueSendNowUnsupported')),
               'aria-label':t(canSendNow?'acp.queueSendNow':'acp.queueSendNowUnsupported'),
               onClick:()=>void promote(row.requestId)},h(NativeIcon,{name:'upload',size:14})):null));
       }):null),
