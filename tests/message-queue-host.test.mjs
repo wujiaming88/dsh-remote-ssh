@@ -42,6 +42,8 @@ function fixture({ denied = false, revokedDuringPrepare = false, persistFailure 
       return method === 'queue' ? { accepted: true, outcome: 'queued', requestId: opts.requestId, turnId: 'turn' } : { outcome: 'injected', requestId: opts.requestId, turnId: 'turn' };
     };
     session.removeQueued = async args => { state.submissions.push({ method: 'removeQueued', args }); return { removed: true, ...args }; };
+    session.updateQueued = async args => { assert.ok(state.persisted.some(entry => entry.requestId === args.targetRequestId), 'queued edit requires an existing durable admission'); state.submissions.push({ method: 'updateQueued', args }); return { updated: true, requestId: args.targetRequestId, turnId: 'turn' }; };
+    session.promoteQueued = async args => { state.submissions.push({ method: 'promoteQueued', args }); return { promoted: true, outcome: 'injected', steering: true, requestId: args.targetRequestId, turnId: 'active' }; };
     return session;
   }
   restore();
@@ -64,7 +66,7 @@ function fixture({ denied = false, revokedDuringPrepare = false, persistFailure 
     async flush() { state.flushes++; },
   };
   const api = new Function('runtime', 'stateOf', 'sessionBackend', 'files', 'normalizeAttachments', 'attachRecorder', 'recorder', 'error', 'BATCH_ATTACHMENT_LIMIT', 'randomUUID', 'createHash', 'prepareSteeringPrompt',
-    `${['record', 'changed', 'preparePrompt', 'queue', 'ensureResult'].map(functionCode).join('\n')} return { acpQueue: ${apiProperty('acpQueue')}, acpSteer: ${apiProperty('acpSteer')}, acpRemoveQueued: ${apiProperty('acpRemoveQueued')} };`
+    `${['record', 'changed', 'preparePrompt', 'queue', 'ensureResult'].map(functionCode).join('\n')} return { acpQueue: ${apiProperty('acpQueue')}, acpSteer: ${apiProperty('acpSteer')}, acpRemoveQueued: ${apiProperty('acpRemoveQueued')}, acpUpdateQueued: ${apiProperty('acpUpdateQueued')}, acpPromoteQueued: ${apiProperty('acpPromoteQueued')} };`
   )(runtime, stateOf, sessionBackend, files, normalizeAttachments, async () => {}, recorder, error, BATCH_ATTACHMENT_LIMIT, randomUUID, createHash, prepareSteeringPrompt);
   const host = { runtime, api, refreshSessionActivity() {} };
   const ctx = { connection: { admit: () => ({ peer: { principal: { kind: 'owner' } } }) }, remoteAccess: { decide: input => { state.actions.push(input); return { kind: state.allowed ? 'allow' : 'deny' }; } } };
@@ -128,6 +130,22 @@ test('identical admission retries reuse trusted native assets and steering uses 
   const before = f.state.recorderPrepared;
   assert.equal((await f.request('acpSteer', { requestId: 'unsupported' })).body.error.code, 'steering_unsupported');
   assert.equal(f.state.recorderPrepared, before); assert.equal(f.session.nativeAdmissions.has('unsupported'), false);
+});
+
+test('queued edit and immediate send share session authorization and forward stable identities', async () => {
+  const f = fixture();
+  await f.request('acpQueue');
+  const updated = await f.request('acpUpdateQueued', { targetRequestId: 'request', text: 'edited', opId: 'edit-op' });
+  assert.equal(updated.status, 200); assert.equal(updated.body.updated, true);
+  assert.deepEqual(f.state.submissions.at(-1), { method: 'updateQueued', args: { targetRequestId: 'request', text: 'edited', opId: 'edit-op' } });
+  const promoted = await f.request('acpPromoteQueued', { targetRequestId: 'request', opId: 'promote-op' });
+  assert.equal(promoted.status, 200); assert.equal(promoted.body.outcome, 'injected');
+  assert.deepEqual(f.state.submissions.at(-1), { method: 'promoteQueued', args: { targetRequestId: 'request', opId: 'promote-op' } });
+  assert.equal((await f.request('acpUpdateQueued', { targetRequestId: 'request', text: 123 })).body.error.code, 'bad_request');
+  const before = f.state.submissions.length; f.state.allowed = false;
+  assert.equal((await f.request('acpUpdateQueued', { targetRequestId: 'request', text: 'denied' })).status, 403);
+  assert.equal((await f.request('acpPromoteQueued', { targetRequestId: 'request' })).status, 403);
+  assert.equal(f.state.submissions.length, before);
 });
 
 test('remove HTTP action checks binding and authorization and forwards stable operation identity', async () => {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.24 — edit queued messages and send them immediately
+
+- Add in-place editing for still-queued messages. Keep the original `requestId`, turn identity, FIFO position and admitted attachments; batch, prompt and queue-capacity validation still apply. The edited text updates both the browser projection and the Host-owned native admission, and long preview-only rows disable editing instead of risking truncated content.
+- Add “Send now” for queued messages. When the adapter advertises native steering (Codex), atomically inject the queued content into the active turn and remove only that queue identity; the current turn is never cancelled and no second prompt starts. Adapters without steering (including Claude Code) keep their existing queue mechanism and send after the current turn: the action is disabled with an explicit explanation rather than interrupting or reporting false success.
+- Add atomic durable broker operations `updateQueued`/`promoteQueued`, deterministic operation identities for safe retries after link loss or Host recreation, and optimistic native-admission text replacement with rollback on authoritative remote rejection. Drain is held during promotion so an edited identity cannot race into a separate turn.
+- Extend the queue dock with localized edit/save/cancel and send-now actions, busy states, explicit failures, attachment preservation and keyboard edit controls. Add regression coverage for queue edit identity/order/attachments, capacity and active-turn rejection, Codex-style steering promotion, unsupported-steering preservation, Host authorization, durable recovery and unauthorized callers.
+- All 1044 automated tests pass; browser visual/interaction acceptance remains separate from source tests and installation.
+
 ## 3.0.0-rc.23 — inline output images and instant session return
 
 - Render assistant Markdown images inside the transcript instead of treating them as navigation links. Remote filesystem references use a new session-bound, read-only `output-image` route; the image must appear verbatim in the recorded source text. Revalidate Host binding and owner authorization around the bounded SSH read, permit only raster PNG/JPEG/GIF/WebP content, and keep failures visible without opening an Electron blank window.

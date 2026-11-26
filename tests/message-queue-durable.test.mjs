@@ -26,7 +26,7 @@ function untilState(session, predicate) {
 // model controller are substitutes; no worker bundle/build or SSH/model is used.
 async function fixture(t) {
   const directory = mkdtempSync(join(realpathSync(tmpdir()), 'dsh-mq-')); chmodSync(directory, 0o700);
-  const socketPath = join(directory, 's'), prompts = [], children = [], runtimes = [];
+  const socketPath = join(directory, 's'), prompts = [], steers = [], children = [], runtimes = [];
   const profile = { id: 'fixture', host: 'never-connect.invalid', user: 'fixture' };
   let broker, owner, starts = 0;
   function spawnBridge() {
@@ -54,6 +54,7 @@ async function fixture(t) {
           owner.capabilities = { agentCapabilities: { promptCapabilities: { image: true } }, steering: { supported: true } };
           owner.controller = {
             prompt(value) { const gate = deferred(); prompts.push({ value, ...gate }); return gate.promise; },
+            async steer(value) { steers.push(value); return { outcome: 'injected' }; },
             async close() { prompts.at(-1)?.resolve({ stopReason: 'cancelled' }); }, async dispose() {},
           };
           owner.start = async () => { starts++; owner.sessionId = 'same-remote-model'; owner.status = 'ready'; owner._emit({ type: 'session' }); return owner; };
@@ -72,7 +73,7 @@ async function fixture(t) {
     assert.equal(dirname(directory), realpathSync(tmpdir())); assert.ok(directory.includes('/dsh-mq-'));
     rmSync(directory, { recursive: true, force: true });
   });
-  return { runtime, prompts, children, get broker() { return broker; }, get owner() { return owner; }, get starts() { return starts; },
+  return { runtime, prompts, steers, children, get broker() { return broker; }, get owner() { return owner; }, get starts() { return starts; },
     args: { id: 'host-session', profile, agent: 'claude', cwd: directory, remotePath: '/remote/project', dshSessionId: 'native-session' } };
 }
 
@@ -112,6 +113,35 @@ test('real broker queue receipts are fast and recover after link loss and Host r
   f.prompts[1].resolve({ stopReason: 'end_turn' }); await untilState(second, state => !state.busy);
   assert.deepEqual(await second.queue('active', { requestId: 'active' }), active);
   assert.equal(f.prompts.length, 2);
+});
+
+test('durable queue edit updates native admission and promote injects without starting a second turn', { timeout: 10000 }, async t => {
+  const f = await fixture(t), runtime = f.runtime(), first = await runtime.create(f.args);
+  await first.queue('active', { requestId: 'active' });
+  first.registerNativeContent('edit', [{ type: 'text', text: 'before edit' }]);
+  const edit = await first.queue('before edit', { requestId: 'edit' });
+  const now = await first.queue('send now', { requestId: 'now' });
+  const updated = await first.updateQueued({ targetRequestId: 'edit', text: 'after edit' });
+  assert.equal(updated.updated, true); assert.equal(updated.turnId, edit.turnId);
+  assert.deepEqual(first.state().queuedMessages.map(item => item.text), ['after edit', 'send now']);
+  assert.deepEqual(first.nativeContentFor({ requestId: 'edit', generation: first.generation }), [{ type: 'text', text: 'after edit' }]);
+  first.registerNativeContent('ghost', [{ type: 'text', text: 'ghost before' }]);
+  await assert.rejects(first.updateQueued({ targetRequestId: 'ghost', text: 'ghost after' }), { code: 'queue_not_found' });
+  assert.deepEqual(first.nativeContentFor({ requestId: 'ghost', generation: first.generation }), [{ type: 'text', text: 'ghost before' }]);
+  const promoted = await first.promoteQueued('now');
+  assert.equal(promoted.outcome, 'injected'); assert.equal(promoted.turnId, f.owner.activeTurn.id); assert.notEqual(promoted.turnId, now.turnId);
+  assert.deepEqual(f.steers, [[{ type: 'text', text: 'send now' }]]);
+  assert.equal(f.prompts.length, 1); assert.deepEqual(first.state().queuedMessages.map(item => item.requestId), ['edit']);
+  assert.equal(f.owner.events.some(event => event.type === 'stop' && event.requestId === 'now'), false);
+  await runtime.shutdown();
+  assert.deepEqual(f.owner.state().queuedMessages.map(item => item.requestId), ['edit']);
+  const second = await f.runtime().resume(first.id);
+  assert.deepEqual(second.state().queuedMessages.map(item => item.text), ['after edit']);
+  assert.deepEqual(second.nativeContentFor({ requestId: 'edit', generation: second.generation }), [{ type: 'text', text: 'after edit' }]);
+  assert.deepEqual(await second.promoteQueued('now'), promoted);
+  f.prompts[0].resolve({ stopReason: 'end_turn' });
+  await untilState(second, state => state.queuedMessages.length === 0 && state.busy);
+  assert.equal(f.prompts.length, 2); assert.deepEqual(f.prompts[1].value, 'after edit');
 });
 
 test('concurrent same-id receipts share the held authoritative state gate', async t => {

@@ -27,6 +27,12 @@
 .rssh-native-queue-fileName { min-width: 0; overflow: hidden; color: var(--dsw-alias-label-primary-dimmed); font: var(--dsw-font-xs-13); text-overflow: ellipsis; white-space: nowrap; }
 .rssh-native-queue-fileSize { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 10px; white-space: nowrap; }
 .rssh-native-queue-preview { flex: 1 1 auto; min-width: 0; font: var(--dsw-font-xs-13); font-family: Inter, var(--dsw-font-family); color: var(--dsw-alias-label-primary-dimmed); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rssh-native-queue-row[data-editing] { align-items: flex-start; }
+.rssh-native-queue-editor { display: flex; flex: 1 1 auto; align-items: flex-start; gap: 8px; min-width: 0; }
+.rssh-native-queue-editor-input { box-sizing: border-box; flex: 1 1 auto; min-width: 0; min-height: 44px; max-height: 132px; padding: 6px 8px; resize: vertical; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); outline: none; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font: var(--dsw-font-xs-13); font-family: Inter, var(--dsw-font-family); line-height: 20px; }
+.rssh-native-queue-editor-input:focus { border-color: var(--dsw-alias-state-business-primary); box-shadow: 0 0 0 1px var(--dsw-alias-state-business-primary); }
+.rssh-native-queue-editor-input:disabled { opacity: 0.6; }
+.rssh-native-queue-save:not(:disabled) { color: var(--dsw-alias-state-business-primary); }
 .rssh-native-queue-actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .rssh-native-queue-status { flex: none; color: var(--dsw-alias-label-tertiary); font: var(--dsw-font-xs-13); white-space: nowrap; }
 .rssh-native-queue-action { display: grid; flex: none; place-items: center; width: 28px; height: 28px; padding: 0; border: none; border-radius: 999px; corner-shape: round; background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }

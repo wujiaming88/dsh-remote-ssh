@@ -55,15 +55,21 @@ test('attachment metadata cannot become an external or remote file image URL',()
   assert.equal(queueAttachment({remotePath:'/a/b.txt',bytes:2}).name,'b.txt');
   assert.doesNotMatch(read('native-queue-view.js'),/h\('img'|dangerouslySetInnerHTML|createObjectURL/);
 });
-test('queue Remove is exact-target and pessimistic; no unsupported edit or steer-all',()=>{
+test('queue Edit and Send now are exact-target, pessimistic and never cancel the active turn',()=>{
   const view=read('native-queue-view.js'),chat=read('chat.js');
-  assert.match(chat,/client.action\('acpRemoveQueued',\{targetRequestId\}\)/);
-  assert.match(view,/await onRemove\(requestId\)/);
-  assert.match(view,/inFlight.current=true/);
-  assert.match(view,/setError\(t\('acp.queueRemoveFailed'\)\)/);
-  assert.match(view,/disabled:disabled\|\|!!busy/);
-  assert.doesNotMatch(view,/setItems|\.splice\(|acpSteer|steerQueue|InlineEditor|useProjection|useSession/);
-  assert.match(chat,/items:state.queuedMessages,disabled:inputUnavailable/);
+  assert.match(chat,/client\.action\('acpRemoveQueued',\{targetRequestId\}\)/);
+  assert.match(chat,/client\.action\('acpUpdateQueued',\{targetRequestId,text\}\)/);
+  assert.match(chat,/client\.action\('acpPromoteQueued',\{targetRequestId\}\)/);
+  assert.match(chat,/canSendNow:state\.capabilities\?\.steering\?\.supported===true/);
+  assert.match(view,/await run\(requestId,'edit',\(\)=>onEdit\(requestId,text\)/);
+  assert.match(view,/run\(requestId,'promote',\(\)=>onSendNow\(requestId\)/);
+  assert.match(view,/await onRemove\(requestId\)|=>onRemove\(requestId\)/);
+  assert.match(view,/inFlight\.current=true/);
+  assert.match(view,/disabled:disabled\|\|!!busy\|\|!canSendNow/);
+  assert.match(view,/disabled:disabled\|\|!!busy\|\|row\.textTruncated/);
+  assert.match(view,/acp\.queueSendNowUnsupported/);
+  assert.doesNotMatch(view,/setItems|\.splice\(|acpSteer|steerQueue|useProjection|useSession|acpCancel/);
+  assert.match(chat,/items:state\.queuedMessages,disabled:inputUnavailable/);
 });
 test('public Host settings hook and separate native queue dock share composer geometry',async()=>{
   const index=read('index.js'),chat=read('chat.js'),css=read('native-queue-view.css');
@@ -79,5 +85,5 @@ test('public Host settings hook and separate native queue dock share composer ge
   for(const name of ['chat.js','index.js','native-queue-view.js','native-queue-model.js','composer-delivery-model.js'])parse(read(name),{ecmaVersion:'latest',sourceType:'module'});
 });
 test('new visible UI strings have both translations',()=>{
-  for(const key of ['queue','queueMessages','queueRemove','queueRemoving','queueRemoveFailed','queueTruncated','queueImageMetadata','retrySubmission','pendingSubmissionNotice','deliveryLocked'])for(const locale of [zh,en])assert.ok(locale['acp.'+key]);
+  for(const key of ['queue','queueMessages','queueRemove','queueRemoving','queueRemoveFailed','queueTruncated','queueImageMetadata','queueEdit','queueSave','queueSaving','queueCancelEdit','queueEditFailed','queueEditTruncatedUnsupported','queueSendNow','queueSendingNow','queueSendNowUnsupported','queueSendNowFailed','retrySubmission','pendingSubmissionNotice','deliveryLocked'])for(const locale of [zh,en])assert.ok(locale['acp.'+key]);
 });
