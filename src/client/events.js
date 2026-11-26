@@ -1,4 +1,5 @@
 // Pure event projection shared by live delivery and durable history replay.
+import {normalizeTurnUsage} from './message-meta-model.js';
 const list = value => Array.isArray(value) ? value : [];
 const defined = (before, patch) => Object.assign({}, before, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined && value !== null)));
 const itemKey = event => `${event.generation || 'event'}:${event.seq}`;
@@ -155,8 +156,9 @@ export function reduceEvent(previous, event) {
       const scope=JSON.stringify([event.sessionId||'',event.turnId||'']);
       const status=event.stopReason==='cancelled'?'cancelled':event.stopReason==='end_turn'||event.stopReason==='completed'?'completed':'interrupted';
       const previousTurn=state.turns[scope];
+      const tokens=normalizeTurnUsage(event.response,state.config?.models?.currentValue||state.config?.model);
       return { ...state, running: rootEvent ? event.busy === true || event.pendingTurns > 0 : state.running,
-        turns: event.turnId ? {...state.turns,[scope]:{...previousTurn,status,stopReason:event.stopReason,endSeq:event.seq,endedAt:Number.isFinite(event.ts)?event.ts:null,usage:previousTurn?.usage||null}} : state.turns,
+        turns: event.turnId ? {...state.turns,[scope]:{...previousTurn,status,stopReason:event.stopReason,endSeq:event.seq,endedAt:Number.isFinite(event.ts)?event.ts:null,usage:previousTurn?.usage||null,tokens:tokens||previousTurn?.tokens||null}} : state.turns,
         items: event.stopReason && event.stopReason !== 'end_turn' ? [...updated, { ...event, key, type: 'system', text: event.stopReason }] : updated };
     }
     case 'error': return { ...state, error: event.message || event.code || 'Agent error', running: event.fatal ? false : state.running,

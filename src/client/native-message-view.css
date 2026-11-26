@@ -22,6 +22,19 @@
 .rssh-native-message-meta { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--dsw-alias-label-tertiary); font-size: calc(11px + var(--dsh-content-font-delta, 0px)); line-height: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .rssh-native-message-usage svg { width: 14px; height: 14px; }
 .rssh-native-message-time { padding-left: 2px; }
+.rssh-turn-usage-trigger { padding: 0 2px; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; cursor: pointer; font: inherit; }
+.rssh-turn-usage-trigger:hover { color: var(--dsw-alias-label-secondary); }
+.rssh-turn-usage-trigger:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 1px; }
+.rssh-turn-usage-panel { box-sizing: border-box; width: min(360px, calc(100vw - 24px)); min-width: 0; padding: 14px 16px; border-radius: var(--dsw-radius-lg); background: var(--dsw-specific-menu); backdrop-filter: var(--dsw-menu-backdrop-filter); --dsw-elevation-stroke-color: var(--dsw-alias-border-l1); box-shadow: var(--dsw-elevation-prominent); text-align: left; }
+.rssh-turn-usage-card { display: flex; flex-direction: column; gap: 10px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
+.rssh-turn-usage-header { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-primary); }
+.rssh-turn-usage-icon { display: inline-flex; flex: none; color: var(--dsw-alias-label-secondary); }
+.rssh-turn-usage-heading { flex: 1 1 auto; min-width: 0; font-weight: 500; }
+.rssh-turn-usage-total { flex: none; font-variant-numeric: tabular-nums; font-weight: 500; }
+.rssh-turn-usage-rows { display: grid; gap: 4px; margin: 0; }
+.rssh-turn-usage-row { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.rssh-turn-usage-row dt { color: var(--dsw-alias-label-tertiary); }
+.rssh-turn-usage-row dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--dsw-alias-label-primary); text-align: right; font-variant-numeric: tabular-nums; }
 .rssh-native-message-actions .rssh-native-message-extra { color: var(--dsw-alias-label-tertiary); }
 @media (hover: hover) {
   :is(.rssh-native-user,.rssh-native-assistant)[data-actions-reveal='hover'] .rssh-native-message-actions { opacity: 0; transition: opacity 80ms ease; }

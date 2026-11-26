@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.27 — per-turn usage details
+
+- Make the completed-turn usage footer open a native-style “Turn usage” popover. It reports the full total token count, provider/model, cache-hit percentage, uncached input, cache read, cache write and output tokens for that turn.
+- Normalize usage from the authoritative stop response (`usage` or `_meta.quota.token_count`/`model_usage`) and compute cache hit from input/cache components. Values are snapshotted on the turn, so history and later turns never reuse the current session totals; missing fields stay `—` and are never estimated.
+- Keep exactly copy, usage and completion time in the final-reply footer. The compact total is shown inline and the full grouped total plus breakdown appears in the click-open panel, matching the native reveal/focus behavior.
+- Add regression coverage for stop-response token normalization, quota fallbacks, cache-hit math, full/compact formatting, missing fields, and the popover contract. All 1051 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.26 — per-turn footer usage and completion time
 
 - Add a compact footer to each completed turn’s final reply with exactly three facts: copy, usage tokens and the completion clock time. Usage comes from the usage snapshot observed during that turn (never another turn’s or the live session’s latest value), and the timestamp comes from the authoritative stop event; missing facts render `—` or are omitted instead of being synthesized.
