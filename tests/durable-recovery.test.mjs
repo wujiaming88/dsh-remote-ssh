@@ -121,12 +121,13 @@ async function fixture(t) {
   return f;
 }
 
-test('unsafe writable runtime is rejected before creating an execution owner', async t => {
-  const f = await fixture(t);
-  chmodSync(f.runtime, 0o777);
-  await assert.rejects(() => startHost(f), /remote_unsafe_runtime/);
+test('unsafe writable private execution registry is rejected before creating an execution owner', async t => {
+  const f = await fixture(t), runs = join(f.runtime, 'durable-runs');
+  mkdirSync(runs, { mode: 0o700 });
+  chmodSync(runs, 0o777);
+  await assert.rejects(() => startHost(f), /remote_private_directory/);
   assert.equal(existsSync(f.directory), false);
-  chmodSync(f.runtime, 0o700);
+  chmodSync(runs, 0o700);
 });
 
 test('missing active owner without terminal evidence is never recreated', { timeout: 30000 }, async t => {

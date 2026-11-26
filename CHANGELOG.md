@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.20 — trust the selected remote runtime environment
+
+- Remove the extra runtime-root and ancestor ownership/write-bit whitelist. The user's explicitly selected SSH host and its runtime environment are trusted; administrator-owned mounts and shared dependency directories no longer trigger `remote_unsafe_runtime`. Existing-directory and real filesystem access requirements still apply.
+- Keep user-private durable state, worker artifacts and socket directories/files, symlink and integrity checks, owner identity, fencing, and operation deduplication. Do not chmod/chown remote directories, add per-directory trust prompts, or change the Agent's selected execution permissions.
+- Document the trust boundary explicitly: SSH authentication is not isolation from a server administrator or another user able to replace the runtime or its ancestors. Real model execution and end-to-end GUI recovery remain separate acceptance steps.
+- All 941 tests pass, including serialized-helper regressions for shared runtimes and retained private-state protections. An authorized read-only probe of the production helper on a real SSH target passed the runtime-path check without creating an owner, changing permissions or invoking a model.
+
 ## 3.0.0-rc.19 — restore sessions with default effective permissions
 
 - Fix `Invalid backend type or permission` when reopening a Session whose actual ACP permission is `default`. Accept that existing runtime state in backend metadata and preserve it through permission normalization instead of silently substituting `acceptEdits` or the previously requested `bypass`.

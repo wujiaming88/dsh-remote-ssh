@@ -45,7 +45,8 @@ Host facade、网络连接和远端执行进程分别位于：
 ### 安全与资源
 
 - token 仅在私有 Host store 和协议 stdin 内出现，不进入 argv、浏览器快照或普通日志。
-- 无 TCP broker 端口；Unix socket 位于短路径私有目录。目录 0700、数据文件 0600，并验证 owner、symlink 和 runtime 的可信祖先；共享可写 runtime 被拒绝。
+- 默认信任用户主动连接的 SSH 服务器及其运行环境。依赖 runtime 及其祖先目录不再按 UID 或权限位设置额外白名单，允许管理员管理的挂载路径和共享依赖目录；只要求 runtime 是存在的目录，实际文件访问权限由系统决定。不会自动 chmod、chown 或增加确认弹窗。
+- 无 TCP broker 端口；Unix socket 位于短路径私有目录。会话状态、worker 制品及 socket 的私有目录仍要求当前用户所有、0700，私有数据文件要求 0600，并保留 owner、symlink、内容完整性和身份校验。这些保护不代表能防御被信任服务器上的管理员或能够替换祖先目录的用户。
 - worker 采用内容 hash 命名，完整写入/fsync 后原子发布；并发启动不能读到半个 bundle。
 - 单帧上限 16 MiB。Host 未完成 RPC 最多 1024 个、参数总量最多 64 MiB；读事件有背压。
 - 每个 owner 默认普通 journal/state 预算 256 MiB、pending 参数与保留结果各 64 MiB、普通 operation 10000 个。停止类操作有独立预留额度，close 另保留独立槽位。
@@ -57,7 +58,7 @@ Host facade、网络连接和远端执行进程分别位于：
 1. **远端机器重启、owner/adapter 被杀或崩溃**不等于本机断线；没有有效终态证明时报告 owner lost/unknown，不自动创建替代执行，也不宣称跨 owner 崩溃 exactly-once。
 2. detached 进程不能对抗远端 `systemd-logind` 杀死整组登录进程的策略。需要 user service/linger 的环境必须另行明确配置；本实现不偷偷启用它们。
 3. 本地恢复依赖原 DSH profile 的私有 locator 和日志；删除这些数据或换成空 profile 不能自动找回所有 owner。
-4. 同 UID 与 root 属于可信边界；token 不防御同用户恶意进程读取私有文件。
+4. 用户选择的服务器、其管理员以及运行环境属于可信边界；SSH 登录认证不等于同机多用户隔离。token 和私有文件检查不防御同用户恶意进程、管理员或能替换运行环境/祖先目录的用户。需要对抗这些威胁时，应由服务器提供独立账号、容器或隔离环境。
 5. 未确认的 fork 保留远端 reservation，不凭超时猜测释放或重复 fork。需要根据已保存的 child identity 核实；明确结束父会话不会隐式终止 child。
 
 ## 验证证据及仍需验收
@@ -66,4 +67,4 @@ Host facade、网络连接和远端执行进程分别位于：
 
 [broker 测试](<../tests/durable-broker.test.mjs>) 覆盖 fsync-before-invoke、慢订阅者、权限、额度与故障关闭；[link 测试](<../tests/durable-link.test.mjs>) 覆盖背压、握手超时和 outbox；[facade 测试](<../tests/durable-session.test.mjs>) 覆盖 Host 重启及永久断线时的本地 shutdown；[浏览器状态测试](<../tests/client-durable-state.test.mjs>) 验证不跳事件游标、区分 HTTP/SSH 状态和只读历史。
 
-这些是本地自动化证据，**不是实际远端 SSH 或 GUI 人工验收**。在发布/安装后，还应在目标服务器上验证断开网络与退出 DSH、审批等待、恢复后的事件顺序、远端登录策略及明确关闭后的进程回收。本版本开发验证未连接真实 SSH 或改变远端配置；构建、安装与 Git 版本发布不等于完成目标服务器验收。
+上述自动化测试**不是目标服务器真实模型或 GUI 人工验收**。在发布/安装后，还应在目标服务器上验证断开网络与退出 DSH、审批等待、恢复后的事件顺序、远端登录策略及明确关闭后的进程回收。rc.20 开发期间另做了经授权的真实目标服务器 SSH 只读权限诊断，并用生产序列化 helper、`create:false` 和独立探测 identity 验证运行目录检查已通过；探测在找不到该虚拟 owner 时按预期退出，没有创建会话、修改远端目录权限/配置或调用真实模型。只读启动路径检查、构建、安装与 Git 版本发布仍不等于完成真实模型断网恢复验收。
