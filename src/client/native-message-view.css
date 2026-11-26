@@ -4,7 +4,7 @@
    published UserMessageBubble _bubble_1sgyj (native.css 109-118).
    ADAPTATION: namespaced selectors, safe plain user text and Markdown slots,
    local clipboard feedback, hover/focus actions for all assistant messages,
-   no unavailable Host clock/fork/usage controls.
+   per-turn usage/time facts when ACP supplies them.
    Copyright (c) 2026 DeepSeek. MIT: see THIRD_PARTY_NOTICES.md. */
 .rssh-native-user { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .rssh-native-user-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0; max-width: min(calc(var(--dsh-chat-content-width, 748px) * 0.702), 82%); }
@@ -19,6 +19,9 @@
 .rssh-native-message-actions .rssh-native-message-action { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: none; width: calc(28px + var(--dsh-content-font-delta, 0px)); height: calc(28px + var(--dsh-content-font-delta, 0px)); min-height: 0; padding: 6px; border: none; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
 .rssh-native-message-action svg { width: calc(15px + var(--dsh-content-font-delta, 0px)); height: calc(15px + var(--dsh-content-font-delta, 0px)); }
 .rssh-native-message-actions[data-clock='end'] .rssh-native-message-action svg { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
+.rssh-native-message-meta { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--dsw-alias-label-tertiary); font-size: calc(11px + var(--dsh-content-font-delta, 0px)); line-height: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rssh-native-message-usage svg { width: 14px; height: 14px; }
+.rssh-native-message-time { padding-left: 2px; }
 .rssh-native-message-actions .rssh-native-message-extra { color: var(--dsw-alias-label-tertiary); }
 @media (hover: hover) {
   :is(.rssh-native-user,.rssh-native-assistant)[data-actions-reveal='hover'] .rssh-native-message-actions { opacity: 0; transition: opacity 80ms ease; }

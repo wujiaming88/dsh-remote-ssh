@@ -142,7 +142,11 @@ export function reduceEvent(previous, event) {
     case 'session': return { ...state, binding: { ...state.binding, ...event.session }, config: event.config || state.config,
       capabilities: event.capabilities || state.capabilities };
     case 'session_info': return { ...state, title: event.title ?? state.title };
-    case 'usage': return rootEvent && event.inherited !== true ? { ...state, usage: event.usage || event } : state;
+    case 'usage': {
+      if(!rootEvent||event.inherited===true)return state;
+      const usage=event.usage||event,scope=event.turnId?JSON.stringify([event.sessionId||'',event.turnId]):null;
+      return {...state,usage,turns:scope?{...state.turns,[scope]:{...state.turns[scope],usage}}:state.turns};
+    }
     case 'suggestions': return { ...state, suggestions: list(event.suggestions) };
     case 'stop': {
       const finished = finishThoughts(items,event);
@@ -150,8 +154,9 @@ export function reduceEvent(previous, event) {
         ? finished.map(item => item.type === 'user' && requestKey(item) === requestKey(event) ? { ...item, delivery: 'cancelled' } : item) : finished;
       const scope=JSON.stringify([event.sessionId||'',event.turnId||'']);
       const status=event.stopReason==='cancelled'?'cancelled':event.stopReason==='end_turn'||event.stopReason==='completed'?'completed':'interrupted';
+      const previousTurn=state.turns[scope];
       return { ...state, running: rootEvent ? event.busy === true || event.pendingTurns > 0 : state.running,
-        turns: event.turnId ? {...state.turns,[scope]:{...state.turns[scope],status,stopReason:event.stopReason,endSeq:event.seq,endedAt:Number.isFinite(event.ts)?event.ts:null}} : state.turns,
+        turns: event.turnId ? {...state.turns,[scope]:{...previousTurn,status,stopReason:event.stopReason,endSeq:event.seq,endedAt:Number.isFinite(event.ts)?event.ts:null,usage:previousTurn?.usage||null}} : state.turns,
         items: event.stopReason && event.stopReason !== 'end_turn' ? [...updated, { ...event, key, type: 'system', text: event.stopReason }] : updated };
     }
     case 'error': return { ...state, error: event.message || event.code || 'Agent error', running: event.fatal ? false : state.running,

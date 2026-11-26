@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-rc.26 — per-turn footer usage and completion time
+
+- Add a compact footer to each completed turn’s final reply with exactly three facts: copy, usage tokens and the completion clock time. Usage comes from the usage snapshot observed during that turn (never another turn’s or the live session’s latest value), and the timestamp comes from the authoritative stop event; missing facts render `—` or are omitted instead of being synthesized.
+- Preserve the same footer through history replay and final-response selection. Keep the existing native hover/focus reveal, copy feedback, responsive wrapping and theme tokens; no extra feedback/fork controls are added.
+- Add regression coverage for per-turn usage snapshots, stop-time capture, local `HH:mm` formatting, history replay, missing/invalid facts, and the three-item footer contract. All 1050 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.25 — Claude queue follows the native tool boundary
 
 - Queue messages for Claude can now stay pending while a foreground tool runs and are injected at **later** priority when the last root tool call finishes, inside the same turn. This mirrors Claude Code's native queue: tool execution completes normally, the current answer is not preempted, and no second `session/prompt` starts. The queued card remains editable/removable until that boundary.

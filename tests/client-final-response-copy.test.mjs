@@ -81,12 +81,14 @@ test('assistant renderer omits intermediate action containers and copies only fi
   const state=events.reduce(reduceEvent,initialState()),copyableResponses=completedResponseCopyKeys(state.items,state.turns);
   const dependencies={h,turns:state.turns,running:false,activeScope:null,copyableResponses,copyLabels:{},labels:{markdown:{}},fallback:null,id:'id',t:key=>key,
     ancestors:[],rootSessionId:undefined,attachmentContext:null,OutputImage:'OutputImage',markdownImageAlt:()=> '',
-    transcriptScope,responseCopyParts,NativeAssistantMessage:'Assistant',NativeMessageActions:'Actions',NativeMessageCopy:'Copy',ui:{MarkdownText:'Markdown'}};
+    turnMessageMeta: turn => ({tokens:'46.9M',time:'17:10',dateTime:'2026-11-26T09:10:00.000Z'}),
+    transcriptScope,responseCopyParts,NativeAssistantMessage:'Assistant',NativeMessageActions:'Actions',NativeMessageCopy:'Copy',NativeMessageUsage:'Usage',NativeMessageTime:'Time',ui:{MarkdownText:'Markdown'}};
   const render=new Function('item','entry',...Object.keys(dependencies),assistant);
   const draw=item=>render(item,{},...Object.values(dependencies));
   assert.equal(draw(state.items.find(item=>item.key==='g:2')).props.actions,null);
   const final=draw(state.items.find(item=>item.key==='g:4'));
   assert.equal(final.props.actions.type,'Actions');
+  assert.deepEqual(final.props.actions.props.children.map(child=>child.type),['Copy','Usage','Time']);
   assert.equal(final.props.actions.props.children[0].props.text,'Final answer.');
   assert.doesNotMatch(final.props.actions.props.children[0].props.text,/Let me check/);
   const user=source.split("case 'user':")[1].split("case 'assistant':")[0];

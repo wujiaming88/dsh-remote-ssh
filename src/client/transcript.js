@@ -10,7 +10,8 @@ import {AcpThought} from './thought.js';
 import {thoughtIsStreaming} from './thought-model.js';
 import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
-import {NativeUserMessage,NativeAssistantMessage,NativeMessageActions,NativeMessageCopy} from './native-message-view.js';
+import {NativeUserMessage,NativeAssistantMessage,NativeMessageActions,NativeMessageCopy,NativeMessageUsage,NativeMessageTime} from './native-message-view.js';
+import {turnMessageMeta} from './message-meta-model.js';
 import {runningTailPresentation,formatTurnElapsed,subscribeRunningClock} from './running-tail-model.js';
 import {OutputImage} from './output-image.js';
 import {markdownImageAlt} from './output-image-model.js';
@@ -22,6 +23,7 @@ export const messages={
     'flow.toolRead':'读取','flow.toolEdit':'编辑','flow.toolSearch':'搜索','flow.toolExecute':'运行命令','flow.toolFetch':'获取内容','flow.toolDelete':'删除','flow.toolMove':'移动','flow.toolThink':'思考','flow.toolOther':'工具','flow.toolInput':'输入','flow.toolOutput':'输出',
     'flow.remoteOffline':'远端连接已中断，最新任务状态待确认。本机断线不会取消远端任务；重连后将补取进展，需要审批时仍会等待你的决定。','flow.closedReadOnly':'远端会话已结束，历史记录为只读。',
     'flow.turnCompleted':'已完成','flow.turnTook':'已完成，用时 ','flow.turnFailed':'已失败','flow.durationGap':'','flow.turnProcessToggle':'展开或收起本轮执行过程',
+    'flow.usage':'用量','flow.usageHint':'本轮 stop 事件发生时的当前上下文 token；协议没有提供按轮累计账单。','flow.completedAt':'完成于',
     'flow.ended':'已结束','flow.hadFailures':'含失败记录','flow.thinking':'思考中','flow.runningCount':'项进行中',
     'flow.permissionRecorded':'权限确认已处理','flow.permissionAllowed':'已允许此操作','flow.permissionDenied':'已拒绝此操作','flow.questionRecorded':'提问已处理','flow.questionDeclined':'已跳过此问题','flow.permissionCancelled':'权限确认已取消','flow.questionCancelled':'提问已取消',
     'flow.runStatus':'运行状态','flow.turnRunning':'本轮进行中','flow.turnWaiting':'等待你的操作','flow.turnElapsed':'本轮用时','flow.elapsedHint':'从本轮实际开始执行时计算，包含等待和连接中断时间，不代表模型推理耗时。','flow.hour':'小时','flow.minute':'分','flow.second':'秒',
@@ -32,6 +34,7 @@ export const messages={
     'flow.toolRead':'Read','flow.toolEdit':'Edit','flow.toolSearch':'Search','flow.toolExecute':'Run command','flow.toolFetch':'Fetch','flow.toolDelete':'Delete','flow.toolMove':'Move','flow.toolThink':'Reasoning','flow.toolOther':'Tool','flow.toolInput':'Input','flow.toolOutput':'Output',
     'flow.remoteOffline':'Remote connection lost; the latest task state is unconfirmed. Disconnecting locally does not cancel the remote task. Reconnection retrieves progress; approvals still wait for your decision.','flow.closedReadOnly':'This remote session has ended. Its history is read-only.',
     'flow.turnCompleted':'Completed','flow.turnTook':'Completed in ','flow.turnFailed':'Failed','flow.durationGap':' ','flow.turnProcessToggle':'Expand or collapse this turn’s activity',
+    'flow.usage':'Usage','flow.usageHint':'Current context tokens when this turn stopped; the protocol does not report a per-turn cumulative invoice.','flow.completedAt':'Completed at',
     'flow.ended':'Ended','flow.hadFailures':'Includes failed steps','flow.thinking':'Thinking','flow.runningCount':'active',
     'flow.permissionRecorded':'Permission request handled','flow.permissionAllowed':'Operation allowed','flow.permissionDenied':'Operation denied','flow.questionRecorded':'Question handled','flow.questionDeclined':'Question skipped','flow.permissionCancelled':'Permission request cancelled','flow.questionCancelled':'Question cancelled',
     'flow.runStatus':'Run status','flow.turnRunning':'Turn in progress','flow.turnWaiting':'Awaiting your action','flow.turnElapsed':'Turn elapsed','flow.elapsedHint':'Time since this turn actually started, including waits and connection interruptions; not model reasoning time.','flow.hour':'h','flow.minute':'m','flow.second':'s',
@@ -110,6 +113,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         const turn=entry.turn||turns[transcriptScope(item)];
         const streaming=running&&transcriptScope(item)===activeScope&&entry.responseTail===true&&(!turn||turn.status==='running');
         const copy=responseCopyParts(item,entry);
+        const meta=turnMessageMeta(turn||{});
         const imageRequest=!ancestors.length&&item.sessionId===rootSessionId&&attachmentContext?{
           id:attachmentContext.id,dshSessionId:attachmentContext.dshSessionId,
           turnId:item.turnId,generation:item.generation,fromSeq:item.seq,throughSeq:item.lastSeq||item.seq,
@@ -119,7 +123,9 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
           body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown,renderImage:(token,index)=>h(OutputImage,{
             key:`${index}:${token.href}`,href:token.href,alt:markdownImageAlt(token),title:token.title,request:imageRequest,t})}),
           actions:copyableResponses.has(item.key)?h(NativeMessageActions,{clock:'end'},
-            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}})):null,
+            h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}}),
+            h(NativeMessageUsage,{tokens:meta.tokens,label:t('flow.usage'),hint:t('flow.usageHint')}),
+            h(NativeMessageTime,{time:meta.time,dateTime:meta.dateTime,label:t('flow.completedAt')})):null,
           interrupted:entry.responseTail&&(turn?.status==='cancelled'||turn?.status==='interrupted')?t(turn.status==='cancelled'?'flow.stopped':'flow.interrupted'):null});
       }
       case 'thought': return h(React.Fragment,{key:item.key},fallback?h(AcpSourceFallback,{item,fallback,t}):null,

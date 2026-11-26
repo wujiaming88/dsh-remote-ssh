@@ -4,7 +4,7 @@
 // adapter owns identity, streaming, attachments, source notices and copy text.
 // Missing timestamps/fork capabilities are omitted, never synthesized. The
 // existing safe Markdown/CopyButton implementations supply their content slots.
-import {h,ui} from './shared.js';
+import {h,ui,NativeIcon} from './shared.js';
 
 export function NativeMessageActions({clock,children}) {
   return h('div',{className:'rssh-native-message-actions','data-clock':clock},children);
@@ -12,6 +12,18 @@ export function NativeMessageActions({clock,children}) {
 export function NativeMessageCopy({text,labels,iconOnly=true}) {
   return h(ui.CopyButton,{text,labels,iconOnly,
     className:iconOnly?'rssh-native-message-action':'rssh-native-message-extra'});
+}
+export function NativeMessageUsage({tokens,label,hint}) {
+  const reading=tokens===null?'—':tokens;
+  return h('span',{className:'rssh-native-message-meta rssh-native-message-usage',title:hint,
+    'aria-label':`${label}: ${reading} tok`},
+    h(NativeIcon,{name:'stats',size:14,'aria-hidden':true}),
+    h('span',null,`${label} ${reading} tok`));
+}
+export function NativeMessageTime({time,dateTime,label}) {
+  if(!time)return null;
+  return h('time',{className:'rssh-native-message-meta rssh-native-message-time',dateTime,
+    title:label,'aria-label':label?`${label} ${time}`:undefined},time);
 }
 export function NativeUserMessage({label,text,attachments,delivery,source,actions,latest=false,pending=false}) {
   return h('article',{className:'rssh-message rssh-native-user','aria-label':label,
