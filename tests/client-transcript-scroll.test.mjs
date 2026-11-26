@@ -98,7 +98,10 @@ test('queued frame measures pause intent at execution and cannot update after di
 });
 test('rendering uses measured visibility and observes resizes independent of follow intent', () => {
   const chat = readFileSync(new URL('../src/client/chat.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/client/styles.css', import.meta.url), 'utf8');
   assert.match(chat, /scroll\.showLatest\?h\(ui\.Button,\{variant:'outline',className:'rssh-jump-latest'/);
+  assert.match(css, /\.rssh-jump-latest \{[^}]*border: 0\.5px solid var\(--dsw-alias-border-l2\);[^}]*border-radius: 50%;[^}]*background: var\(--dsw-alias-bg-base\);[^}]*box-shadow: none/);
+  assert.doesNotMatch(css, /\.rssh-jump-latest \{[^}]*box-shadow: var\(--dsw-alias-shadow-popup\)/);
   assert.doesNotMatch(chat, /!scroll\.following\?h\(ui\.Button/);
   assert.match(source, /new ResizeObserver\(schedule\)/);
   assert.match(source, /observer\.observe\(viewport\);observer\.observe\(content\)/);

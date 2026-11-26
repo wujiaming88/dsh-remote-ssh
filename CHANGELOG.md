@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-rc.29 — circular jump-to-latest button
+
+- Move the requested circular outlined treatment to the actual “Jump to latest” control at the lower right: 32px round target, 0.5px theme border, base background, no popup shadow, hover fill and existing keyboard/aria behavior.
+- Revert the accidental rc.28 change to the completed-turn process chevron; that summary row returns to its native inline chevron while remaining the single accessible expand/collapse control.
+- Add style contracts for the jump button and the restored summary geometry. All 1051 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.28 — circular turn disclosure button
 
 - Restyle the completed-turn process chevron as a native circular outlined button: 28px round target, thin theme border, base background, hover fill, and preserved open-state rotation. The whole summary row remains the single accessible expand/collapse control, so no nested button or duplicate focus stop is introduced.

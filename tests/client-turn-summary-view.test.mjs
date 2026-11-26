@@ -10,8 +10,7 @@ test('settled turn view has factual duration, no false arrow, and accessible who
   for(const source of [adapter,view])parse(source,{sourceType:'module',ecmaVersion:'latest'});
   assert.match(view,/h\(collapsible\?'button':'div'/);
   assert.match(view,/'aria-expanded':collapsible\?open:undefined,'aria-controls':collapsible\?controls:undefined/);
-  assert.match(view,/collapsible\?h\('span',\{className:'rssh-turn-summary-toggle'/);
-  assert.match(view,/name:'chevron-down',size:14,className:'rssh-turn-summary-chevron'/);
+  assert.match(view,/collapsible\?h\(NativeIcon,\{name:'chevron-down'/);
   assert.match(view,/h\('time',\{dateTime:`PT\$\{summary.seconds\}S`\}/);
   assert.match(view,/failedCount\?` · \$\{t\('flow.hadFailures'\)\} \$\{failedCount\}`/);
   assert.doesNotMatch(view,/Date\.now|setInterval|aria-live|useSessions|useChat/);
@@ -58,8 +57,7 @@ test('native summary geometry remains scoped and collapsed process wrappers leav
   assert.equal((await transform(css,{loader:'css'})).warnings.length,0);
   assert.match(css,/min-height: calc\(33px \+ var\(--dsh-content-font-delta, 0px\)\)/);
   assert.match(css,/border-bottom: 0.5px solid var\(--dsw-alias-border-l2\)/);
-  assert.match(css,/margin-left: 8px/);
-  assert.match(css,/\.rssh-turn-summary-toggle \{[^}]*width: 28px; height: 28px;[^}]*border: 0\.5px solid var\(--dsw-alias-border-l2\);[^}]*border-radius: 999px/);
+  assert.match(css,/margin-left: 4px/);
   assert.match(css,/font-variant-numeric: tabular-nums/);
   assert.match(css,/\.rssh-turn-process-part\[hidden\], \.rssh-process-group\[hidden\] \{ display: none; \}/);
   assert.match(css,/:focus-visible/);assert.match(css,/prefers-reduced-motion: reduce/);

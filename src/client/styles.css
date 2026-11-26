@@ -682,10 +682,16 @@
   right: max(24px, calc((100% - var(--dsh-chat-content-width, 748px)) / 2));
   width: 32px;
   height: 32px;
+  min-width: 32px;
   padding: 0;
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 50%;
-  background: var(--dsw-alias-bg-layer-2);
-  box-shadow: var(--dsw-alias-shadow-popup);
+  background: var(--dsw-alias-bg-base);
+  box-shadow: none;
+  color: var(--dsw-alias-label-secondary);
+}
+@media (hover: hover) {
+  .rssh-jump-latest:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 }
 .rssh-history-status {
   display: flex;
