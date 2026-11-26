@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.36 — join in-flight Claude steering instead of rejecting it
+
+- Fix the Claude Code race behind the generic “无法立即发送” error: when Claude’s automatic `later` priority injection is already steering a queued message, a manual “立即发送” now **joins the same in-flight steer** and returns its result, instead of failing with `queue_promotion_in_progress`.
+- The manual action never sends a second steer, never removes the queue early, and still leaves the message queued if the joined injection returns `promptRequired` or an error.
+- Clarify the remaining in-progress message: the system is already injecting the queued message; wait for the state refresh rather than clicking again.
+- Add a regression that holds the automatic steer open, clicks send-now, and proves one steer call, one queue removal and no duplicate delivery. All 1067 automated tests pass; existing remote sessions keep their old worker until a new session starts.
+
+## 3.0.0-rc.35 — explain failed immediate sends
 ## 3.0.0-rc.35 — explain failed immediate sends
 
 - Stop collapsing every `立即发送` failure into one “could not send immediately” message. The UI now distinguishes: no injectable active turn / adapter requires a new prompt, message already started, unknown previous outcome, promotion already in flight, unsupported content, and adapter without steering.

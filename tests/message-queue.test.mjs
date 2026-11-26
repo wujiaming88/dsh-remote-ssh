@@ -144,6 +144,31 @@ test('promote injects into the active turn and removes only that queued identity
   assert.equal(prompts[1].value, 'keep'); assert.equal(session.busy, true);
 });
 
+test('manual send-now joins Claude automatic later injection instead of failing as a duplicate', async t => {
+  const { session, prompts, steerCalls } = fixture(t);
+  session.capabilities.steering = { supported: true, priorities: ['now', 'later'] };
+  let release;
+  session.controller.steer = async (value, options) => {
+    steerCalls.push({ value, options });
+    return new Promise(resolve => { release = resolve; });
+  };
+  await session.queue('active', { requestId: 'active' });
+  await session.queue('after tool', { requestId: 'after' });
+  session._emit({ type: 'tool_call', toolCallId: 'tool-1', status: 'in_progress' });
+  session._emit({ type: 'tool_call_update', toolCallId: 'tool-1', status: 'completed' });
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(steerCalls.length, 1); assert.equal(steerCalls[0].options.priority, 'later');
+  const manual = session.promoteQueued({ targetRequestId: 'after' });
+  await tick();
+  assert.equal(steerCalls.length, 1, 'manual click must not send a second steer');
+  release({ outcome: 'injected' });
+  const promoted = await manual;
+  assert.equal(promoted.outcome, 'injected'); assert.equal(promoted.deduplicated, true);
+  assert.deepEqual(session.state().queuedMessages, []);
+  assert.equal(steerCalls.length, 1);
+  prompts[0].resolve({ stopReason: 'end_turn' }); await tick();
+  assert.equal(prompts.length, 1);
+});
 test('unsupported steering leaves the queue intact without interrupting the active turn', async t => {
   const { session, prompts, steers, calls } = fixture(t);
   session.capabilities.steering = { supported: false };

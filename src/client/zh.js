@@ -18,7 +18,7 @@ export default {
   'acp.queueSendNowNoTurn': '当前没有可注入的运行中 turn：本轮可能刚结束，或 Adapter 要求通过新 prompt 发送。消息仍在队列中，会在下一个 turn 自动发送，当前 turn 未被中断。',
   'acp.queueSendNowAlreadyStarted': '这条消息已经开始执行，不需要再次立即发送。',
   'acp.queueSendNowUnknown': '上一次立即发送的结果未知；为避免重复发送，消息仍保留在队列中，不会自动重发。',
-  'acp.queueSendNowBusy': '另一条立即发送请求正在处理；本次没有重复注入，消息仍在队列中。',
+  'acp.queueSendNowBusy': '系统正在把排队消息注入当前 turn；请稍候，本次没有重复发送，当前 turn 未被中断。',
   'acp.queueSendNowContentUnsupported': '消息包含当前 Adapter 不支持注入的附件或格式；消息仍在队列中，可撤回后改用正常排队发送。',
   'acp.queueImageMetadata': '图片已排队，此处仅显示附件信息。',
   'acp.retrySubmission': '按原方式重试提交',

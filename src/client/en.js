@@ -18,7 +18,7 @@ export default {
   'acp.queueSendNowNoTurn': 'There is no injectable active turn: it may have just ended, or the adapter requires a new prompt. The message stays queued and will be sent automatically next; the current turn was not interrupted.',
   'acp.queueSendNowAlreadyStarted': 'This message has already started; it does not need another immediate send.',
   'acp.queueSendNowUnknown': 'The previous immediate-send outcome is unknown. The message remains queued and is not resent automatically, to avoid duplicates.',
-  'acp.queueSendNowBusy': 'Another immediate-send request is already in progress. Nothing was injected twice; the message remains queued.',
+  'acp.queueSendNowBusy': 'The queued message is already being injected into the current turn. Please wait; nothing was sent twice and the current turn was not interrupted.',
   'acp.queueSendNowContentUnsupported': 'This message contains an attachment or format the adapter cannot inject. It remains queued; remove it and send normally instead.',
   'acp.queueImageMetadata': 'Image queued; only attachment metadata is available here.',
   'acp.retrySubmission': 'Retry original submission',
