@@ -70,5 +70,7 @@ test('activity guard tracks running and waiting sessions and releases when all s
   listener({ type: 'remove', sessionId: 'b' });
   assert.deepEqual(updates, [true, true, true, false]);
   listener({ type: 'reset' }); assert.equal(updates.at(-1), false);
+  guard.setEnabled(false); assert.equal(updates.at(-1), false);
+  guard.setEnabled(true); assert.equal(updates.at(-1), false);
   guard.dispose(); assert.equal(updates.at(-1), 'disposed'); assert.equal(listener, null);
 });

@@ -50,7 +50,7 @@ HTTP `res.write(false)` 表示数据已经被接收，但写缓冲需要排空�
 
 ## Host 防休眠边界
 
-Host 的 session activity 只要存在 **running** 或 **waiting** 的远端 turn，就启动一个本机防休眠子进程；全部结束后保留 3 秒宽限再释放，避免连续 turn 频繁切换。macOS 使用 `caffeinate -i -m -s`（不创建 display assertion，不强制点亮屏幕）；Linux 使用 `systemd-inhibit --what=idle:sleep --mode=block`。锁屏、显示器睡眠不会释放该断言；Host 退出会立即终止子进程。
+Host 的 session activity 只要存在 **running** 或 **waiting** 的远端 turn，就启动一个本机防休眠子进程；全部结束后保留 3 秒宽限再释放，避免连续 turn 频繁切换。macOS 使用 `caffeinate -i -m -s`（不创建 display assertion，不强制点亮屏幕）；Linux 使用 `systemd-inhibit --what=idle:sleep --mode=block`。锁屏、显示器睡眠不会释放该断言；Host 退出会立即终止子进程。插件设置的「Host 运行设置」提供默认开启的开关，关闭后不创建任何断言；配置持久化在插件 Config 的 `preventHostSleep`。
 
 这不是远端保活：**合盖睡眠、拔掉电源后进入的强制睡眠、系统崩溃或用户手动睡眠**仍可能停止本机 Host 和 SSH link。远端 durable owner 不会因此取消任务，唤醒后按现有 locator 重连续接。防休眠只在真实 turn 活动期间持有，不因打开页面、空闲会话或已关闭历史而长期占用。
 

@@ -118,9 +118,19 @@ test('explicit close requires original identity and confirmation, retains histor
 });
 test('modern Config consists only of current volatile fields', { skip: !installed }, () => {
   const value = configModule.Config({});
-  assert.deepEqual(Object.keys(value).sort(), ['profiles', 'schemaVersion', 'workspacesV3']);
+  assert.deepEqual(Object.keys(value).sort(), ['preventHostSleep', 'profiles', 'schemaVersion', 'workspacesV3']);
   for (const reference of Object.values(value)) assert.equal(typeof reference.get, 'function');
-  assert.equal(value.schemaVersion.get(), 3); assert.deepEqual(value.workspacesV3.get(), []);
+  assert.equal(value.schemaVersion.get(), 3); assert.deepEqual(value.workspacesV3.get(), []); assert.equal(value.preventHostSleep.get(), true);
+});
+test('Host sleep preference defaults on and persists through the public settings API', { skip: !installed }, async () => {
+  const f = await fixture();
+  try {
+    assert.equal((await f.host.api.getHostPreferences({})).preventHostSleep, true);
+    assert.equal((await f.host.api.saveHostPreferences({ preventHostSleep: false })).preventHostSleep, false);
+    assert.equal(f.raw.preventHostSleep, false);
+    assert.equal((await f.host.api.getHostPreferences({})).preventHostSleep, false);
+    await assert.rejects(f.host.api.saveHostPreferences({ preventHostSleep: 'no' }), { code: 'invalid_preference' });
+  } finally { await f.close(); }
 });
 test('existing connection targets are immutable and deleted ids cannot be reused', { skip: !installed }, async () => {
   const f = await fixture();

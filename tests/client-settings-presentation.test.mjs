@@ -52,6 +52,14 @@ test('more menus capture the row, remain keyboard accessible and preserve confir
   const confirm=functionSource('DeleteDialog');assert.match(confirm,/if \(blocked \|\| worktree && !confirmed\) return/);
   assert.match(confirm,/confirm: true/);assert.match(source,/workspaces.some\(workspace => workspace.profileId === dialog.target.id\)/);
 });
+test('Host sleep inhibition is an explicit persisted switch in plugin settings',()=>{
+  assert.match(source,/api\('getHostPreferences'/);
+  assert.match(source,/api\('saveHostPreferences', \{ preventHostSleep: value \}\)/);
+  assert.match(source,/ui\.Checkbox,\{checked:preventHostSleep,disabled:loading\|\|sleepSaving/);
+  assert.match(source,/setPreventHostSleep\(previous\)/);
+  assert.match(source,/rssh\.settings\.preventSleepFailed/);
+  for(const key of ['hostRuntime','hostDescription','preventSleepTitle','preventSleepDescription','preventSleepEnable','preventSleepFailed'])assert.ok(source.includes(`rssh.settings.${key}`));
+});
 test('primary action and modal styling stay scoped to SSH settings',()=>{
   assert.match(source,/variant:'primary',onClick:\(\)=>setDialog\(\{kind:'profile',target:null\}\)/);
   assert.equal((source.match(/className:'rssh-settings-dialog'/g)||[]).length,3);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.32 — plugin switch for Host sleep inhibition
+
+- Add a persisted `preventHostSleep` plugin preference, enabled by default. Plugin settings now expose a “Host runtime / Prevent Host sleep while running” switch with optimistic save and error rollback.
+- Wire the switch to the live Host guard: turning it off releases the current assertion after the existing stop grace and prevents any new child; turning it on while a turn is already active starts inhibition immediately. Configuration is updated through the existing serialized config editor and survives reload.
+- Keep the automatic behavior from rc.31 unchanged when enabled. Settings load/save are authorized through the same Host API; no assertion is created at Host construction, and no ACP/runtime work is triggered merely to read the preference.
+- Add Host API/config persistence coverage and settings source/translation contracts. All 1060 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.31 — prevent Host sleep while remote work is active
 
 - Add a Host-owned sleep assertion while any remote session activity is `running` or `waiting`. macOS uses `caffeinate -i -m -s` (no display assertion, no forced screen wake); Linux uses `systemd-inhibit --what=idle:sleep --mode=block`. It is released three seconds after the last turn settles, so back-to-back turns do not flap the assertion.

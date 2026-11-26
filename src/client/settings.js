@@ -31,6 +31,11 @@ export const messages = {
     'rssh.settings.removeWorktreeHint': '这将删除由本插件创建的远端 worktree 目录并解除注册。Git 分支及会话历史保留。未提交改动或活动实例会阻止移除；不会强制删除。',
     'rssh.settings.removeConfirm': '我确认移除上方显示的远端 worktree 目录', 'rssh.settings.saved': '配置已保存',
     'rssh.settings.loading': '加载中…', 'rssh.settings.loadFailed': '加载失败，请重试。', 'rssh.settings.owned': 'Owned worktree',
+    'rssh.settings.hostRuntime': 'Host 运行设置', 'rssh.settings.hostDescription': '控制 DSH Host 本机在远端任务期间的系统电源行为。',
+    'rssh.settings.preventSleepTitle': '运行期间防止本机休眠',
+    'rssh.settings.preventSleepDescription': '有远端 turn 正在运行或等待输入时保持 Host 唤醒；锁屏但保持通电时可继续执行。全部结束后自动释放。关闭后系统可照常休眠。',
+    'rssh.settings.preventSleepEnable': '启用防休眠',
+    'rssh.settings.preventSleepFailed': '无法保存防休眠设置，请重试。',
   },
   en: {
     'rssh.settings.more': 'More actions', 'rssh.settings.testing': 'Testing connection…',
@@ -59,6 +64,11 @@ export const messages = {
     'rssh.settings.removeWorktreeHint': 'Deletes the remote worktree directory created by this plugin and unregisters it. Git branches and session history remain. Uncommitted changes or active instances block removal; deletion is never forced.',
     'rssh.settings.removeConfirm': 'I confirm removal of the remote worktree directory shown above', 'rssh.settings.saved': 'Configuration saved',
     'rssh.settings.loading': 'Loading…', 'rssh.settings.loadFailed': 'Could not load. Please retry.', 'rssh.settings.owned': 'Owned worktree',
+    'rssh.settings.hostRuntime': 'Host runtime', 'rssh.settings.hostDescription': 'Control the local DSH Host power behavior while remote work is active.',
+    'rssh.settings.preventSleepTitle': 'Prevent Host sleep while running',
+    'rssh.settings.preventSleepDescription': 'Keep the Host awake while a remote turn is running or waiting for input. A locked screen on power can keep working, and the assertion is released when everything settles. Turn this off to let the system sleep normally.',
+    'rssh.settings.preventSleepEnable': 'Enable sleep inhibition',
+    'rssh.settings.preventSleepFailed': 'Could not save the sleep setting. Please retry.',
   },
 };
 
@@ -189,19 +199,33 @@ function DeleteDialog({ target, kind, blocked, onClose, onSaved }) {
 export function SettingsSection(props) {
   const t = useT();
   const [profiles, setProfiles] = React.useState([]); const [workspaces, setWorkspaces] = React.useState([]);
+  const [preventHostSleep, setPreventHostSleep] = React.useState(true);
+  const [sleepSaving, setSleepSaving] = React.useState(false); const [sleepError, setSleepError] = React.useState('');
   const [loaded, setLoaded] = React.useState(false); const [dialog, setDialog] = React.useState(null); const [status, setStatus] = React.useState('');
-  // Independent load generation also covers the two-request snapshot and StrictMode replay.
+  // Independent load generation also covers the three-request snapshot and StrictMode replay.
   const loadGeneration = React.useRef(0); const live = React.useRef(false);
   const [loading, setLoading] = React.useState(true); const [loadError, setLoadError] = React.useState('');
   async function load() {
     const token = ++loadGeneration.current; setLoading(true); setLoadError('');
     try {
-      const [p, w] = await Promise.all([api('listProfiles', {}), api('listWorkspaces', {})]);
+      const [p, w, pref] = await Promise.all([api('listProfiles', {}), api('listWorkspaces', {}), api('getHostPreferences', {})]);
       if (!live.current || token !== loadGeneration.current) return;
-      if (!p?.ok || !w?.ok) { setLoadError(formatError(!p?.ok ? p : w)); return; }
-      setProfiles(p.profiles); setWorkspaces(w.workspaces); setLoaded(true);
+      if (!p?.ok || !w?.ok || !pref?.ok) { setLoadError(formatError(!p?.ok ? p : !w?.ok ? w : pref)); return; }
+      setProfiles(p.profiles); setWorkspaces(w.workspaces); setPreventHostSleep(pref.preventHostSleep !== false); setLoaded(true);
     } catch (error) { if (live.current && token === loadGeneration.current) setLoadError(formatError(error)); }
     finally { if (live.current && token === loadGeneration.current) setLoading(false); }
+  }
+  async function togglePreventSleep(value) {
+    if (sleepSaving) return;
+    const previous = preventHostSleep;
+    setPreventHostSleep(value); setSleepSaving(true); setSleepError('');
+    try {
+      const result = await api('saveHostPreferences', { preventHostSleep: value });
+      if (!result?.ok) throw result;
+      if (live.current) setPreventHostSleep(result.preventHostSleep !== false);
+    } catch (error) {
+      if (live.current) { setPreventHostSleep(previous); setSleepError(formatError(error) || t('rssh.settings.preventSleepFailed')); }
+    } finally { if (live.current) setSleepSaving(false); }
   }
   React.useLayoutEffect(() => { live.current = true; return () => { live.current = false; loadGeneration.current++; }; }, []);
   React.useEffect(() => { load(); }, []);
@@ -220,6 +244,15 @@ export function SettingsSection(props) {
       loaded&&!profiles.length?h('p',{className:'rssh-settings-muted rssh-settings-empty'},t('rssh.settings.emptyProfiles')):null,
       profiles.length?h('div',{className:'rssh-settings-list'},profiles.map(profile=>h(ConnectionRow,{key:connectionRowKey(profile),profile,removeBlocked:loading||!!loadError,
         onEdit:()=>setDialog({kind:'profile',target:profile}),onDelete:()=>setDialog({kind:'deleteProfile',target:profile})}))):null),
+    h('section', {className:'rssh-settings-group','aria-label':t('rssh.settings.hostRuntime')},
+      h('div',{className:'rssh-settings-header'},h('div',{className:'rssh-settings-heading'},h('h2',null,t('rssh.settings.hostRuntime')),h('p',{className:'rssh-settings-description'},t('rssh.settings.hostDescription')))),
+      h('div',{className:'rssh-settings-row'},
+        h('div',{className:'rssh-settings-info'},
+          h('div',{className:'rssh-settings-row-title'},t('rssh.settings.preventSleepTitle')),
+          h('div',{className:'rssh-settings-muted'},t('rssh.settings.preventSleepDescription')),
+          sleepError?h('div',{className:'rssh-settings-row-result','data-tone':'error',role:'alert'},sleepError):null),
+        h('div',{className:'rssh-settings-actions'},h(ui.Checkbox,{checked:preventHostSleep,disabled:loading||sleepSaving,
+          onChange:togglePreventSleep,label:t('rssh.settings.preventSleepEnable')})))),
     h('section', {className:'rssh-settings-group','aria-label':t('rssh.settings.workspaces')},
       h('div',{className:'rssh-settings-header'},h('div',{className:'rssh-settings-heading'},h('h2',null,t('rssh.settings.workspaces')),h('p',{className:'rssh-settings-description'},t('rssh.settings.workspacesDescription')))),
       loaded&&!workspaces.length?h('p',{className:'rssh-settings-muted rssh-settings-empty'},t('rssh.settings.emptyWorkspaces')):null,
