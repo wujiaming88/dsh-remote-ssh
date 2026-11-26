@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.21 — one process disclosure per turn
+
+- Group intermediate assistant prose, reasoning and tool activity into one stable process per Session/turn instead of splitting at each assistant message. Retain original content and order within the process; keep user messages, warnings and errors standalone.
+- Show only the final nonempty assistant reply before an authoritative completed turn boundary outside the process. Share this selection with final-response copying across the complete transcript, including nested views. Running, cancelled, interrupted and unknown turns do not promote their current tail into a final answer.
+- Make the completed-turn summary directly control its single process body, eliminating a redundant second disclosure click while preserving individual tool details, reading state and explicit verbose/detailed policies.
+- Preserve history reading anchors with stable turn keys: exact key equality alone cannot anchor a changed process; validate retained members, event versions, text ranges and generations before top/bottom compensation.
+- All 956 automated tests pass, with 83 client modules built. Browser visual/interaction acceptance remains pending; no conversation history or remote execution state is rewritten.
+
 ## 3.0.0-rc.20 — trust the selected remote runtime environment
 
 - Remove the extra runtime-root and ancestor ownership/write-bit whitelist. The user's explicitly selected SSH host and its runtime environment are trusted; administrator-owned mounts and shared dependency directories no longer trigger `remote_unsafe_runtime`. Existing-directory and real filesystem access requirements still apply.

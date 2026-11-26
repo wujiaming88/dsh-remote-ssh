@@ -2,7 +2,7 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.20** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.21** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
@@ -15,7 +15,7 @@ Remote Claude Code / Codex conversations over SSH, integrated with DSH workspace
 - **Durable execution and message delivery**: newly created durable tasks keep their remote owner across local network loss or Host exit, with native steering and removable queued input. Finish legacy tasks before upgrading; see [recovery and upgrade boundaries](<docs/DURABLE_EXECUTION.md>) and [delivery contracts](<docs/MESSAGE_DELIVERY.md>).
 - **Factual status**: turn status and elapsed time, context occupancy and unread-completion indicators, without inventing statistics absent from the protocol.
 
-Version **3.0.0-rc.20** passes **941 automated tests**, the **83-module client build** and the **11-module remote worker build**. Real GUI visual and interaction acceptance remains pending.
+Version **3.0.0-rc.21** passes **956 automated tests**, the **83-module client build** and the **11-module remote worker build**. Real GUI visual and interaction acceptance remains pending.
 
 [Changelog](./CHANGELOG.md) · [Native UI sources and adaptation boundaries](./docs/NATIVE_UI.md)
 
@@ -66,7 +66,7 @@ Local directories use native DSH and its native directory picker. Remote workspa
 
 ### Native stream and composer
 
-- Streaming follows the transcript tail, scrolling up pauses following, and history prepend keeps position via a stable anchor. Expanded process history uses a bounded scroll area to keep long outputs from filling the page.
+- Each turn has one process group containing reasoning, tools and intermediate assistant updates. Only its final reply after authoritative completion is shown separately; cancelled/interrupted turns do not fabricate a final answer. User messages and warnings remain visible, and process content is retained. Streaming follows the transcript tail, scrolling up pauses following, and history prepend keeps position via a stable anchor. Expanded process history uses a bounded scroll area to keep long outputs from filling the page.
 - Compact tool rows place the native action icon and name next to the path/summary without repeating the path. Assistant text keeps only the icon that copies the current segment.
 - Thinking renders as a "think icon + single-line summary + chevron" with a soft shimmer while streaming; expanding shows the full content without resetting on stream updates.
 - Below the composer, a native ContextMeter-style context ring (click-open: percent, `~used / capacity` and a bar) plus a session-statistics pill (turn count, elapsed time); no hover icon and no session path/ID.

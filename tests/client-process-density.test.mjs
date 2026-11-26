@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {transcriptPolicy,processGroupPresentation,transcriptEntries} from '../src/client/transcript-model.js';
+import {transcriptPolicy,processGroupPresentation,processGroupSummary,transcriptEntries} from '../src/client/transcript-model.js';
 import {toolFlowModel,toolRowStatus,toolBodyParts,processRowSummary} from '../src/client/tool-model.js';
-import {processCategorySummary} from '../src/client/stream-view-model.js';
+import {processCategorySummary,actionLabel} from '../src/client/stream-view-model.js';
 const policy=(mode,timing='completion')=>transcriptPolicy({transcriptView:mode,collapseTiming:timing});
 const live={settled:false,laterInput:false},ended={settled:true,laterInput:false};
 
@@ -69,6 +69,15 @@ test('history summaries count supplied categories, not shell-command semantics o
   assert.doesNotMatch(text,/categoryRead/);
   assert.equal(processCategorySummary({items:[{type:'tool',tool:{kind:'constructor'}}]},key=>key),'flow.categoryTool × 1');
 });
+test('the assistant tail supplies live replying activity without promoting inherited or settled prose',()=>{
+  const assistant={type:'assistant',key:'reply',text:'Writing',seq:4};
+  assert.equal(processGroupSummary({items:[assistant],settled:false}).runningItem,assistant);
+  assert.equal(actionLabel(assistant,key=>key),'flow.replying');
+  for(const entry of [{items:[assistant],settled:true},{items:[{...assistant,inherited:true}]},
+    {items:[{...assistant,streaming:false}]},{items:[assistant,{type:'notice',key:'notice'}]}]){
+    assert.equal(processGroupSummary(entry).runningItem,null);
+  }
+});
 test('category summary bounds labels only; full ordered records are never trimmed to latest N',()=>{
   const types=['thought','tool','plan','subagent','terminal_event'];
   const items=Array.from({length:25},(_,i)=>({type:types[i%5],key:String(i),sessionId:'s',turnId:'t',text:'Thought',tool:{sessionId:'s',turnId:'t'},subagent:{sessionId:'s',turnId:'t'}}));
@@ -85,7 +94,7 @@ test('process header omits category counts without hiding live activity or failu
   assert.equal(render(true),'Current operation');assert.equal(render(true,0,false),'');
   assert.equal(render(false,2),'flow.hadFailures 2');assert.equal(render(true,2),'Current operation · flow.hadFailures 2');
   assert.match(source,/title:t\('flow.process'\),summary/);
-  assert.match(source,/children:\(\)=>entry.items.map\(item=>render\(item\)\)/);
+  assert.match(source,/children:\(\)=>entry.items.map\(item=>render\(item,entry.responses.get\(item.key\)\)\)/);
 });
 
 test('rendering connects mode policy, quiet status, full command details and reading exceptions',()=>{

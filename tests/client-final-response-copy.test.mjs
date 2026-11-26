@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {completedResponseCopyKeys,responseCopyParts} from '../src/client/stream-view-model.js';
 import {initialState,reduceEvent,replay} from '../src/client/events.js';
-import {transcriptScope} from '../src/client/transcript-model.js';
+import {transcriptScope,transcriptEntries,completedResponseCopyKeys as modelCopyKeys} from '../src/client/transcript-model.js';
 const scope=(session='s',turn='one')=>JSON.stringify([session,turn]);
 const event=(seq,type,extra={})=>({generation:'g',seq,type,sessionId:'s',turnId:'one',...extra});
 const events=[event(1,'turn_start'),event(2,'text',{text:'Let me check.'}),event(3,'tool_call',{toolCallId:'tool',kind:'read',status:'completed'}),event(4,'text',{text:'Final '}),event(5,'text',{text:'answer.'}),event(6,'stop',{stopReason:'end_turn'})];
@@ -45,6 +45,32 @@ test('selection is global per session/turn, not per nested disclosure, and respe
   const turns={[scope()]:{status:'completed',endSeq:6},[scope('child')]:{status:'completed',endSeq:8}};
   assert.deepEqual([...completedResponseCopyKeys(items,turns)],['final','child-final']);
   assert.deepEqual([...completedResponseCopyKeys(items.toReversed(),turns)].sort(),['child-final','final']);
+});
+
+test('grouping and final copy share exactly the same authoritative selector across streaming and replay',()=>{
+  assert.equal(modelCopyKeys,completedResponseCopyKeys);
+  for(let count=1;count<=events.length;count++){
+    const prefix=events.slice(0,count),live=prefix.reduce(reduceEvent,initialState()),history=replay(prefix);
+    for(const state of [live,history]){
+      const entries=transcriptEntries(state.items,{turns:state.turns});
+      assert.deepEqual(entries.filter(entry=>entry.item?.type==='assistant').map(entry=>entry.key),keys(state));
+      assert.ok(entries.filter(entry=>entry.kind==='process').length<=1);
+    }
+    assert.deepEqual(transcriptEntries(live.items,{turns:live.turns}),transcriptEntries(history.items,{turns:history.turns}));
+  }
+});
+
+test('invalid end and assistant sequences, late text and empty messages cannot become final replies',()=>{
+  const final=message('final',5),items=[final,message('at-end',6),message('after-end',7),message('blank',5,{text:' \n'}),
+    ...[undefined,null,0,-1,1.5,'4',NaN,Infinity].map((seq,index)=>message('invalid-'+index,seq))];
+  const turns={[scope()]:{status:'completed',endSeq:6}};
+  assert.deepEqual([...modelCopyKeys(items,turns)],['final']);
+  assert.deepEqual(transcriptEntries(items,{turns}).filter(entry=>entry.item?.type==='assistant').map(entry=>entry.key),['final']);
+  for(const endSeq of [undefined,null,0,-1,1.5,'6',NaN,Infinity]){
+    const invalidTurns={[scope()]:{status:'completed',endSeq}};
+    assert.deepEqual([...modelCopyKeys([final],invalidTurns)],[]);
+    assert.equal(transcriptEntries([final],{turns:invalidTurns})[0].kind,'process');
+  }
 });
 
 test('assistant renderer omits intermediate action containers and copies only final message text',()=>{

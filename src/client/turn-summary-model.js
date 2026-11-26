@@ -76,8 +76,8 @@ export function processFocusProtection(entries,policy,manual,focus) {
   return {key:entry.key,scope:entry.scope,open:true,readingFlat:true};
 }
 
-// Outer Turn disclosure does not replace each group's local disclosure or
-// reparent prose. Flat policy wins; only actual reading/focus pins a default open.
+// Coordinate the Turn summary with its process disclosure. Entry construction
+// owns prose placement; flat policy wins and only actual reading/focus pins open.
 export function settledTurnPresentation(summary,entries,policy,manual,choice,focused=false) {
   const keys=new Set(summary.processKeys);
   const groups=entries.filter(entry=>entry.kind==='process'&&entry.scope===summary.scope&&keys.has(entry.key));

@@ -98,7 +98,7 @@ test('transcript keeps one process component identity, visible prose and nested 
   const source=readFileSync(new URL('../src/client/transcript.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/hidden:responseHidden|policy\.stepGrouping==='history'/);
   assert.match(source,/onRead:/);assert.match(source,/processTreeSummary\(entry,built\.map\)/);
-  assert.match(source,/transcriptEntries\(children,\{turns\}\)/);
+  assert.match(source,/transcriptEntries\(children,\{turns,allItems:items\}\)/);
   assert.match(source,/text:copy\.part/);assert.match(source,/copyTurn/);
   const cards=readFileSync(new URL('../src/client/cards.js',import.meta.url),'utf8');
   assert.match(cards,/props\.renderNested\?props\.renderNested/);

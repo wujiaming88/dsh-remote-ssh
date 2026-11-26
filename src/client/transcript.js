@@ -44,7 +44,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
   const policy=transcriptPolicy(preferences,'standard');
   const built=acpBuildChildMap(items);
   const top=items.filter(item=>!built.parents[acpItemId(item)]);
-  const entries=transcriptEntries(top,{turns});
+  const entries=transcriptEntries(top,{turns,allItems:items});
   const latestUser=entries.findLast(entry=>entry.item?.type==='user')?.item;
   const turnSummaries=settledTurnSummaries(entries,turns,rootSessionId);
   const copyableResponses=completedResponseCopyKeys(items,turns);
@@ -88,8 +88,8 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
   // Child conversations reuse the same filtering, message roles and copy rules.
   // The parent already supplies a disclosure; do not add another process shell.
   function renderNested(children,ancestors) {
-    return h('div',{className:'rssh-flow-children'},transcriptEntries(children,{turns}).map(entry=>
-      entry.kind==='process'?h('div',{key:entry.key,className:'rssh-process-rows'},entry.items.map(item=>render(item,{},ancestors))):render(entry.item,entry,ancestors)));
+    return h('div',{className:'rssh-flow-children'},transcriptEntries(children,{turns,allItems:items}).map(entry=>
+      entry.kind==='process'?h('div',{key:entry.key,className:'rssh-process-rows'},entry.items.map(item=>render(item,entry.responses.get(item.key),ancestors))):render(entry.item,entry,ancestors)));
   }
   function render(item,entry={},ancestors=[]) {
     const id=acpItemId(item),fallback=built.fallbacks[id];
@@ -153,6 +153,8 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         onBlurCapture:event=>{if(!event.currentTarget.contains(event.relatedTarget)&&focusedProcess.current?.key===entry.key)focusedProcess.current=null;}},
       h(Disclosure,{className:'rssh-process-disclosure',title:t('flow.process'),summary,
         icon:h(FlowIcon,{kind:'process'}),...presentation,
+        // A settled turn uses its summary as the sole disclosure control.
+        hideTrigger:!!turnData,open:turnData?turnPresentations.get(entry.scope).open:presentation.open,
         onOpenChange:open=>setManual(previous=>({...previous,[entry.key]:{open}})),
         onRead:()=>setManual(previous=>{
           const saved=previous[entry.key],readingFlat=!!(saved?.readingFlat||presentation.flat);
@@ -160,7 +162,7 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         }),
         scrollRunning:!!(running&&entry.scope===activeScope&&!entry.settled),
         running:live,status:entry.settled?t(entry.interrupted?'flow.interrupted':'flow.ended'):live?t('acp.running'):undefined,
-        children:()=>entry.items.map(item=>render(item))})));
+        children:()=>entry.items.map(item=>render(item,entry.responses.get(item.key)))})));
   });
 }
 

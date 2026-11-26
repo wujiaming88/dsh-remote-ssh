@@ -23,7 +23,8 @@ test('owned attributes contain item keys and factual text bounds, never transcri
   assert.deepEqual(JSON.parse(attrs['data-history-members']), ['g:2']);
   assert.deepEqual(JSON.parse(attrs['data-history-ranges']), [range(2, 7)]);
   assert.doesNotMatch(JSON.stringify(attrs), /PRIVATE TRANSCRIPT CONTENT|chunk-/);
-  assert.equal(entry.key, 'g:2');
+  assert.equal(entry.kind, 'process');
+  assert.equal(entry.key, 'process:["root","turn"]');
 });
 
 test('process attributes include all normal member keys but ranges only for factual text', () => {
@@ -66,11 +67,39 @@ test('any exact surviving key wins over an earlier absorbed member and uses top 
   assert.equal(anchoredScrollTop({ currentTop: 600, ...historyAnchorAdjustment(before, after) }), 800);
 });
 
+test('stable process keys use top offsets only for unchanged versioned membership', () => {
+  const events = [event(2), event(8, { type: 'tool_call', toolCallId: 'tool', output: 'old' })];
+  const before = measure(entries(events)[0], -20, 80), unchanged = measure(entries(events)[0], 40, 140);
+  assert.equal(before.key, unchanged.key);
+  assert.deepEqual(historyAnchorAdjustment([before], [unchanged]), { previousOffset: -20, nextOffset: 40 });
+  for (const nextEvents of [
+    [...events, event(9)],
+    [...events, event(9, { type: 'tool_call_update', toolCallId: 'tool', output: 'new' })],
+    events.map(value => ({ ...value, generation: 'other' })),
+    [event(2, { type: 'thought' }), events[1]],
+  ]) {
+    const changed = measure(entries(nextEvents)[0], 40, 900);
+    assert.equal(changed.key, before.key);
+    assert.equal(historyAnchorAdjustment([before], [changed]), null);
+  }
+  for (const versions of [undefined, {}, { 'g:2': 2 }]) {
+    assert.equal(historyAnchorAdjustment([{ ...before, versions }], [{ ...unchanged, versions }]), null);
+  }
+});
+
+test('stable process prepend yields to a separate unchanged event anchor before bottom compensation', () => {
+  const events = [event(2, { type: 'thought' }), event(8, { type: 'tool_call', toolCallId: 'tool' })];
+  const before = measure(entries(events.slice(1))[0], -20, 80), after = measure(entries(events)[0], -20, 280);
+  assert.equal(before.key, after.key);
+  assert.deepEqual(historyAnchorAdjustment([before, anchor('g:10', 80, 150)], [after, anchor('g:10', 280, 900)]),
+    { previousOffset: 80, nextOffset: 280 });
+});
+
 test('process first item shifting preserves a surviving member using group bottoms', () => {
   const events = [event(2, { type: 'thought' }), event(8, { type: 'tool_call', toolCallId: 'tool' }), event(9, { type: 'plan' })];
   const before = measure(entries(events.slice(1))[0], -25, 100);
   const after = measure(entries(events)[0], -25, 270);
-  assert.notEqual(before.key, after.key);
+  assert.equal(before.key, after.key);
   assert.deepEqual(historyAnchorAdjustment([before], [after]), { previousOffset: 100, nextOffset: 270 });
 });
 
@@ -96,7 +125,7 @@ test('same tool key with newer output seq invalidates bottom fallback even befor
   assert.equal(historyAnchorAdjustment([before], [grown]), null);
 });
 
-test('shared suffix requires every factual version and retains exact-key top preference without versions', () => {
+test('shared suffix requires factual versions; only standalone event keys identify a top without versions', () => {
   const before = anchor('process:g:8', -20, 80, ['g:8', 'g:9'], [], { 'g:8': 8, 'g:9': 9 });
   const next = anchor('process:g:2', -20, 280, ['g:2', 'g:8', 'g:9'], [], { 'g:2': 2, 'g:8': 8, 'g:9': 9 });
   assert.deepEqual(historyAnchorAdjustment([before], [next]), { previousOffset: 80, nextOffset: 280 });
@@ -104,7 +133,8 @@ test('shared suffix requires every factual version and retains exact-key top pre
     assert.equal(historyAnchorAdjustment([{ ...before, versions }], [next]), null);
     assert.equal(historyAnchorAdjustment([before], [{ ...next, versions }]), null);
   }
-  assert.deepEqual(historyAnchorAdjustment([{ ...before, versions: undefined }], [{ ...next, key: before.key, top: 40, versions: undefined }]), { previousOffset: -20, nextOffset: 40 });
+  assert.equal(historyAnchorAdjustment([{ ...before, versions: undefined }], [{ ...next, key: before.key, top: 40, versions: undefined }]), null);
+  assert.deepEqual(historyAnchorAdjustment([anchor('g:8', -20, 80)], [anchor('g:8', 40, 280)]), { previousOffset: -20, nextOffset: 40 });
 });
 
 test('an early matching partial thought cannot anchor a group with a newly appended tool', () => {
@@ -132,7 +162,7 @@ for (const type of ['text', 'thought']) test(`a single partial ${type} anchor su
   const events = [event(2, { type }), event(5, { type }), event(8, { type }), event(11, { type })];
   const before = measure(entries(events.slice(2))[0], -300, 60);
   const after = measure(entries(events)[0], -300, 460);
-  assert.notEqual(before.key, after.key);
+  assert.equal(before.key, after.key);
   assert.equal(before.members.some(member => after.members.includes(member)), false);
   assert.deepEqual(historyAnchorAdjustment([before], [after]), { previousOffset: 60, nextOffset: 460 });
   assert.equal(anchoredScrollTop({ currentTop: 300, ...historyAnchorAdjustment([before], [after]) }), 700);

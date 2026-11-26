@@ -38,7 +38,7 @@ export function processScrollUpdate(metrics,{following,intent=0,previousTop,poin
 
 // Initially lazy, then keep the body mounted even when hidden. Stable item keys and
 // the owning group's stable container preserve child expansion and form state.
-export function ownedDisclosure({title,summary,icon,running=false,failed=false,status,children,defaultOpen=false,open:controlledOpen,onOpenChange,onRead,className='',secondary=false,scrollBody=false,flat=false,scrollRunning=running,nativeTool}) {
+export function ownedDisclosure({title,summary,icon,running=false,failed=false,status,children,defaultOpen=false,open:controlledOpen,onOpenChange,onRead,className='',secondary=false,scrollBody=false,flat=false,hideTrigger=false,scrollRunning=running,nativeTool}) {
   const [localOpen,setOpen]=React.useState(defaultOpen);
   const open=controlledOpen===undefined?localOpen:controlledOpen;
   const [mounted,setMounted]=React.useState(open);
@@ -137,7 +137,7 @@ export function ownedDisclosure({title,summary,icon,running=false,failed=false,s
   }
   return h('section',{className:'rssh-flow '+className,'data-running':running?'':undefined,'data-failed':failed?'':undefined,'data-open':open?'':undefined,'data-summary':summary?'':undefined,'data-secondary':secondary?'':undefined,'data-flat':flat?'':undefined,'data-scroll-body':bounded?'':undefined,
     onKeyDown:event=>{if(open&&event.key==='Tab')read(event);}},
-    nativeTool?h(NativeToolRow,{...nativeTool,title,summary,icon,running,failed,status,open,id,trigger,toggle,hidden:flat}):h('button',{ref:trigger,hidden:flat,type:'button',className:'rssh-flow-toggle','aria-expanded':open,'aria-controls':id,onClick:toggle},
+    nativeTool?h(NativeToolRow,{...nativeTool,title,summary,icon,running,failed,status,open,id,trigger,toggle,hidden:flat||hideTrigger}):h('button',{ref:trigger,hidden:flat||hideTrigger,type:'button',className:'rssh-flow-toggle','aria-expanded':open,'aria-controls':id,onClick:toggle},
       h(DisclosureLeading,{icon:icon||h(FlowIcon)}),h('span',{className:'rssh-flow-title',title},title),
       summary?h(React.Fragment,null,h('span',{className:'rssh-flow-separator','aria-hidden':true}),h('span',{className:'rssh-flow-summary',title:summary},summary)):null,
       status?h('span',{className:failed?'rssh-flow-failure':'rssh-flow-status','data-active':running?'':undefined},status):running?h(ui.StateDot,{state:'ongoing',className:'rssh-flow-active-mark'}):null),

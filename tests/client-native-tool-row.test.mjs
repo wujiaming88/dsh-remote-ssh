@@ -89,7 +89,7 @@ test('native CSS parses without warnings and bounded process owns the scrollport
   assert.match(css,/\.rssh-process-disclosure\[data-scroll-body\] :is\([^}]+\) \{ max-height: none; overflow-y: visible;/);
 });
 test('owned disclosure retains lazy-mounted state and reading anchors around native header',()=>{
-  assert.match(disclosure,/nativeTool\?h\(NativeToolRow,\{\.\.\.nativeTool,title,summary,icon,running,failed,status,open,id,trigger,toggle,hidden:flat\}\)/);
+  assert.match(disclosure,/nativeTool\?h\(NativeToolRow,\{\.\.\.nativeTool,title,summary,icon,running,failed,status,open,id,trigger,toggle,hidden:flat\|\|hideTrigger\}\)/);
   assert.match(disclosure,/requestReadingIntent\(event\.currentTarget\)/);
   assert.match(disclosure,/open\|\|mounted\?\(typeof children==='function'\?children\(\):children\):null/);
   assert.match(disclosure,/boundedProcessScroll\(body/);

@@ -15,7 +15,7 @@ test('settled turn view has factual duration, no false arrow, and accessible who
   assert.match(view,/failedCount\?` · \$\{t\('flow.hadFailures'\)\} \$\{failedCount\}`/);
   assert.doesNotMatch(view,/Date\.now|setInterval|aria-live|useSessions|useChat/);
 });
-test('each turn summary controls all its process containers without moving or hiding prose',()=>{
+test('each turn summary controls its one process while final reply stays outside',()=>{
   assert.match(adapter,/summary.ownerKey!==entry.key/);
   assert.match(adapter,/controls:summary.processKeys.map\(processRegionId\).join\(' '\)/);
   assert.match(adapter,/const processRegionId=key=>`\$\{turnRegionPrefix\}-\$\{encodeURIComponent\(key\)\}`/);
@@ -28,6 +28,19 @@ test('each turn summary controls all its process containers without moving or hi
   assert.match(render,/key:'process-part',id:processRegionId\(entry.key\),className:'rssh-turn-process-part',hidden:turnHidden/);
   assert.match(render,/h\(Disclosure,\{className:'rssh-process-disclosure'/);
   assert.doesNotMatch(render,/!turnHidden\s*&&|turnHidden\?null/);
+});
+test('grouped assistant prose keeps metadata and a settled turn has only one disclosure control',()=>{
+  const disclosure=read('disclosure.js');
+  parse(disclosure,{sourceType:'module',ecmaVersion:'latest'});
+  assert.match(adapter,/transcriptEntries\(top,\{turns,allItems:items\}\)/);
+  assert.match(adapter,/transcriptEntries\(children,\{turns,allItems:items\}\)/);
+  assert.match(adapter,/render\(item,entry.responses.get\(item.key\),ancestors\)/);
+  assert.match(adapter,/children:\(\)=>entry.items.map\(item=>render\(item,entry.responses.get\(item.key\)\)\)/);
+  assert.match(adapter,/hideTrigger:!!turnData,open:turnData\?turnPresentations.get\(entry.scope\).open:presentation.open/);
+  assert.match(disclosure,/hideTrigger=false/);
+  assert.match(disclosure,/hidden:flat\|\|hideTrigger/);
+  assert.match(disclosure,/open\|\|mounted\?/);
+  assert.doesNotMatch(adapter,/turnData\?h\(.*Disclosure|turnData\?null/);
 });
 test('completion preserves focused readers and explicit collapse focuses its visible trigger',()=>{
   assert.match(adapter,/focused\?\.scope===scope/);

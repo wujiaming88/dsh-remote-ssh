@@ -1,4 +1,5 @@
-import {transcriptScope,processGroupSummary} from './transcript-model.js';
+import {transcriptScope,processGroupSummary,completedResponseCopyKeys} from './transcript-model.js';
+export {completedResponseCopyKeys};
 import {toolFlowModel} from './tool-model.js';
 import {acpNativeState,acpItemId} from './presentation.js';
 
@@ -14,6 +15,7 @@ export function actionLabel(item,t,active=true) {
   if(item?.type==='subagent')return String(value.title||value.description||t('acp.subagent'));
   if(item?.type==='plan')return active&&value.entries?.find(entry=>entry.status==='in_progress')?.content||t('acp.plan');
   if(item?.type==='terminal_event')return String(value.command||t('acp.terminalEvent'));
+  if(item?.type==='assistant')return t(active?'flow.replying':'flow.agent');
   return t(item?.type==='thought'?(active?'flow.thinking':'acp.thought'):(active?'flow.working':'flow.process'));
 }
 // Aggregate supplied event/tool categories, never infer intent from shell strings.
@@ -66,21 +68,6 @@ export function conversationActivity(state) {
   if(active.length)return {kind:'activity',item:active.at(-1),count:active.length,scope};
   const latest=items.at(-1);
   return {kind:latest?.type==='assistant'?'replying':latest?.type==='thought'&&latest.streaming!==false?'thinking':'working',scope,item:latest};
-}
-// Select once across the full transcript, not separately inside each process
-// disclosure. A turn gets one copy action only after an authoritative completion;
-// being the current tail, losing the connection, or starting another turn is not
-// evidence that an in-progress assistant message is the final answer.
-export function completedResponseCopyKeys(items=[],turns={}) {
-  const finalByScope=new Map();
-  for(const item of items){
-    if(item?.type!=='assistant'||!item.key||!String(item.text||'').trim())continue;
-    const scope=transcriptScope(item),turn=turns[scope],seq=item.lastSeq??item.seq;
-    if(turn?.status!=='completed'||!Number.isSafeInteger(turn.endSeq)||!Number.isSafeInteger(seq)||seq<1||seq>=turn.endSeq)continue;
-    const previous=finalByScope.get(scope);
-    if(!previous||seq>(previous.lastSeq??previous.seq))finalByScope.set(scope,item);
-  }
-  return new Set([...finalByScope.values()].map(item=>item.key));
 }
 export function responseCopyParts(item,entry={}) {
   const part=String(item?.text||'');
