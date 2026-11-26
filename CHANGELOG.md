@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.19 — restore sessions with default effective permissions
+
+- Fix `Invalid backend type or permission` when reopening a Session whose actual ACP permission is `default`. Accept that existing runtime state in backend metadata and preserve it through permission normalization instead of silently substituting `acceptEdits` or the previously requested `bypass`.
+- Keep explicit new-Session choices and bypass confirmation unchanged. `default` still waits for human permission responses; it does not assert that the adapter is read-only. An adapter without an advertised `default` mode still rejects that mode rather than substituting another one. Existing resume intent/mode restoration is unchanged.
+- Regenerate the durable worker so Host and newly started remote workers use the same normalization. No binding/history migration, deletion or permission rewrite is required.
+- Add 13 regressions covering Claude/Codex, live/cold, legacy/durable metadata, exact mode selection, unsupported-mode refusal and non-automatic approval. All 915 tests pass. Browser reopening acceptance remains separate from automated verification.
+
 ## 3.0.0-rc.18 — durable execution, native message delivery and turn summaries
 
 - Fix slash-command/file picker overlap by using content-sized rows rather than fixed-height small buttons; preserve full tooltips, two-line descriptions, keyboard navigation and visible focus. Prevent late history snapshots from rolling back a newer command roster after reconnect, with warm/cold reopen regressions.
