@@ -48,6 +48,12 @@ Host facade、网络连接和远端执行进程分别位于：
 
 HTTP `res.write(false)` 表示数据已经被接收，但写缓冲需要排空，不是断线。订阅按顺序等待 `drain`，不重复写已接收的帧；每个订阅的队列加 Node 写缓冲总预算为 64 MiB，持续 10 秒无法排空才释放该 HTTP 连接，保留远端执行和持久游标。权限撤销、Host dispose 和浏览器 detach 仍清理订阅及计时器。
 
+## Host 防休眠边界
+
+Host 的 session activity 只要存在 **running** 或 **waiting** 的远端 turn，就启动一个本机防休眠子进程；全部结束后保留 3 秒宽限再释放，避免连续 turn 频繁切换。macOS 使用 `caffeinate -i -m -s`（不创建 display assertion，不强制点亮屏幕）；Linux 使用 `systemd-inhibit --what=idle:sleep --mode=block`。锁屏、显示器睡眠不会释放该断言；Host 退出会立即终止子进程。
+
+这不是远端保活：**合盖睡眠、拔掉电源后进入的强制睡眠、系统崩溃或用户手动睡眠**仍可能停止本机 Host 和 SSH link。远端 durable owner 不会因此取消任务，唤醒后按现有 locator 重连续接。防休眠只在真实 turn 活动期间持有，不因打开页面、空闲会话或已关闭历史而长期占用。
+
 SSH 控制 snapshot 不递增 journal cursor；前端另用状态 revision 防止较早发起的历史分页或同游标操作返回覆盖较新的连接/权限状态。订阅诊断只保留有界 reason、协议 code 和当前连续重试次数，不存储消息、凭据或远端错误正文。
 
 ### 安全与资源

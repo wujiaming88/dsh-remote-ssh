@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.31 — prevent Host sleep while remote work is active
+
+- Add a Host-owned sleep assertion while any remote session activity is `running` or `waiting`. macOS uses `caffeinate -i -m -s` (no display assertion, no forced screen wake); Linux uses `systemd-inhibit --what=idle:sleep --mode=block`. It is released three seconds after the last turn settles, so back-to-back turns do not flap the assertion.
+- Bind the inhibitor to the Host PID: macOS uses `caffeinate -w`, and the Linux helper exits when the Host disappears. A crashed or force-quit Host therefore cannot leave an orphan sleep blocker. Host disposal terminates the child immediately.
+- Locking the screen or letting the display sleep no longer stops an active Host on power. Lid-close sleep, forced sleep, power loss or system crash can still stop the local Host; the remote durable owner is not cancelled and can be reattached later.
+- Add unit coverage for platform commands, one shared child across turns, stop grace/interruption, unsupported platforms, Host-PID binding, and running/waiting activity transitions. All 1059 automated tests pass with 87 client modules built.
+
 ## 3.0.0-rc.30 — smooth, incremental history paging
 
 - Fix the real history-paging bottleneck: the Host previously scanned and `JSON.parse`d the entire journal from byte zero for every older page. A 134.5 MB journal measured ~443 ms per page; the new backward reader and in-memory line-offset cache measure ~1.5 ms for the first tail page and ~0.8–1.5 ms for subsequent pages. The cache is not persisted and falls back safely on restart/shrink.
