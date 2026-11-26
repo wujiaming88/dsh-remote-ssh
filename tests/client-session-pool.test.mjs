@@ -54,21 +54,51 @@ test('StrictMode release/reacquire cancels idle disposal and retains one subscri
   assert.equal([...h.timers.values()].filter(v=>v.ms===600000).length,0);
   assert.equal(h.streams.length,1);assert.equal(h.pool.entries.get('a').leases,1);
 });
-test('LRU keeps two warm clients, evicts only detached readers and preserves unsent attachments',async t=>{
+test('LRU keeps two live subscriptions, suspends detached readers and preserves their drafts and attachments',async t=>{
   const h=harness(t),a=await h.acquire('a');
   a.client.composer.setDraft('unsent');a.client.composer.setAttachments([{id:'file',name:'notes.txt',text:'kept'}]);a.release();
   const b=await h.acquire('b');b.release();const c=await h.acquire('c');
-  assert.equal(h.pool.entries.size,2);assert.equal(a.client.disposed,true);assert.equal(h.attached('a').signal.aborted,true);
+  assert.equal(h.pool.entries.size,2);assert.equal(a.client.disposed,false);assert.equal(a.client.suspended,true);assert.equal(h.attached('a').signal.aborted,true);
   assert.ok(!h.calls.some(c=>['acpCancel','acpClose'].includes(c.method)));
-  c.release();const restored=await h.acquire('a');assert.notEqual(restored.client,a.client);
+  c.release();const restored=await h.acquire('a');assert.equal(restored.client,a.client);
   assert.equal(restored.client.composer.getSnapshot().draft,'unsent');assert.equal(restored.client.composer.getSnapshot().attachments[0].text,'kept');
 });
-test('idle expiry and plugin disposal release timers and browser requests, never remote work',async t=>{
-  const h=harness(t),a=await h.acquire('a');a.release();await h.fire(600000);
-  assert.equal(h.pool.peek(backend('a')),null);assert.equal(a.client.disposed,true);
+test('idle expiry closes only the browser subscription and return resumes the retained transcript',async t=>{
+  const h=harness(t),a=await h.acquire('a');h.attached('a').emit(ev(1,{type:'text',text:'retained'}));a.release();await h.fire(600000);
+  assert.equal(h.pool.peek(backend('a')),a.client);assert.equal(a.client.disposed,false);assert.equal(a.client.suspended,true);assert.equal(h.attached('a').signal.aborted,true);
+  const back=await h.acquire('a');assert.equal(back.client,a.client);assert.equal(back.client.state.items[0].text,'retained');
+  assert.equal(h.calls.filter(c=>c.method==='acpStart'&&c.args.dshSessionId==='a').length,1);
+  assert.equal(h.calls.filter(c=>c.method==='acpEvents'&&c.args.id==='acp:a').length,1);
+  assert.equal(h.streams.filter(s=>s.method==='acpAttach'&&s.args.id==='acp:a').length,2);
   const b=await h.acquire('b');h.pool.dispose();await tick();
   assert.equal(b.client.disposed,true);assert.equal(h.timers.size,0);
   assert.throws(()=>h.pool.acquire(backend('c')),/disposed/);
+});
+test('suspended retention is bounded and disposing the overflow still closes only browser state',async t=>{
+  const h=harness(t,{maxSuspended:1}),a=await h.acquire('a');a.release();
+  const b=await h.acquire('b');b.release();const c=await h.acquire('c');c.release();
+  assert.equal(a.client.suspended,true);
+  const d=await h.acquire('d');d.release();
+  assert.equal(a.client.disposed,true);assert.equal(b.client.suspended,true);
+  assert.equal(h.pool.suspended.size,1);assert.equal(h.pool.entries.size,2);
+  assert.ok(!h.calls.some(call=>['acpCancel','acpClose'].includes(call.method)));
+});
+test('an immediate return cannot let the aborted subscription clear or retry the new attachment',async t=>{
+  const h=harness(t),a=await h.acquire('a');a.release();
+  const idle=[...h.timers].find(([,timer])=>timer.ms===600000);assert.ok(idle);
+  h.timers.delete(idle[0]);idle[1].fn();
+  const back=await h.acquire('a');await tick();
+  assert.equal(back.client,a.client);assert.equal(back.client.state.connected,true);
+  assert.equal(h.streams.filter(row=>row.method==='acpAttach'&&!row.signal.aborted).length,1);
+  assert.equal([...h.timers.values()].some(timer=>timer.ms===1000),false);
+});
+test('a binding change while suspended disposes stale transcript and uncertain composer state',async t=>{
+  const h=harness(t),a=await h.acquire('a');h.attached('a').emit(ev(1,{type:'text',text:'private old binding'}));
+  a.client.composer.setDraft('do not transfer');a.release();
+  const b=await h.acquire('b');b.release();const c=await h.acquire('c');c.release();assert.equal(a.client.suspended,true);
+  const replacement=await h.acquire({...backend('a'),binding:{id:'replacement'}});
+  assert.notEqual(replacement.client,a.client);assert.equal(a.client.disposed,true);
+  assert.equal(replacement.client.state.items.length,0);assert.equal(replacement.client.composer.getSnapshot().draft,'');
 });
 test('mutable mode/model and null-to-created binding preserve identity; changed bindings do not',async t=>{
   const h=harness(t),a=await h.acquire('a');a.release();
@@ -139,12 +169,12 @@ test('EOF retries from the newest cursor without repeating start/resume or idlin
   assert.equal(a.client.state.subscriptionDiagnostic,null);
   assert.equal(h.calls.filter(c=>c.method==='acpStart'||c.method==='acpResume').length,1);
 });
-for(const evicted of [false,true])test(`Host disconnect and reopen restores long command rosters without duplicates (${evicted?'cold client':'warm client'})`,async t=>{
+for(const mode of ['warm','suspended','cold'])test(`Host disconnect and reopen restores long command rosters without duplicates (${mode} client)`,async t=>{
   const initial=Array.from({length:48},(_,i)=>({name:`skill-${i}`,description:'中文说明 / mixed English '.repeat(30)}));
   let roster=initial;
   const cursor={generation:'g',seq:10};
   const restored=()=>({...snapshot('a'),transportState:'connected',cursor,commands:roster});
-  const h=harness(t,{api:(method,args)=>{
+  const h=harness(t,{maxSuspended:mode==='cold'?0:12,api:(method,args)=>{
     if(method==='acpResume'&&args.id==='acp:a')return {ok:true,session:restored()};
     if(method==='acpEvents'&&args.id==='acp:a')return {ok:true,session:restored(),events:[ev(10,{type:'text',text:'retained history'})],cursor,oldestSeq:10,hasEarlier:true};
   }});
@@ -154,10 +184,10 @@ for(const evicted of [false,true])test(`Host disconnect and reopen restores long
   assert.equal(a.client.state.binding.transportState,'disconnected');
   original.reject(new Error('Host network disconnected'));await tick();
   assert.equal(a.client.state.connected,false);a.release();
-  if(evicted){await h.fire(600000);assert.equal(a.client.disposed,true);}
+  if(mode!=='warm'){await h.fire(600000);assert.equal(a.client.disposed,mode==='cold');assert.equal(a.client.suspended,mode==='suspended');}
   roster=[{name:'skills',description:'List available skills'},...initial];
   const back=await h.acquire({...backend('a'),binding:{id:'acp:a'}});
-  assert.equal(back.client===a.client,!evicted);
+  assert.equal(back.client===a.client,mode!=='cold');
   assert.equal(back.client.state.connected,true);
   assert.equal(back.client.state.binding.transportState,'connected');
   assert.equal(back.client.composer.getSnapshot().draft,'/');
@@ -310,7 +340,7 @@ test('evicted pending requests cannot cross a changed ACP binding or canonical w
 });
 test('a replacement binding discovered only by startup also clears the old uncertain request',async t=>{
   let replacement=false;
-  const h=harness(t,{api:method=>replacement&&method==='acpStart'?{ok:true,session:{...snapshot('a'),id:'replacement'}}:undefined});
+  const h=harness(t,{maxSuspended:0,api:method=>replacement&&method==='acpStart'?{ok:true,session:{...snapshot('a'),id:'replacement'}}:undefined});
   const a=await h.acquire('a');a.client.composer.setDraft('pending');const first=a.client.composer.begin('prompt');a.client.composer.finish(first.request,first.attempt,new Error('unknown'));
   a.release();const b=await h.acquire('b');b.release();const c=await h.acquire('c');c.release();replacement=true;
   const next=await h.acquire('a');assert.equal(next.client.composer.pending,null);assert.equal(next.client.composer.getSnapshot().draft,'');

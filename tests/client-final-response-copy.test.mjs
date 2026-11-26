@@ -80,6 +80,7 @@ test('assistant renderer omits intermediate action containers and copies only fi
   const h=(type,props,...children)=>({type,props:{...props,...(children.length?{children}:{})}});
   const state=events.reduce(reduceEvent,initialState()),copyableResponses=completedResponseCopyKeys(state.items,state.turns);
   const dependencies={h,turns:state.turns,running:false,activeScope:null,copyableResponses,copyLabels:{},labels:{markdown:{}},fallback:null,id:'id',t:key=>key,
+    ancestors:[],rootSessionId:undefined,attachmentContext:null,OutputImage:'OutputImage',markdownImageAlt:()=> '',
     transcriptScope,responseCopyParts,NativeAssistantMessage:'Assistant',NativeMessageActions:'Actions',NativeMessageCopy:'Copy',ui:{MarkdownText:'Markdown'}};
   const render=new Function('item','entry',...Object.keys(dependencies),assistant);
   const draw=item=>render(item,{},...Object.values(dependencies));

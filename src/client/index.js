@@ -34,6 +34,7 @@ import nativeToolRowCss from './native-tool-row.css';
 import nativeComposerCss from './native-composer-view.css';
 import queueCss from './native-queue-view.css';
 import nativeAttachmentCss from './native-attachment-view.css';
+import outputImageCss from './output-image.css';
 
 function RemoteConversation(props) {
   const t = useT();
@@ -75,7 +76,7 @@ export function apply(ctx) {
   installSessionStatus(ctx,sessionStatuses);
   ctx.effect(()=>{sessionStatuses.start();return ()=>sessionStatuses.dispose();});
   ctx.effect(() => {
-    const style = document.createElement('style'); style.textContent = nativeControlsCss + "\n" + nativeOverlaysCss + "\n" + nativeTextCss + "\n" + uiCss + "\n" + toolCss + "\n" + css + "\n" + nativeMessageCss + "\n" + turnSummaryCss + "\n" + nativeToolRowCss + "\n" + nativeComposerCss + "\n" + queueCss + "\n" + nativeAttachmentCss + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss; document.head.appendChild(style);
+    const style = document.createElement('style'); style.textContent = nativeControlsCss + "\n" + nativeOverlaysCss + "\n" + nativeTextCss + "\n" + uiCss + "\n" + toolCss + "\n" + css + "\n" + nativeMessageCss + "\n" + turnSummaryCss + "\n" + nativeToolRowCss + "\n" + nativeComposerCss + "\n" + queueCss + "\n" + nativeAttachmentCss + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss + "\n" + outputImageCss; document.head.appendChild(style);
     return () => style.remove();
   });
 

@@ -287,7 +287,7 @@ test('different sessions keep identical filenames, drafts, receipts and ACKs iso
 });
 
 test('pool eviction retains an otherwise empty composer while local file intake is pending', async t => {
-  const pool = new SessionClientPool({maxClients: 1, storage: null, setTimeout: () => 0, clearTimeout: () => {}});
+  const pool = new SessionClientPool({maxClients: 1, maxSuspended: 0, storage: null, setTimeout: () => 0, clearTimeout: () => {}});
   t.after(() => pool.dispose());
   const first = pool.acquire(backend('session-a')), composer = first.client.composer;
   const reading = deferred(), file = new File(['text'], 'delayed.txt', {type: 'text/plain'});
@@ -310,7 +310,7 @@ test('pool eviction retains an otherwise empty composer while local file intake 
 test('pool view release and eviction retain the draft, request identity and receipt for a new SessionClient', async t => {
   const timers = new Map(), uploads = [], prompts = [];
   let timerId = 0, acknowledge = false;
-  const pool = new SessionClientPool({maxClients: 1, storage: null,
+  const pool = new SessionClientPool({maxClients: 1, maxSuspended: 0, storage: null,
     setTimeout: fn => {timers.set(++timerId, fn); return timerId;}, clearTimeout: id => timers.delete(id),
     createClient: (source, dependencies) => {
       const client = new SessionClient(source, {...dependencies, api: async () => ({ok: true}),

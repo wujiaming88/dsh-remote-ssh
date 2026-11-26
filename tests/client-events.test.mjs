@@ -29,6 +29,28 @@ test('queued user messages update in place on actual turn start', () => {
   assert.equal(state.items.length,1);assert.equal(state.items[0].delivery,'accepted');
   state=reduceEvent(state,event(3,{type:'user_message',requestId:'r',text:'work',delivery:'accepted'}));assert.equal(state.items.length,1);
 });
+test('an accepted queued message follows the previous turn completion, not precedes it', () => {
+  let state=initialState();
+  state=reduceEvent(state,event(1,{type:'turn_start',requestId:'one',turnId:'t1'}));
+  state=reduceEvent(state,event(2,{type:'user_message',requestId:'one',text:'first',delivery:'accepted'}));
+  state=reduceEvent(state,event(3,{type:'text',text:'done one',turnId:'t1'}));
+  // User queues a second message while turn one is still running.
+  state=reduceEvent(state,event(4,{type:'user_message',requestId:'two',text:'second',delivery:'queued',turnId:'t2'}));
+  state=reduceEvent(state,event(5,{type:'stop',stopReason:'end_turn',turnId:'t1',busy:true,pendingTurns:1}));
+  // Turn two begins; the queued bubble must move after turn one's completion.
+  state=reduceEvent(state,event(6,{type:'turn_start',requestId:'two',turnId:'t2'}));
+  assert.deepEqual(state.items.map(item=>item.text),['first','done one','second']);
+  assert.equal(state.items.at(-1).delivery,'accepted');
+});
+test('turn start never reorders or reclassifies a steered message', () => {
+  let state=initialState();
+  state=reduceEvent(state,event(1,{type:'text',text:'working',turnId:'t1'}));
+  state=reduceEvent(state,event(2,{type:'user_message',requestId:'steer',text:'steered',delivery:'steered',turnId:'t1'}));
+  const before=state.items;
+  state=reduceEvent(state,event(3,{type:'turn_start',requestId:'steer',turnId:'t1'}));
+  assert.deepEqual(state.items,before);
+  assert.equal(state.items.at(-1).delivery,'steered');
+});
 test('a child state or a completed queued turn cannot idle the root incorrectly', () => {
   let state={...initialState(),running:true};
   state=reduceEvent(state,event(1,{type:'state',state:'idle',sessionId:'child',rootSessionId:'root'}));assert.equal(state.running,true);

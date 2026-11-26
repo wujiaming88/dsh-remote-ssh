@@ -36,6 +36,7 @@ export class SessionClient {
     this.onAuthorized = dependencies.onAuthorized || (()=>{});
     this.onBinding = dependencies.onBinding || (()=>{});
     this.retryBlocked = false;
+    this.suspended = false;
     this.composer = dependencies.composer || new ComposerSession(backend.sessionId,dependencies.storage);
     this.onAccessDenied = dependencies.onAccessDenied || (error=>this.invalidate(error));
     // Window timers reject a SessionClient receiver; only bind native defaults.
@@ -90,7 +91,7 @@ export class SessionClient {
   };
   controller() {
     const controller = new AbortController();
-    if (this.disposed) controller.abort();
+    if (this.disposed || this.suspended) controller.abort();
     this.controllers.add(controller);
     return controller;
   }
@@ -99,7 +100,7 @@ export class SessionClient {
     const controller = this.controller();
     try {
       const result = await this.api(method, payload, controller.signal);
-      if (this.disposed||controller.signal.aborted||epoch!==this.epoch) throw Object.assign(new Error('Conversation detached'), { code: 'cancelled' });
+      if (this.disposed||this.suspended||controller.signal.aborted||epoch!==this.epoch) throw Object.assign(new Error('Conversation detached'), { code: 'cancelled' });
       if (!result.ok) {
         const error=responseError(result);
         if(ACCESS_DENIED.has(error.code))this.onAccessDenied(error);
@@ -111,6 +112,7 @@ export class SessionClient {
   ensureConnected() {return this.retryBlocked?Promise.resolve():this.connect();}
   connect() {
     if(this.disposed)return Promise.resolve();
+    this.suspended=false;
     if (this.connecting) return this.connecting;
     if(this.ready&&!this.state.failure&&this.state.binding?.status!=='error'&&!['error','disconnected','detached'].includes(this.state.binding?.transportState)){this.attach();return Promise.resolve();}
     this.retryBlocked=false;
@@ -126,17 +128,17 @@ export class SessionClient {
       const result = id
         ? await this.request('acpResume', { id, dshSessionId: this.backend.sessionId })
         : await this.request('acpStart', { dshSessionId: this.backend.sessionId });
-      if(this.disposed||epoch!==this.epoch)return;
+      if(this.disposed||this.suspended||epoch!==this.epoch)return;
       if (!result.session?.id) throw new Error('Invalid ACP session response');
       this.onBinding(result.session);
       this.state = applySnapshot(this.state, result.session);
       await this.history();
-      if(this.disposed||this.retryBlocked||epoch!==this.epoch)return;
+      if(this.disposed||this.suspended||this.retryBlocked||epoch!==this.epoch)return;
       this.onAuthorized();
       if(this.state.binding?.status==='closed'){this.markClosed(this.state.binding);return;}
       this.ready=true;this.attach();
     } catch (error) {
-      if (!this.disposed&&epoch===this.epoch) this.publish({ loading: false, error: error.message, failure: error.result || { code: error.code } });
+      if (!this.disposed&&!this.suspended&&epoch===this.epoch) this.publish({ loading: false, error: error.message, failure: error.result || { code: error.code } });
     }
   }
   async history(beforeSeq,{beforeApply,canApply}={}) {
@@ -146,7 +148,7 @@ export class SessionClient {
     const startingCursor = this.state.cursor;
     const result = await this.request('acpEvents', { id, limit: 250,
       ...(beforeSeq == null ? { tail: true } : { beforeSeq }) });
-    if(this.disposed||epoch!==this.epoch||revision!==this.replayRevision||canApply?.()===false)return;
+    if(this.disposed||this.suspended||epoch!==this.epoch||revision!==this.replayRevision||canApply?.()===false)return;
     const current = this.state;
     const advanced = current.cursor.generation !== startingCursor.generation || current.cursor.seq > startingCursor.seq;
     if (advanced && result.cursor?.generation !== current.cursor.generation) return;
@@ -172,7 +174,7 @@ export class SessionClient {
     for (const event of result.events) if ((event.type === 'user_message' || event.type === 'request_ack') && event.requestId) this.acknowledge(event.requestId);
   }
   attach() {
-    if (this.disposed || this.retryBlocked || this.attaching || !this.state.binding?.id) return;
+    if (this.disposed || this.suspended || this.retryBlocked || this.attaching || !this.state.binding?.id) return;
     this.cancelTimer(this.retryTimer);this.retryTimer=null;
     this.attaching = true;
     const controller = this.controller();
@@ -191,13 +193,13 @@ export class SessionClient {
     };
     watch();
     Promise.resolve().then(()=>this.stream('acpAttach', { id, cursor: this.state.cursor }, controller.signal, event => {
-      if (this.disposed||controller.signal.aborted||this.retryBlocked) return;
+      if (this.disposed||this.suspended||controller.signal.aborted||this.retryBlocked) return;
       this.retryCount = 0;watch();
       if(event.type!=='heartbeat')this.receive(event);
       if (!controller.signal.aborted&&!this.retryBlocked&&(!this.state.connected||this.state.transportError||this.state.subscriptionDiagnostic))
         this.publish({ connected: true, everConnected:true, transportError:'',subscriptionDiagnostic:null });
     })).catch(error => {
-      if(controller.signal.aborted||this.disposed)return;
+      if(controller.signal.aborted||this.disposed||this.suspended)return;
       if(ACCESS_DENIED.has(error.code)){this.onAccessDenied(error);return;}
       if(TERMINAL_ATTACH.has(error.code)){
         this.retryBlocked=true;this.ready=false;
@@ -206,10 +208,10 @@ export class SessionClient {
       outcome='error';
       this.publish({ connected: false, transportError: error.message,subscriptionDiagnostic:diagnostic(outcome,subscriptionFailureCode(error)) });
     }).finally(() => {
-      this.cancelTimer(this.heartbeatTimer);this.heartbeatTimer=null;
+      const ownsAttach=this.attachController===controller;
+      if(ownsAttach){this.cancelTimer(this.heartbeatTimer);this.heartbeatTimer=null;this.attaching=false;this.attachController=null;}
       this.controllers.delete(controller);
-      this.attaching = false;this.attachController=null;
-      if (this.disposed||this.retryBlocked||this.connecting&&!this.ready) return;
+      if (!ownsAttach||this.disposed||this.suspended||this.retryBlocked||this.connecting&&!this.ready) return;
       this.publish({ connected: false,...(!outcome&&!controller.signal.aborted?{subscriptionDiagnostic:diagnostic('eof')}:{}) });
       const delay=Math.min(1000 * 2 ** this.retryCount,10000);
       this.retryCount=Math.min(this.retryCount+1,Number.MAX_SAFE_INTEGER);
@@ -219,7 +221,7 @@ export class SessionClient {
   async action(method, payload = {}) {
     const epoch=this.epoch,snapshotRevision=this.snapshotRevision,startingCursor=this.state.cursor,id=this.state.binding?.id;
     const result = await this.request(method, { id, dshSessionId: this.backend.sessionId, ...payload });
-    if(this.disposed||epoch!==this.epoch)throw Object.assign(new Error('Conversation detached'),{code:'cancelled'});
+    if(this.disposed||this.suspended||epoch!==this.epoch)throw Object.assign(new Error('Conversation detached'),{code:'cancelled'});
     if (result.session) {
       const current=this.state,cursor=result.session.cursor;
       const changed=snapshotRevision!==this.snapshotRevision||current.cursor.generation!==startingCursor.generation||current.cursor.seq>startingCursor.seq;
@@ -237,7 +239,7 @@ export class SessionClient {
   async prepareUploads(request,attempt) {
     if(!this.state.binding)throw new Error('Agent is not connected');
     const epoch=this.epoch,controller=this.controller();
-    const active=()=>!this.disposed&&!this.retryBlocked&&!controller.signal.aborted&&epoch===this.epoch&&
+    const active=()=>!this.disposed&&!this.suspended&&!this.retryBlocked&&!controller.signal.aborted&&epoch===this.epoch&&
       this.composer.pending?.requestId===request.requestId&&this.composer.attempt===attempt;
     const check=()=>{if(!active())throw Object.assign(new Error('File upload interrupted; the draft was not sent'),{code:'cancelled'});};
     try {
@@ -282,7 +284,7 @@ export class SessionClient {
       let submission=request;
       if(request.attachments.some(file=>file.type==='file_upload')) {
         const attachments=await this.prepareUploads(request,attempt);
-        if(this.disposed||this.retryBlocked||this.composer.pending?.requestId!==request.requestId||this.composer.attempt!==attempt)
+        if(this.disposed||this.suspended||this.retryBlocked||this.composer.pending?.requestId!==request.requestId||this.composer.attempt!==attempt)
           throw Object.assign(new Error('Conversation detached'),{code:'cancelled'});
         submission={...request,attachments};
       }
@@ -310,24 +312,42 @@ export class SessionClient {
     const controller = this.controller();
     try {
       await this.stream('acpPrompt', { ...payload, cursor: this.state.cursor }, controller.signal, event=>{
-        if(!controller.signal.aborted&&epoch===this.epoch)this.receive(event);
+        if(!this.suspended&&!controller.signal.aborted&&epoch===this.epoch)this.receive(event);
       });
     } catch(error) {
-      if(!this.disposed&&!controller.signal.aborted&&epoch===this.epoch&&ACCESS_DENIED.has(error.code))this.onAccessDenied(error);
+      if(!this.disposed&&!this.suspended&&!controller.signal.aborted&&epoch===this.epoch&&ACCESS_DENIED.has(error.code))this.onAccessDenied(error);
       throw error;
     } finally {
       this.controllers.delete(controller);
       // Stream termination is not a task state transition.
-      if (!this.disposed&&!this.retryBlocked&&epoch===this.epoch) await this.action('acpState').catch(error => {
-        if(!this.disposed&&!this.retryBlocked&&epoch===this.epoch)this.publish({ transportError: error.message });
+      if (!this.disposed&&!this.suspended&&!this.retryBlocked&&epoch===this.epoch) await this.action('acpState').catch(error => {
+        if(!this.disposed&&!this.suspended&&!this.retryBlocked&&epoch===this.epoch)this.publish({ transportError: error.message });
       });
     }
   }
   async prepare(confirmed = false) {
     return this.request('acpPrepareRuntime', { sessionId: this.backend.sessionId, confirm: confirmed });
   }
+  // Close the browser subscription and stop the retry loop while retaining the
+  // projected transcript and binding so a later remount can re-attach instantly
+  // instead of re-running resume/history. Never cancels or closes remote work.
+  suspend() {
+    if (this.disposed || this.suspended) return;
+    this.suspended = true;
+    this.cancelTimer(this.retryTimer);this.retryTimer=null;
+    this.cancelTimer(this.heartbeatTimer);this.heartbeatTimer=null;
+    for (const controller of this.controllers) controller.abort();
+    this.controllers.clear();
+    this.attaching = false;this.attachController=null;
+    this.connecting = null;
+    this.listeners.clear();
+    this.acknowledgements.clear();
+    if (this.state.connected) this.publish({ connected: false });
+  }
+  resume() { this.suspended = false; }
   dispose() {
     this.disposed = true;
+    this.suspended = false;
     this.cancelTimer(this.retryTimer);this.cancelTimer(this.heartbeatTimer);
     for (const controller of this.controllers) controller.abort();
     this.controllers.clear();

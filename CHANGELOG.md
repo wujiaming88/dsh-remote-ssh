@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.23 — inline output images and instant session return
+
+- Render assistant Markdown images inside the transcript instead of treating them as navigation links. Remote filesystem references use a new session-bound, read-only `output-image` route; the image must appear verbatim in the recorded source text. Revalidate Host binding and owner authorization around the bounded SSH read, permit only raster PNG/JPEG/GIF/WebP content, and keep failures visible without opening an Electron blank window.
+- Add inline image thumbnails with loading/error/retry feedback and an in-app modal preview with zoom controls and localized labels. Preserve existing sent-attachment URL restrictions and do not browse authorization links or execute authentication.
+- Suspend idle/off-LRU browser subscriptions while retaining a bounded set of transcript projections, cursors, bindings and composer state. Returning to a healthy Session now reattaches from its cursor without repeating `acpStart`/`acpResume` or history loading; real SSH/runtime failures still follow the explicit recovery path. Identity changes dispose stale projections and uncertain composer state, and active HTTP subscriptions remain bounded.
+- Move an accepted queued user message after the preceding turn's completion, while leaving steered messages and request/turn identity scoping unchanged.
+- Add regression coverage for long-idle return, LRU suspension, immediate reattach races, binding replacement, queue ordering, Markdown rendering, scoped image proof, authorization revocation, path/symlink/type/size limits and post-I/O binding changes. All 1038 automated tests pass with 86 client modules built. Browser visual and interaction acceptance remains separate from source tests and installation.
+
 ## 3.0.0-rc.22 — stable message subscriptions and accurate recovery state
 
 - Fix HTTP backpressure being treated as disconnection: an accepted `write(false)` now waits for drain, preserves ordered delivery, and never resends that accepted frame. Bound pending delivery to 64 MiB with an independent 10-second drain deadline; keep slow-consumer cleanup, authorization and admitted-prompt lifetime separate from delivery.

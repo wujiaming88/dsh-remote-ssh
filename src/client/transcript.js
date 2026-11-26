@@ -12,6 +12,8 @@ import {historyAnchorAttributes} from './history-anchor.js';
 import {SentAttachments} from './sent-attachments.js';
 import {NativeUserMessage,NativeAssistantMessage,NativeMessageActions,NativeMessageCopy} from './native-message-view.js';
 import {runningTailPresentation,formatTurnElapsed,subscribeRunningClock} from './running-tail-model.js';
+import {OutputImage} from './output-image.js';
+import {markdownImageAlt} from './output-image-model.js';
 import {activeRootScope,actionLabel,conversationActivity,completedResponseCopyKeys,responseCopyParts,processTreeSummary,connectionLabelKey} from './stream-view-model.js';
 
 export const messages={
@@ -108,9 +110,14 @@ export function Transcript({items,running,turns={},preferences,t,labels,openFile
         const turn=entry.turn||turns[transcriptScope(item)];
         const streaming=running&&transcriptScope(item)===activeScope&&entry.responseTail===true&&(!turn||turn.status==='running');
         const copy=responseCopyParts(item,entry);
+        const imageRequest=!ancestors.length&&item.sessionId===rootSessionId&&attachmentContext?{
+          id:attachmentContext.id,dshSessionId:attachmentContext.dshSessionId,
+          turnId:item.turnId,generation:item.generation,fromSeq:item.seq,throughSeq:item.lastSeq||item.seq,
+          sourceSessionId:item.sessionId}:null;
         return h(NativeAssistantMessage,{key:item.key||id,label:t('flow.agent'),streaming,
           source:fallback?h(AcpSourceFallback,{item,fallback,t}):null,
-          body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown}),
+          body:h(ui.MarkdownText,{text:item.text,labels:labels.markdown,renderImage:(token,index)=>h(OutputImage,{
+            key:`${index}:${token.href}`,href:token.href,alt:markdownImageAlt(token),title:token.title,request:imageRequest,t})}),
           actions:copyableResponses.has(item.key)?h(NativeMessageActions,{clock:'end'},
             h(NativeMessageCopy,{text:copy.part,labels:{...copyLabels,copy:t('flow.copyPart')}})):null,
           interrupted:entry.responseTail&&(turn?.status==='cancelled'||turn?.status==='interrupted')?t(turn.status==='cancelled'?'flow.stopped':'flow.interrupted'):null});

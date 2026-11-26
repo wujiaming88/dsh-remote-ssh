@@ -24,14 +24,14 @@ function windowTimerContract(t) {
   }};
 }
 
-test('default pool timers preserve the Window receiver on first acquire, remount, eviction and disposal',t=>{
+test('default pool timers preserve the Window receiver on first acquire, remount, suspension and disposal',t=>{
   const clock=windowTimerContract(t),pool=new SessionClientPool({storage:null});
   try {
     const first=pool.acquire(backend);first.release();
     assert.ok([...clock.timers.values()].some(timer=>timer.ms===600000));
     const again=pool.acquire(backend);assert.equal(again.client,first.client);assert.equal(clock.timers.size,0);
-    again.release();clock.fire(600000);assert.equal(pool.peek(backend),null);assert.equal(first.client.disposed,true);
-    pool.acquire(backend);pool.dispose();assert.equal(clock.timers.size,0);
+    again.release();clock.fire(600000);assert.equal(pool.peek(backend),first.client);assert.equal(first.client.suspended,true);assert.equal(first.client.disposed,false);
+    const restored=pool.acquire(backend);assert.equal(restored.client,first.client);pool.dispose();assert.equal(first.client.disposed,true);assert.equal(clock.timers.size,0);
     assert.ok(clock.calls.includes('setTimeout'));assert.ok(clock.calls.includes('clearTimeout'));
   } finally {clock.relax();pool.dispose();}
 });

@@ -23,17 +23,21 @@ function compatible(client,backend) {
   return !differs(client.backend.canonicalRemotePath,backend.canonicalRemotePath)&&!differs(client.state.binding?.remotePath,backend.binding?.remotePath);
 }
 
-// At most two warm subscriptions (HTTP/1.1 also needs room for prompt and metadata).
-// Eviction closes browser requests only; the Host continues the remote task.
+// At most `maxClients` warm subscriptions (HTTP/1.1 also needs room for prompt
+// and metadata). Idle clients are suspended — their browser subscription closes
+// but their projected transcript/binding is retained — so returning to a Session
+// re-attaches from the cursor instead of re-running resume/history. Only the
+// `maxSuspended` most recent suspended clients are kept; the Host always
+// continues the remote task regardless of browser eviction.
 // Bind Window timer defaults before storing them as pool instance methods.
 export class SessionClientPool {
-  constructor({maxClients=2,idleMs=10*60*1000,createClient=(backend,deps)=>new SessionClient(backend,deps),
+  constructor({maxClients=2,idleMs=10*60*1000,maxSuspended=12,createClient=(backend,deps)=>new SessionClient(backend,deps),
     storage,setTimeout:later=globalThis.setTimeout.bind(globalThis),clearTimeout:cancel=globalThis.clearTimeout.bind(globalThis)}={}) {
-    this.maxClients=maxClients;this.idleMs=idleMs;this.createClient=createClient;this.storage=storage;
-    this.later=later;this.cancel=cancel;this.entries=new Map();this.drafts=new Map();this.identities=new Map();this.clock=0;this.disposed=false;this.denied=null;
+    this.maxClients=maxClients;this.idleMs=idleMs;this.maxSuspended=maxSuspended;this.createClient=createClient;this.storage=storage;
+    this.later=later;this.cancel=cancel;this.entries=new Map();this.suspended=new Map();this.drafts=new Map();this.identities=new Map();this.clock=0;this.disposed=false;this.denied=null;
   }
   peek(backend) {
-    const entry=this.entries.get(backend.sessionId);
+    const entry=this.entries.get(backend.sessionId)||this.suspended.get(backend.sessionId);
     return entry&&compatible(entry.client,backend)?entry.client:null;
   }
   acquire(backend) {
@@ -44,6 +48,20 @@ export class SessionClientPool {
       if(entry.leases)throw Object.assign(new Error('This Session identity changed while another view is using it. Reopen the conversation.'),{code:'binding_mismatch'});
       entry.client.composer.clear();this.drafts.delete(entry.key);
       this.evict(backend.sessionId,entry);entry=null;
+    }
+    if(!entry){
+      // Restore a suspended client before creating a fresh one; its transcript
+      // and binding are still valid, so only the HTTP subscription must resume.
+      const suspended=this.suspended.get(backend.sessionId);
+      if(suspended&&!compatible(suspended.client,backend)){
+        suspended.client.composer.clear();this.drafts.delete(suspended.key);
+        this.disposeEntry(backend.sessionId,suspended);
+      }else if(suspended){
+        this.suspended.delete(backend.sessionId);
+        suspended.client.resume();
+        entry=suspended;entry.leases=0;entry.used=0;entry.timer=null;
+        this.entries.set(backend.sessionId,entry);
+      }
     }
     if(!entry){
       let previous=this.identities.get(backend.sessionId);
@@ -70,35 +88,54 @@ export class SessionClientPool {
     return {client:entry.client,release:()=>{
       if(released)return;released=true;entry.leases--;
       if(this.entries.get(backend.sessionId)!==entry||entry.leases)return;
-      entry.timer=this.later(()=>this.evict(backend.sessionId,entry),this.idleMs);
+      entry.timer=this.later(()=>this.suspend(backend.sessionId,entry),this.idleMs);
       this.trim();
     }};
   }
   trim() {
     while(this.entries.size>this.maxClients){
       const oldest=[...this.entries].filter(([,entry])=>!entry.leases).sort((a,b)=>a[1].used-b[1].used)[0];
-      if(!oldest)break; // Never evict a mounted reader; trim again when its lease ends.
-      this.evict(...oldest);
+      if(!oldest)break; // Never suspend a mounted reader; trim again when its lease ends.
+      this.suspend(...oldest);
+    }
+  }
+  // Close the subscription but keep the client (and transcript/binding) resumable.
+  suspend(id,entry) {
+    if(this.entries.get(id)!==entry)return;
+    this.cancel(entry.timer);entry.timer=null;
+    entry.client.suspend();
+    this.entries.delete(id);
+    this.suspended.set(id,entry);
+    while(this.suspended.size>this.maxSuspended){
+      const oldest=[...this.suspended].filter(([,value])=>!value.leases).sort((a,b)=>a[1].used-b[1].used)[0];
+      if(!oldest)break;
+      this.suspended.delete(oldest[0]);this.disposeEntry(oldest[0],oldest[1]);
     }
   }
   evict(id,entry) {
     if(this.entries.get(id)!==entry)return;
+    this.disposeEntry(id,entry);
+  }
+  disposeEntry(id,entry) {
     this.identities.set(id,retainKnown(this.identities.get(id),bindingIdentity(entry.client.backend,entry.key,entry.client.state.binding||entry.client.backend.binding)));
-    this.entries.delete(id);this.cancel(entry.timer);entry.client.dispose();
+    this.entries.delete(id);this.suspended.delete(id);this.cancel(entry.timer);entry.client.dispose();
     // Keep only user-owned draft/uncertain-send data, never another transcript cache.
     if(!entry.client.composer.hasContent){this.drafts.delete(entry.key);this.identities.delete(id);}
   }
   markClosed(sessionId,snapshot) {
     this.entries.get(sessionId)?.client.markClosed(snapshot);
+    this.suspended.get(sessionId)?.client.markClosed(snapshot);
   }
   invalidate(error) {
     this.denied=error;
     for(const entry of this.entries.values())entry.client.invalidate(error);
+    for(const entry of this.suspended.values())entry.client.invalidate(error);
     for(const draft of this.drafts.values())draft.clear();
   }
   dispose() {
     if(this.disposed)return;this.disposed=true;
-    for(const [id,entry] of this.entries)this.evict(id,entry);
+    for(const id of [...this.entries.keys()])this.disposeEntry(id,this.entries.get(id));
+    for(const id of [...this.suspended.keys()])this.disposeEntry(id,this.suspended.get(id));
     this.drafts.clear();this.identities.clear();
   }
 }

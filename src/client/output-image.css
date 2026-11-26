@@ -1,0 +1,180 @@
+/* Inline Markdown image thumbnail + zoomable modal. Owned rssh-output-image-*
+   classes; tokens reuse the copied native palette, no hashed selectors/colors. */
+
+.rssh-output-image-unavailable {
+  display: inline-block;
+  max-width: 240px;
+  padding: 6px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.rssh-output-image-thumb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-interactive-bg-hover);
+  cursor: zoom-in;
+}
+
+.rssh-output-image-thumb-img {
+  display: block;
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+
+.rssh-output-image-thumb-error {
+  cursor: pointer;
+  border-color: var(--dsw-alias-state-error-primary);
+  padding: 8px 10px;
+  flex-direction: column;
+}
+
+.rssh-output-image-thumb:focus-visible,
+.rssh-output-image-stage-error:focus-visible,
+.rssh-output-image-zoom:focus-visible,
+.rssh-output-image-reset:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.rssh-output-image-error-label,
+.rssh-output-image-retry-label {
+  display: block;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.rssh-output-image-error-label {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rssh-output-image-retry-label {
+  color: var(--dsw-alias-state-business-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rssh-output-image-modal {
+  width: min(960px, calc(100vw - 48px));
+}
+
+.rssh-output-image-modal .rssh-native-modal-title {
+  overflow-wrap: anywhere;
+}
+
+.rssh-output-image-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 24px;
+}
+
+.rssh-output-image-zoom,
+.rssh-output-image-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.rssh-output-image-zoom:disabled,
+.rssh-output-image-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .rssh-output-image-zoom:hover:not(:disabled),
+  .rssh-output-image-reset:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.rssh-output-image-zoom-value {
+  min-width: 44px;
+  text-align: center;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.rssh-output-image-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 120px;
+  overflow: auto;
+  border-radius: var(--dsw-radius-lg, 8px);
+  background: var(--dsw-alias-markdown-code-block);
+}
+
+.rssh-output-image-stage-img {
+  display: block;
+  max-width: 100%;
+  max-height: min(720px, 70dvh);
+  object-fit: contain;
+  transform-origin: center center;
+  opacity: 0;
+  transition: transform var(--ds-transition-duration) var(--ds-ease-in-out), opacity var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+.rssh-output-image-stage-img[data-loaded] {
+  opacity: 1;
+}
+
+.rssh-output-image-stage-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 240px;
+  min-height: 120px;
+  padding: 16px;
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.rssh-output-image-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rssh-output-image-stage-img {
+    transition: none;
+  }
+}

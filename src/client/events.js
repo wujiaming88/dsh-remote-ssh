@@ -111,9 +111,19 @@ export function reduceEvent(previous, event) {
       item => ({ ...item, ...event, key: item?.key || key, type: 'user', text: String(event.text || '') })) };
     case 'turn_start': {
       const scope=JSON.stringify([event.sessionId||'',event.turnId||'']);
+      // A queued message is admitted at enqueue time, which lands before the
+      // previous turn's completion. Promote it to the transcript tail so it
+      // appears after that turn's final reply, not interleaved inside it.
+      let accepted = null;
+      const remaining = [];
+      for (const item of items) {
+        if (item.type === 'user' && item.delivery === 'queued' && requestKey(event) && requestKey(item) === requestKey(event)) accepted = { ...item, delivery: 'accepted' };
+        else remaining.push(item);
+      }
+      if (accepted) remaining.push(accepted);
       return { ...state, running: rootEvent ? true : state.running,
         turns: event.turnId ? {...state.turns,[scope]:{...state.turns[scope],status:'running',startSeq:event.seq,startedAt:Number.isFinite(event.ts)?event.ts:null}} : state.turns,
-        items: items.map(item => item.type === 'user' && requestKey(event) && requestKey(item) === requestKey(event) ? { ...item, delivery: 'accepted' } : item) };
+        items: remaining };
     }
     case 'tool_call': case 'tool_call_update':
       return { ...state, items: upsert(items, item => item.type === 'tool' && item.tool.toolCallId === event.toolCallId && item.tool.sessionId === event.sessionId,

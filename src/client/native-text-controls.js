@@ -144,22 +144,25 @@ export function createNativeTextControls(React, {Button, Icon, CopyButton}) {
         outputRows(window.tail, window.head.length + window.hidden))
         : h('div', {className: 'rssh-native-terminal-empty'}, textControlLabel(labels, 'noOutput', 'No output')));
   }
-  function renderInline(tokens) {
+  function renderInline(tokens, renderImage) {
     return tokens.map((token, index) => {
       if (token.type === 'text') return token.text;
       if (token.type === 'code') return h('code', {key: index}, token.text);
+      // Images are never navigation targets, even when no scoped renderer is supplied.
+      if (token.image) return typeof renderImage === 'function' ? renderImage(token, index)
+        : h('span', {key: index, className: 'rssh-markdown-image-unavailable'}, renderInline(token.children, renderImage));
       if (token.type === 'link') return h('a', {key: index, href: token.href, title: token.title,
         target: /^https?:/i.test(token.href) ? '_blank' : undefined,
-        rel: /^https?:/i.test(token.href) ? 'noopener noreferrer' : undefined}, renderInline(token.children));
-      return h(token.type, {key: index}, renderInline(token.children));
+        rel: /^https?:/i.test(token.href) ? 'noopener noreferrer' : undefined}, renderInline(token.children, renderImage));
+      return h(token.type, {key: index}, renderInline(token.children, renderImage));
     });
   }
-  function renderBlocks(blocks, labels) {
+  function renderBlocks(blocks, labels, renderImage) {
     return blocks.map((block, index) => {
-      if (block.type === 'paragraph') return h('p', {key: index}, renderInline(inlineTokens(block.text)));
-      if (block.type === 'heading') return h('h' + block.level, {key: index}, renderInline(inlineTokens(block.text)));
+      if (block.type === 'paragraph') return h('p', {key: index}, renderInline(inlineTokens(block.text), renderImage));
+      if (block.type === 'heading') return h('h' + block.level, {key: index}, renderInline(inlineTokens(block.text), renderImage));
       if (block.type === 'hr') return h('hr', {key: index});
-      if (block.type === 'quote') return h('blockquote', {key: index}, renderBlocks(block.children, labels));
+      if (block.type === 'quote') return h('blockquote', {key: index}, renderBlocks(block.children, labels, renderImage));
       if (block.type === 'code') {
         const codeLabels = labels?.code || {}, toolbar = codeLabels.toolbarLabels || {};
         return h(TextBlock, {key: index, lang: block.language, copyText: block.text,
@@ -168,16 +171,16 @@ export function createNativeTextControls(React, {Button, Icon, CopyButton}) {
       }
       if (block.type === 'list') return h(block.ordered ? 'ol' : 'ul', {key: index, start: block.ordered ? block.start : undefined, 'data-loose': !!block.loose},
         block.items.map((item, n) => h('li', {key: n}, item.checked == null ? null
-          : h('input', {type: 'checkbox', checked: item.checked, disabled: true, 'aria-label': item.children[0]?.text || undefined}), renderBlocks(item.children, labels))));
+          : h('input', {type: 'checkbox', checked: item.checked, disabled: true, 'aria-label': item.children[0]?.text || undefined}), renderBlocks(item.children, labels, renderImage))));
       if (block.type === 'table') return h('div', {key: index, className: 'rssh-native-markdown-table-scroll', tabIndex: 0}, h('table', null,
-        h('thead', null, h('tr', null, block.headers.map((cell, n) => h('th', {key: n, scope: 'col', style: {textAlign: block.align[n] || 'left'}}, renderInline(inlineTokens(cell)))))),
-        h('tbody', null, block.rows.map((row, n) => h('tr', {key: n}, block.headers.map((_, column) => h('td', {key: column, style: {textAlign: block.align[column] || 'left'}}, renderInline(inlineTokens(row[column] || '')))))))));
+        h('thead', null, h('tr', null, block.headers.map((cell, n) => h('th', {key: n, scope: 'col', style: {textAlign: block.align[n] || 'left'}}, renderInline(inlineTokens(cell), renderImage))))),
+        h('tbody', null, block.rows.map((row, n) => h('tr', {key: n}, block.headers.map((_, column) => h('td', {key: column, style: {textAlign: block.align[column] || 'left'}}, renderInline(inlineTokens(row[column] || ''), renderImage))))))));
       return null;
     });
   }
   function MarkdownText(props) {
     const blocks = React.useMemo(() => parseMarkdown(props.text), [props.text]);
-    return h('div', {className: classes('rssh-native-markdown', props.className), style: props.style}, renderBlocks(blocks, props.labels));
+    return h('div', {className: classes('rssh-native-markdown', props.className), style: props.style}, renderBlocks(blocks, props.labels, props.renderImage));
   }
   return {TextBlock, ReadBlock, DiffBlock, TerminalBlock, MarkdownText};
 }
