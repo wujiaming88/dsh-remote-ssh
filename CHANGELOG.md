@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.37 — inject Claude queue at the tool boundary without `later`
+
+- Fix the missing Claude queue pop: older Claude adapters advertise `steering.supported: true` but omit `priorities`. The automatic injection gate required `later`, so queued messages waited until turn end. It now injects at the last foreground tool completion, using `later` when advertised and falling back to `now` at the safe `runningTools === 0` boundary.
+- Keep automatic injection Claude-only, preserve one-steer concurrency protection, and reject/queue normally on unsupported steering.
+- Add a regression for a Claude adapter with steering but no priorities list: one steer at the tool boundary, queue removed, delivery steered in the active turn.
+- Document that the fallback is unit-tested, not re-verified against a real legacy adapter. All 1068 automated tests pass.
+
+## 3.0.0-rc.36 — join in-flight Claude steering instead of rejecting it
 ## 3.0.0-rc.36 — join in-flight Claude steering instead of rejecting it
 
 - Fix the Claude Code race behind the generic “无法立即发送” error: when Claude’s automatic `later` priority injection is already steering a queued message, a manual “立即发送” now **joins the same in-flight steer** and returns its result, instead of failing with `queue_promotion_in_progress`.

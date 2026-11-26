@@ -42,7 +42,7 @@ _session/steering → promptToClaude → SDKUserMessage
 两端都发送 `_meta.steering.idleBehavior: "promptRequired"`，避免 adapter 在空闲时悄悄启动脱离 Host 管理的新 turn。
 
 - Codex steering 与普通 prompt FIFO 独立；可能在后续模型 step 生效，不承诺立刻中断当前长文本输出。
-- 补丁后的 Claude 支持 Host 选择 `now`/`later`。显式“立即发送”使用 `now`；自动队列在最后一个根 tool 完成后使用 `later`，实测 tool 可完整运行、当前 turn 不被抢占，并在同一 turn 内处理排队消息。
+- 补丁后的 Claude 支持 Host 选择 `now`/`later`。显式“立即发送”使用 `now`；自动队列在最后一个根 tool 完成后优先使用 `later`。没有 `priorities` 的旧 Claude adapter 仍声明 `steering.supported`，此时在同一个“runningTools=0”边界回退为 `now`，因此 tool 已完成、不会抢占前台工具，队列仍会在当前 turn 内注入。
 - 两端普通 `session/prompt` 都有原生 FIFO。插件仍在远端 owner 保留待提交队列，逐项进入 adapter 原生 prompt：这样可可靠撤回未提交项，并维持 ACP v1 的单活跃 turn 事件归属。
 
 固定版本源码证据：
@@ -68,7 +68,7 @@ queue、prompt、steer 共用 Host 授权、远端引用校验和 native admissi
 
 - 队列实际由独立远端 owner 持有，不依赖网页或本机 Host 存活；SSH/Host 恢复后重新附着同一 owner。
 - queue/updateQueued/promoteQueued/removeQueued/steer 通过 durable broker 的操作日志、参数摘要、稳定 operation ID 和 query-first 协议恢复。并发同 ID 请求共享完整 receipt 与 authoritative state 同步门。
-- 自动 `later` 注入与显式 `now` 注入共用同一 steering 并发保护；队列 drain 在注入 ACK 期间暂停，避免同一 requestId 又被当成独立 turn 启动。tool 追踪只针对当前根 session、无 parentToolCallId 的前台工具。
+- 自动 tool-boundary 注入（`later` 或回退 `now`）与显式 `now` 注入共用同一 steering 并发保护；手动“立即发送”遇到同一 requestId 的自动注入时会等待并复用同一个 steer，不会重复发送。队列 drain 在注入 ACK 期间暂停，避免同一 requestId 又被当成独立 turn 启动。tool 追踪只针对当前根 session、无 parentToolCallId 的前台工具。
 - `queuedMessages` 快照与 `queue_snapshot` 事件只包含未开始项。容量为 **32 条 / 32 MiB**，每条预览最多 **4096 字符**，有明确截断标志；实际执行内容不截断。浏览器忽略比最新队列状态更旧的 HTTP 快照。
 - 为保持幂等，queue 和 steer 各最多保留 **512** 个请求身份；达到限制明确拒绝，不淘汰后重新执行。
 - 发送 steer 前捕获原 turn；即使 prompt 先完成，也等待已发 steer 的有限时 ACK 再记 stop/启动下一轮，避免把输入挂到下一轮。
@@ -80,4 +80,4 @@ queue、prompt、steer 共用 Host 授权、远端引用校验和 native admissi
 
 覆盖真实 ACP SDK 的内存 transport、生产 durable facade/link 与本地 Unix broker、Host store 重建、权限与 native Session 记录、ACK 晚到/丢失、并发重复请求、队列编辑/删除/立即发送竞态、tool-boundary 自动注入、adapter 补丁序列化及持久化失败屏障；adapter/model 行为仍使用有界测试替身。
 
-本地额外用 Claude Code **2.1.330** 原生交互队列和 `claude-agent-acp 0.109.1` 做了真实运行验证：原生 CLI 在 tool 完成后、同一 turn 内处理排队消息；补丁 adapter 的 `later` 不抢占 tool，并在同一 turn 内依次处理。本机默认模型是 `kimi-k3.1`，因此这验证的是 Claude Code 队列调度与 adapter 协议，不是 Anthropic 特定模型输出。本版本仍未连接实际 SSH 主机、未在真实浏览器做视觉验收；安装与 Git 发布不等于完成这些验收。
+本地额外用 Claude Code **2.1.330** 原生交互队列和 `claude-agent-acp 0.109.1` 做了真实运行验证：原生 CLI 在 tool 完成后、同一 turn 内处理排队消息；补丁 adapter 的 `later` 不抢占 tool，并在同一 turn 内依次处理。无 `priorities` 的回退路径由单元测试覆盖，尚未对真实旧 adapter 重跑。本机默认模型是 `kimi-k3.1`，因此这验证的是 Claude Code 队列调度与 adapter 协议，不是 Anthropic 特定模型输出。本版本仍未连接实际 SSH 主机、未在真实浏览器做视觉验收；安装与 Git 发布不等于完成这些验收。

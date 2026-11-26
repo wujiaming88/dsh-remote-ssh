@@ -144,6 +144,23 @@ test('promote injects into the active turn and removes only that queued identity
   assert.equal(prompts[1].value, 'keep'); assert.equal(session.busy, true);
 });
 
+test('Claude without a later priority still injects queued text at the tool boundary', async t => {
+  const { session, prompts, steerCalls } = fixture(t);
+  session.capabilities.steering = { supported: true };
+  await session.queue('active', { requestId: 'active' });
+  await session.queue('after tool', { requestId: 'after' });
+  session._emit({ type: 'tool_call', toolCallId: 'tool-1', status: 'in_progress' });
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(steerCalls.length, 0);
+  session._emit({ type: 'tool_call_update', toolCallId: 'tool-1', status: 'completed' });
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(steerCalls.length, 1); assert.equal(steerCalls[0].options.priority, 'now');
+  assert.deepEqual(steerCalls[0].value, [{ type: 'text', text: 'after tool' }]);
+  assert.deepEqual(session.state().queuedMessages, []);
+  assert.equal(session.events.filter(e => e.type === 'user_message' && e.requestId === 'after').at(-1).delivery, 'steered');
+  prompts[0].resolve({ stopReason: 'end_turn' }); await tick();
+  assert.equal(prompts.length, 1);
+});
 test('manual send-now joins Claude automatic later injection instead of failing as a duplicate', async t => {
   const { session, prompts, steerCalls } = fixture(t);
   session.capabilities.steering = { supported: true, priorities: ['now', 'later'] };

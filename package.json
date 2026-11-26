@@ -1,6 +1,6 @@
 {
   "name": "@wujiaming88/dsh-remote-ssh",
-  "version": "3.0.0-rc.36",
+  "version": "3.0.0-rc.37",
   "description": "Remote-only Claude Code and Codex sessions over SSH, with Host-owned workspaces, durable lifecycle, human input and session-scoped files.",
   "keywords": [
     "dsh",
