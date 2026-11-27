@@ -22,7 +22,12 @@ const controller = await connectAcp({launchSpec: buildRemoteAcpLaunchSpec({...op
   onUpdate: update => events.push(update), onStderr: text => process.env.PI_E2E_DEBUG && console.error(text.slice(-500))});
 try {
   const ready = await controller.ready;
-  console.log('SESSION', ready.sessionId);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const responseCommands = ready.sessionResponse?._meta?.pi?.commands;
+  const commandUpdate = events.find(update => update.sessionUpdate === 'available_commands_update');
+  const commands = responseCommands || commandUpdate?.availableCommands;
+  if (!Array.isArray(commands) || !commands.length) throw new Error('Pi command list did not arrive');
+  console.log('SESSION', ready.sessionId, 'COMMANDS', commands.length);
   const result = await controller.prompt('Reply with exactly PI_PLUGIN_E2E_OK and no other text.');
   const text = events.filter(update => update.sessionUpdate === 'agent_message_chunk').map(update => update.content?.text || '').join('');
   if (result.stopReason !== 'end_turn' || !text.includes('PI_PLUGIN_E2E_OK')) throw new Error(`Unexpected Pi response: ${result.stopReason} ${text}`);

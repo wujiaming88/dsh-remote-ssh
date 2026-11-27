@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.42 — Pi slash-command menu
+
+- Fix the empty Pi `/` menu: commands were announced before the ACP client had learned the session id. The adapter now includes `_meta.pi.commands` in session/new, load and resume responses, and still sends `available_commands_update` after the response; the Host accepts command updates that arrive during startup.
+- Pi adapter `@wujiaming88/pi-agent-acp@0.1.4` (tag `v0.1.4`), unit line coverage **98.55%**.
+- Real plugin SSH transport E2E on both devboxes now sees command lists: devbox2 **32**, devbox_sg **35**, with token usage **5748 / 6455** and `PLUGIN_E2E_OK`.
+- Plugin tests: **1070/1070**.
+
+## 3.0.0-rc.41 — Pi per-turn token usage
 ## 3.0.0-rc.41 — Pi per-turn token usage
 
 - Pi's session stats are cumulative, so the adapter now snapshots them at prompt start and writes the turn delta into ACP `PromptResponse._meta.quota.token_count` (`input_tokens`, `output_tokens`, `cached_read_input_tokens`, `cache_creation_input_tokens`, `total_tokens`).
