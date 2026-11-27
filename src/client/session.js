@@ -122,7 +122,9 @@ export class SessionClient {
   async startConnection() {
     const epoch=this.epoch;this.ready=false;
     this.cancelTimer(this.retryTimer);this.attachController?.abort();
-    this.publish({ loading: true, connected:false, error: '', failure: null });
+    // Keep a previously loaded transcript visible while the durable owner is
+    // re-attached; only a genuinely cold Session needs the full-page loader.
+    this.publish({ loading: !this.state.binding?.id, connected:false, error: '', failure: null });
     try {
       const id = this.state.binding?.id || this.backend.binding?.id;
       const result = id

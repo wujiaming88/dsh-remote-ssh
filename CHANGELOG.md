@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.53 — faster reconnect and cached transcript
+
+- Reconnect retry delays changed from `1s/2s/5s/10s` to `0.5s/1s/2s/4s`; re-attaching an established owner now has a **25s** handshake budget instead of 75s (cold starts keep 75s).
+- The client keeps the cached transcript visible during `acpResume`; only a genuinely cold Session shows the full-page “正在启动远端 Agent” loader.
+- Measured real SSH-drop reconnect after the change: Claude **4.8s**, Codex **3.2s**, Pi **3.4s** (before: 6.8s, 4.4s, 4.3s). Real Host restart attach is ~3.1–3.6s; SSH/Kerberos handshake alone is ~2.0–2.3s.
+- Remaining costs and plan: SSH ControlMaster/ControlPersist (~2s auth), lower reconnect `ConnectTimeout`, and lazy/command-digest attach for Claude’s large command roster.
+- Plugin tests: **1077/1077**.
+
+## 3.0.0-rc.52 — native history fork is allowed
 ## 3.0.0-rc.52 — native history fork is allowed
 
 - Native **Fork Session** no longer rejects a seeded remote-origin Session with `remote_fork_required`. It now creates a DSH-only child that copies the native transcript; it deliberately carries no remote CLI execution context and gets no remote backend binding.
