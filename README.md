@@ -2,7 +2,7 @@
 
 [English](./README_EN.md)
 
-在 DSH 中通过 SSH 使用远端 Claude Code / Codex / Pi。当前版本为 **3.0.0-rc.48**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
+在 DSH 中通过 SSH 使用远端 Claude Code / Codex / Pi。当前版本为 **3.0.0-rc.49**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
 
 > 源码与离线测试通过不代表已完成真实 GUI 验收；明暗主题、焦点与像素级观感仍需在浏览器中人工确认。
 
@@ -35,7 +35,7 @@
 - 远端 Node.js 22+、npm、bash；文件和 worktree 功能需要 Python 3，worktree 需要 Git。
 - 远端 CLI 的账号、代理、模型网关和额度可用。发现可执行文件不等于已验证模型访问。
 
-运行环境使用固定版本：ACP SDK `2.9.1`、Claude adapter `0.109.1`、Codex adapter `2.9.0`、Pi adapter `pi-agent-acp 0.1.5`（从 GitHub tag 固定安装）。Pi 需要远端 Pi 1.6.1+。远端依赖只在确认安装计划后准备，默认目录 `~/.local/share/dsh-remote-acp/v1`，不使用 sudo、不修改 shell、不安装系统 Node。
+运行环境使用固定版本：ACP SDK `2.9.1`、Claude adapter `0.109.1`、Codex adapter `2.9.0`、Pi adapter `pi-agent-acp 0.2.0`（从 GitHub tag 固定安装）。Pi 需要远端 Pi 1.6.1+。远端依赖只在确认安装计划后准备，默认目录 `~/.local/share/dsh-remote-acp/v1`，不使用 sudo、不修改 shell、不安装系统 Node。
 
 ## 使用流程
 

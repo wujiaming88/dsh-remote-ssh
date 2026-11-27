@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-rc.49 — Pi fork and cross-agent fork validation
+
+- Pi now implements ACP `session/fork` via `pi --fork <session>`, advertises `sessionCapabilities.fork`, and returns a distinct forked session. Pi adapter version **0.2.0**.
+- Real fork E2E passed for all three adapters on the remote host: source prompt succeeded, a distinct child session was created, and the child answered its own prompt:
+  - Claude Code: source `ccc9dee1…` → forked `792000dd…`
+  - Codex: source `01a21b7b-3f2f…` → forked `01a21b7b-6615…`
+  - Pi: source `01a21b7a-c4be…` → forked `01a21b7a-d91f…`
+- Post-fork child prompts returned `FORK_CHILD_OK` for each agent.
+- Adapter unit line coverage **98.6%**. Plugin tests remain **1076/1076**.
+- The Host-level durable fork still needs a successful end-to-end run through the UI; the previous stuck reservation and unclosable dialog are fixed in rc.48.
+
+## 3.0.0-rc.48 — fork cannot wedge the page
 ## 3.0.0-rc.48 — fork cannot wedge the page
 
 - Remote fork reservation/release RPCs now time out after 20s instead of waiting forever on an unresponsive durable worker. A timed-out fork is recorded as `unknown` and is never automatically retried.
