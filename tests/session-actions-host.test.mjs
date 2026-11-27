@@ -318,12 +318,15 @@ if (!installed) {
       const op = f.actions.store.fork('removed-op'); assert.ok(op.childId); assert.equal(f.root.sessions.get(op.childDshSessionId), undefined);
     } finally { await f.close(); }
   });
-  test('native remote fork gate rejects inherited shell while ordinary local seeded sessions remain legal', async () => {
+  test('native seeded fork may copy DSH history without remote execution context', async () => {
     const f = await fixture();
     try {
       const events = f.native.snapshotEvents();
-      assert.throws(() => f.root.sessions.create('forbidden-shell', { meta: { cwd: f.native.header.cwd, isSeeded: true }, seed: buildForkSeed(events, events.length - 1), inheritedEventCount: events.length }), { code: 'remote_fork_required' });
-      assert.equal(f.root.sessions.get('forbidden-shell'), undefined);
+      const native = f.root.sessions.create('native-history-fork', { meta: { cwd: f.native.header.cwd, isSeeded: true }, seed: buildForkSeed(events, events.length - 1), inheritedEventCount: events.length });
+      assert.equal(native.id, 'native-history-fork');
+      assert.equal(native.snapshotEvents().length, events.length + 1);
+      assert.equal(f.actions.approvedFork(native.id), null);
+      assert.equal(await f.bindings.get('native-history-fork'), null);
       const local = f.root.sessions.create('ordinary-local', { meta: { cwd: f.directory, isSeeded: true }, seed: buildForkSeed([events[0]], 0), inheritedEventCount: 1 }); assert.equal(local.id, 'ordinary-local');
     } finally { await f.close(); }
   });

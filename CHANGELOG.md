@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.52 — native history fork is allowed
+
+- Native **Fork Session** no longer rejects a seeded remote-origin Session with `remote_fork_required`. It now creates a DSH-only child that copies the native transcript; it deliberately carries no remote CLI execution context and gets no remote backend binding.
+- Remote **Fork remote conversation** remains the separate path that creates an ACP child and validates the remote fork proof.
+- Plugin tests: **1077/1077**.
+
+## 3.0.0-rc.51 — agent marks before session titles
 ## 3.0.0-rc.51 — agent marks before session titles
 
 - Add 14px monochrome agent marks before remote Session titles in the sidebar: Claude/Anthropic, Codex/OpenAI and Pi.
