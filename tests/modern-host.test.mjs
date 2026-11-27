@@ -76,8 +76,10 @@ async function fixture({ workspaceBackend = 'claude', blank = true } = {}) {
     const refs = configModule.Config(next); for (const key of Object.keys(refs)) config[key] = refs[key];
   } });
   const pluginContext = root.extend({ fiber: Object.assign(Object.create(root.fiber), { entry: { id: 'offline-entry' } }) });
-  const host = await hostModule.createHost(pluginContext, config, { runtimeFactory: () => runtime, sshFactory: () => ({ run: async () => { throw Error('Unexpected SSH'); }, shutdown() {} }) });
-  return { directory, mirror, root, list, raw, config, host, runtime, calls, writes: () => writes, async close() { await host.dispose(); await root.fiber.dispose(); } };
+  const sleepCalls = [];
+  const sleepInhibitorFactory = () => ({ update: value => sleepCalls.push(value), dispose: () => sleepCalls.push('disposed'), get active() { return false; } });
+  const host = await hostModule.createHost(pluginContext, config, { runtimeFactory: () => runtime, sshFactory: () => ({ run: async () => { throw Error('Unexpected SSH'); }, shutdown() {} }), sleepInhibitorFactory });
+  return { directory, mirror, root, list, raw, config, host, runtime, calls, sleepCalls, writes: () => writes, async close() { await host.dispose(); await root.fiber.dispose(); } };
 }
 
 if (!installed) {
@@ -126,7 +128,9 @@ test('Host sleep preference defaults on and persists through the public settings
   const f = await fixture();
   try {
     assert.equal((await f.host.api.getHostPreferences({})).preventHostSleep, true);
+    assert.equal(f.sleepCalls[0], true);
     assert.equal((await f.host.api.saveHostPreferences({ preventHostSleep: false })).preventHostSleep, false);
+    assert.equal(f.sleepCalls.at(-1), false);
     assert.equal(f.raw.preventHostSleep, false);
     assert.equal((await f.host.api.getHostPreferences({})).preventHostSleep, false);
     await assert.rejects(f.host.api.saveHostPreferences({ preventHostSleep: 'no' }), { code: 'invalid_preference' });

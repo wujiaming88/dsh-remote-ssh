@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { sleepInhibitorCommand, createSleepInhibitor, createActivitySleepGuard } from '../lib/sleep-inhibitor.js';
+import { sleepInhibitorCommand, createSleepInhibitor } from '../lib/sleep-inhibitor.js';
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
@@ -13,7 +13,7 @@ test('platform commands keep the Host awake without asserting display activity',
   assert.equal(sleepInhibitorCommand('win32'), null);
 });
 
-test('one inhibitor child is shared across turns and released after the stop grace', async () => {
+test('one inhibitor child is shared while enabled and released immediately when disabled', async () => {
   const spawned = [], warnings = [];
   const spawn = (command, args) => {
     const child = new EventEmitter(); child.killed = 0; child.kill = signal => { child.killed++; child.signal = signal; };
@@ -25,8 +25,6 @@ test('one inhibitor child is shared across turns and released after the stop gra
   assert.deepEqual(spawned[0].args.slice(0, 3), ['-i', '-m', '-s']);
   assert.equal(spawned[0].args[3], '-w'); assert.equal(spawned[0].args[4], String(process.pid));
   inhibitor.update(false);
-  assert.equal(inhibitor.active, true); // still inside the grace window
-  await tick(); await tick();
   assert.equal(inhibitor.active, false); assert.equal(spawned[0].child.killed, 1);
   assert.equal(warnings.length, 0);
   inhibitor.dispose();
@@ -51,26 +49,4 @@ test('unsupported platforms are a no-op and report one bounded warning', () => {
   const inhibitor = createSleepInhibitor({ platform: 'win32', logger: { warn: (...args) => warnings.push(args.join(' ')) } });
   inhibitor.update(true); inhibitor.update(true);
   assert.equal(inhibitor.active, false); assert.equal(warnings.length, 1);
-});
-
-test('activity guard tracks running and waiting sessions and releases when all settle', () => {
-  let listener;
-  const states = [{ sessionId: 'a', status: 'running' }, { sessionId: 'b', status: 'idle' }];
-  const activity = {
-    snapshot: () => states,
-    subscribe: fn => { listener = fn; return () => { listener = null; }; },
-  };
-  const updates = [];
-  const inhibitor = { update: value => updates.push(value), dispose: () => updates.push('disposed') };
-  const guard = createActivitySleepGuard({ activity, inhibitor });
-  assert.deepEqual(guard.activeSessions, ['a']); assert.deepEqual(updates, [true]);
-  listener({ type: 'upsert', session: { sessionId: 'b', status: 'waiting' } });
-  assert.deepEqual(updates, [true, true]); assert.deepEqual(guard.activeSessions, ['a', 'b']);
-  listener({ type: 'upsert', session: { sessionId: 'a', status: 'completed' } });
-  listener({ type: 'remove', sessionId: 'b' });
-  assert.deepEqual(updates, [true, true, true, false]);
-  listener({ type: 'reset' }); assert.equal(updates.at(-1), false);
-  guard.setEnabled(false); assert.equal(updates.at(-1), false);
-  guard.setEnabled(true); assert.equal(updates.at(-1), false);
-  guard.dispose(); assert.equal(updates.at(-1), 'disposed'); assert.equal(listener, null);
 });

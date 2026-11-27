@@ -50,9 +50,9 @@ HTTP `res.write(false)` 表示数据已经被接收，但写缓冲需要排空�
 
 ## Host 防休眠边界
 
-Host 的 session activity 只要存在 **running** 或 **waiting** 的远端 turn，就启动一个本机防休眠子进程；全部结束后保留 3 秒宽限再释放，避免连续 turn 频繁切换。macOS 使用 `caffeinate -i -m -s`（不创建 display assertion，不强制点亮屏幕）；Linux 使用 `systemd-inhibit --what=idle:sleep --mode=block`。锁屏、显示器睡眠不会释放该断言；Host 退出会立即终止子进程。插件设置的「运行时防止系统休眠」提供默认开启的开关，关闭后不创建任何断言；配置持久化在插件 Config 的 `preventHostSleep`。
+插件设置的「运行时防止系统休眠」默认开启。开关开启时，Host 在启动/重载后立即启动本机防休眠子进程，并**持续持有**，不依赖 session activity，也不因没有 turn、页面关闭或空闲会话释放。关闭后立即释放。macOS 使用 `caffeinate -i -m -s`（不创建 display assertion，不强制点亮屏幕）；Linux 使用 `systemd-inhibit --what=idle:sleep --mode=block`。锁屏、显示器睡眠不会释放该断言；Host 退出会立即终止子进程。配置持久化在插件 Config 的 `preventHostSleep`；开启期间可能增加耗电。
 
-这不是远端保活：**合盖睡眠、拔掉电源后进入的强制睡眠、系统崩溃或用户手动睡眠**仍可能停止本机 Host 和 SSH link。远端 durable owner 不会因此取消任务，唤醒后按现有 locator 重连续接。防休眠只在真实 turn 活动期间持有，不因打开页面、空闲会话或已关闭历史而长期占用。
+这不是远端保活：**合盖睡眠、拔掉电源后进入的强制睡眠、系统崩溃或用户手动睡眠**仍可能停止本机 Host 和 SSH link。远端 durable owner 不会因此取消任务，唤醒后按现有 locator 重连续接。防休眠断言在开关开启期间持续占用，属于用户明确选择的耗电行为；关闭开关即释放。
 
 SSH 控制 snapshot 不递增 journal cursor；前端另用状态 revision 防止较早发起的历史分页或同游标操作返回覆盖较新的连接/权限状态。订阅诊断只保留有界 reason、协议 code 和当前连续重试次数，不存储消息、凭据或远端错误正文。
 

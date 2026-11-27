@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.38 — keep the Host awake whenever the switch is on
+
+- Change “运行时防止系统休眠” from turn-gated to unconditional: when the switch is on, the Host starts the sleep assertion immediately and keeps it across idle periods, closed pages, empty queues and sessions with no turns.
+- Turning the switch off releases the assertion immediately (no stop grace); Host disposal still terminates the child, and `caffeinate -w` / the Linux Host-PID loop still prevents orphan blockers after a crash.
+- Keep the switch on by default, as requested. The settings copy and documentation now state that the Host stays awake continuously and that this may increase power use.
+- Update Host tests to assert the assertion is enabled at construction and flipped synchronously through the settings API.
+- All 1067 automated tests pass with 91 client modules built.
+
+## 3.0.0-rc.37 — inject Claude queue at the tool boundary without `later`
 ## 3.0.0-rc.37 — inject Claude queue at the tool boundary without `later`
 
 - Fix the missing Claude queue pop: older Claude adapters advertise `steering.supported: true` but omit `priorities`. The automatic injection gate required `later`, so queued messages waited until turn end. It now injects at the last foreground tool completion, using `later` when advertised and falling back to `now` at the safe `runningTools === 0` boundary.
