@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.48 — fork cannot wedge the page
+
+- Remote fork reservation/release RPCs now time out after 20s instead of waiting forever on an unresponsive durable worker. A timed-out fork is recorded as `unknown` and is never automatically retried.
+- The fork dialog can be closed while the request is in flight; the operation continues/recovery metadata is preserved, and the page is no longer trapped behind a disabled modal.
+- Plugin tests: **1076/1076**. This change is covered by unit/build tests; a real successful remote fork E2E is still required before claiming the fork path is healthy.
+
+## 3.0.0-rc.47 — slash commands survive old-session snapshots
 ## 3.0.0-rc.47 — slash commands survive old-session snapshots
 
 - A resumed/old Session could have its locally replayed command roster overwritten by an empty `commands` array from a snapshot, leaving `/` with no menu. Snapshot hydration now preserves a non-empty roster when the snapshot omits it.

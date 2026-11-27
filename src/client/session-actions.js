@@ -50,9 +50,9 @@ function ActionsDialog(props) {
     ? !dialog.busy && !dialog.metadata.archived && (!unknown||dialog.allowNew) && (dialog.metadata.canFork||dialog.operation?.recoverable)
     : !dialog.busy && title.trim().length>0;
   return h(ui.Modal,{open:true,title:t(terminate?'session.terminateTitle':fork?'session.forkTitle':'session.renameTitle'),closeLabel:t('session.close'),
-    onClose:()=>{if(!dialog.busy)props.dismissAction();},
+    onClose:()=>props.dismissAction(),
     footer:h(React.Fragment,null,
-      h(ui.Button,{variant:'outline',disabled:dialog.busy,onClick:props.dismissAction},t('session.close')),
+      h(ui.Button,{variant:'outline',onClick:props.dismissAction},t('session.close')),
       h(ui.Button,{variant:'primary',disabled:!canSubmit,onClick:()=>props.submitAction(title)},
         t(terminate?(dialog.busy?'session.terminating':'session.terminate'):dialog.busy?(fork?'session.forking':'session.renaming'):fork?(dialog.operation?.recoverable?'session.recoverFork':'session.fork'):'session.save')))},
     h('div',{className:'rssh-session-action-dialog'},
