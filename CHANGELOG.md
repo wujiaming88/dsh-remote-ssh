@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.46 — native-style remote quote chips
+
+- Remote selection quotes now render as composer quote chips (`“ summary`) instead of inserting raw `> ...` text into the editor, matching the native DSH composer shape.
+- Quote text and editable draft are separate state: the chip shows a compact summary, the sent prompt still contains the full Markdown blockquote, and quotes participate in retry identity. Chips can be removed before sending and survive draft persistence within the session.
+- Quote-only sends and quote+draft sends work through prompt/queue/steer without adapter changes.
+- Plugin tests: **1076/1076**.
+
+## 3.0.0-rc.45 — visible remote quote action
 ## 3.0.0-rc.45 — visible remote quote action
 
 - The remote ChatPane does not render DSH's native text-interaction slot, so bridging `insertQuote` alone left no visible quote action. Added a remote selection action: selecting nonblank transcript text shows **引用文本 / Quote text**, which inserts the selection as a Markdown blockquote at the remote composer caret or replaces the selected draft span.

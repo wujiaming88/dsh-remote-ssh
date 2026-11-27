@@ -8,6 +8,14 @@ export function quoteMarkdown(text) {
   return normalized.split('\n').map(line => `> ${line}`).join('\n');
 }
 
+export function makeQuote(text) {
+  const value = String(text ?? '').replace(/\r\n?/g, '\n').trim();
+  if (!value) return null;
+  const summary = value.replace(/\s+/g, ' ').slice(0, 120);
+  const id = globalThis.crypto?.randomUUID?.() || `quote-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return {id, text: value, summary};
+}
+
 export function insertQuoteIntoDraft(draft, text, start, end) {
   const quote = quoteMarkdown(text);
   if (quote === null) return null;

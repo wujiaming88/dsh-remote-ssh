@@ -1,8 +1,8 @@
 // Mirrors the native ordinary-session composer posture: empty + running uses
 // the primary Stop; a draft follows Queue/Steer; unacknowledged Send retains an
 // independent interrupt control.
-export function composerControls({running,draft='',attachments=[],sending=false,readingFiles=false,busy='',status,mode='queue',pendingKind,disabled=false}) {
-  const empty=!draft.trim()&&!attachments.length;
+export function composerControls({running,draft='',quotes=[],attachments=[],sending=false,readingFiles=false,busy='',status,mode='queue',pendingKind,disabled=false}) {
+  const empty=!draft.trim()&&!quotes.length&&!attachments.length;
   const primaryStops=!!running&&!sending&&empty;
   return {
     primaryStops,

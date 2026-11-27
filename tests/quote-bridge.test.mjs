@@ -38,3 +38,11 @@ test('bridge falls back for empty text and cannot break an immutable action face
   assert.doesNotThrow(()=>installQuoteBridge(frozen,()=>true)());
   assert.equal(frozen.insertQuote('x'),true);
 });
+import {makeQuote} from '../src/client/quote-bridge.js';
+test('quote summaries are compact and nonblank text becomes an atomic quote', () => {
+  const quote = makeQuote('  composer 或命令\n  second line  ');
+  assert.equal(quote.text, 'composer 或命令\n  second line');
+  assert.equal(quote.summary, 'composer 或命令 second line');
+  assert.match(quote.id, /\S+/);
+  assert.equal(makeQuote('  \n '), null);
+});

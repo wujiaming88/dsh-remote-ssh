@@ -2,7 +2,7 @@
 
 [English](./README_EN.md)
 
-在 DSH 中通过 SSH 使用远端 Claude Code / Codex / Pi。当前版本为 **3.0.0-rc.45**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
+在 DSH 中通过 SSH 使用远端 Claude Code / Codex / Pi。当前版本为 **3.0.0-rc.46**：只实现当前 DSH 接口和完整远端 ACP，不包含旧版兼容层。
 
 > 源码与离线测试通过不代表已完成真实 GUI 验收；明暗主题、焦点与像素级观感仍需在浏览器中人工确认。
 

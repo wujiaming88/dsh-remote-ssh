@@ -17,7 +17,7 @@ import {NativeComposerView} from './native-composer-view.js';
 import {NativeQueueView} from './native-queue-view.js';
 import {resolveDeliveryMode,composerEnterGesture,deliveryConflicts} from './composer-delivery-model.js';
 import {composerConfiguration} from './native-composer-model.js';
-import {installQuoteBridge,insertQuoteIntoDraft} from './quote-bridge.js';
+import {installQuoteBridge,makeQuote} from './quote-bridge.js';
 
 function useClient(backend,clients) {
   const [client,setClient]=React.useState(()=>clients.peek(backend));
@@ -45,7 +45,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
   const remoteStatus=remoteConnectionPresentation(state);
   const composer=client.composer;
   const composerState=React.useSyncExternalStore(composer.subscribe,composer.getSnapshot,composer.getSnapshot);
-  const {draft,attachments,sending,readingFiles,uploads,pendingKind}=composerState;
+  const {draft,quotes,attachments,sending,readingFiles,uploads,pendingKind}=composerState;
   const inputUnavailable=remoteStatus.offline||remoteStatus.closed||!state.connected;
   const primaryMode=resolveDeliveryMode(busyEnter,state.running);
   const draftRef=React.useRef(draft);draftRef.current=draft;
@@ -56,13 +56,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
   const insertQuote=React.useCallback(text => {
     const snapshot=composer.getSnapshot();
     if(snapshot.sending)return false;
-    const node=editorRef.current;
-    const start=node?.selectionStart ?? draftRef.current.length;
-    const end=node?.selectionEnd ?? start;
-    const inserted=insertQuoteIntoDraft(snapshot.draft,text,start,end);
-    if(!inserted)return false;
-    composer.setDraft(inserted.draft);draftRef.current=inserted.draft;
-    requestAnimationFrame(()=>{const editor=editorRef.current;if(editor){editor.focus({preventScroll:true});editor.setSelectionRange(inserted.caret,inserted.caret);}});
+    const quote=makeQuote(text);
+    if(!quote)return false;
+    composer.addQuote(quote);
+    requestAnimationFrame(()=>editorRef.current?.focus({preventScroll:true}));
     return true;
   }, [composer]);
   React.useLayoutEffect(() => installQuoteBridge(inputActions, insertQuote), [inputActions, insertQuote]);
@@ -133,7 +130,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
   }
   function chooseCommand(command) { input(`/${acpCommandName(command)} `); setCommandOpen(false); }
   async function send(gesture='enter') {
-    if (!client || inputUnavailable || busy || sending || readingFiles || (!draft.trim() && !attachments.length)) return;
+    if (!client || inputUnavailable || busy || sending || readingFiles || (!draft.trim() && !quotes.length && !attachments.length)) return;
     const mode=resolveDeliveryMode(busyEnter,state.running,gesture);
     if(pendingKind&&gesture==='accelerated'&&deliveryConflicts(pendingKind,mode,state.running)) {
       setError(t('acp.deliveryLocked'));return;
@@ -255,6 +252,13 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
           return result;},t}),
       h(NativeComposerView, {
         editorRef,
+        accessory: quotes.length ? h('div',{className:'rssh-native-composer-quotes'},quotes.map(quote=>
+          h('span',{key:quote.id,className:'rssh-native-composer-quote'},
+            h('span',{className:'rssh-native-composer-quoteMark','aria-hidden':true},'“'),
+            h('span',{className:'rssh-native-composer-quoteText',title:quote.text},quote.summary),
+            h('button',{type:'button',className:'rssh-native-composer-quoteRemove',
+              'aria-label':t('acp.removeQuote'),title:t('acp.removeQuote'),
+              onClick:()=>composer.removeQuote(quote.id)},'×')))) : null,
         notice: pendingKind&&!sending?t('acp.pendingSubmissionNotice'):null,
         cardProps: {onDragOver: event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); },
         onDrop: event => {
@@ -299,10 +303,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
             }
             if (gesture!==null) { event.preventDefault(); send(gesture); }
           }},
-        placeholder: t('acp.composerPlaceholder'), showPlaceholder: !draft && !attachments.length,
+        placeholder: t('acp.composerPlaceholder'), showPlaceholder: !draft && !quotes.length && !attachments.length,
         add: h(AttachmentButton,{disabled:sending||readingFiles,onClick:()=>attachmentInput.current?.click()}),
         modes: permission, controls: configs,
-        primary: h(ComposerControls, {running:state.running,draft,attachments,sending,readingFiles,busy,status:state.binding.status,
+        primary: h(ComposerControls, {running:state.running,draft,quotes,attachments,sending,readingFiles,busy,status:state.binding.status,
           mode:primaryMode,pendingKind,disabled:inputUnavailable,
           onStop:()=>action('acpCancel'),onSend:()=>send()}),
         dock: h(React.Fragment,null,h(SessionStatsPill,{state}),h(UsagePill,{state}),h(UsageMeter,{state})),

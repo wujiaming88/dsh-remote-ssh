@@ -513,3 +513,10 @@
 
 .rssh-quote-selection{position:fixed;z-index:80;transform:translateX(-50%);padding:5px 10px;border:1px solid var(--dsw-alias-border-l3, rgba(0,0,0,.12));border-radius:999px;background:var(--dsw-alias-button-floating-fill,#fff);box-shadow:var(--dsw-elevation-panel,0 4px 16px rgba(0,0,0,.12));color:var(--dsw-alias-label-primary,inherit);font:var(--dsw-font-xs-13,13px/1.2 sans-serif);cursor:pointer}
 .rssh-quote-selection:hover{background:var(--dsw-alias-button-floating-hover,#f5f5f5)}
+
+.rssh-native-composer-quotes{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 6px}
+.rssh-native-composer-quote{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px;border-radius:8px;background:var(--dsw-alias-fill-l2,rgba(0,0,0,.05));color:var(--dsw-alias-label-secondary,inherit);font:var(--dsw-font-xs-13,13px/1.35 sans-serif)}
+.rssh-native-composer-quoteMark{color:var(--dsw-alias-label-tertiary,inherit);font-size:16px;line-height:1}
+.rssh-native-composer-quoteText{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rssh-native-composer-quoteRemove{border:0;background:none;color:inherit;font:inherit;line-height:1;cursor:pointer;opacity:.55;padding:0 1px}
+.rssh-native-composer-quoteRemove:hover{opacity:1}
