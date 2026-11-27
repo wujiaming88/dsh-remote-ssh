@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.54 — one fork entry, remote-safe
+
+- The native **Fork Session** action and `⌘F` shortcut now route remote Sessions through the Host ACP `sessionFork` path. Native local Sessions still use DSH's original fork.
+- Removed the duplicate **Fork remote conversation** row-menu entry; the remote terminate action stays.
+- This avoids the native remote fork child entering “backend snapshot missing” state, because the native fork action no longer creates that DSH-only child for remote Sessions.
+- Plugin tests: **1078/1078**.
+
+## 3.0.0-rc.53 — faster reconnect and cached transcript
 ## 3.0.0-rc.53 — faster reconnect and cached transcript
 
 - Reconnect retry delays changed from `1s/2s/5s/10s` to `0.5s/1s/2s/4s`; re-attaching an established owner now has a **25s** handshake budget instead of 75s (cold starts keep 75s).

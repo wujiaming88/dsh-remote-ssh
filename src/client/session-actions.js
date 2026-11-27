@@ -124,22 +124,43 @@ export function installSessionActions(ctx, {watch=stream,onClosed=()=>{}} = {}) 
         {id:'terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')},
       ];
     }}));
-  // Native rename/pin remain native. Its ordinary fork cannot clone remote CLI
-  // context, so contribute an explicit remote fork next to it, without DOM hacks.
-  ctx.effect(()=>ctx.contextMenus.register({id:'remote-session.fork',target:'session',order:290,
+  // The native Session menu keeps its single fork item. For a remote Session,
+  // uiWorkspace.forkSession is routed to the Host remote fork below; this
+  // registration contributes only the remote terminate action, not a duplicate
+  // fork entry.
+  ctx.effect(()=>ctx.contextMenus.register({id:'remote-session.terminate',target:'session',order:290,
     observe:()=>[ctx.sessions.list,ctx.workspaces.list,ctx.locale],
     resolve:async(target,signal)=>{
       const row=ctx.sessions.list.getSnapshot().byId[target.sessionId];
       const projection=ctx.sessions.binding(target.sessionId)?.session.projections.faceOf(REMOTE_SESSION_PROJECTION_KEY).getSnapshot()||row?.projectionValues?.[REMOTE_SESSION_PROJECTION_KEY];
       if(projection?.remote!==true)return[];
       const metadata=await getMetadata(target,signal);if(!metadata.remote)return[];
-      return[{id:'remote-fork',label:t('session.remoteFork'),icon:{key:'workspace.fork'},disabled:metadata.archived===true||!metadata.canFork&&!metadata.forkOperation?.recoverable,
-        run:()=>openDialog('fork',metadata),failureLabel:t('session.forkFailed')},
-        {id:'remote-terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')}];
+      return[{id:'remote-terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')}];
     }}));
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'remote-session.actions',locale:NAMESPACE,
     inject:()=>({hooks:{actionDialog:source},dismissAction:()=>{if(!current?.busy)publish(null);},submitAction:submit,
       allowNewFork:value=>{if(current&&!current.busy)publish({...current,allowNew:value});}})},ActionsDialog));
+  // Keep the native menu/shortcut label, but route remote sessions through the
+  // Host's ACP fork. This avoids a second menu entry while preserving native
+  // local-session behavior.
+  ctx.effect(()=>{
+    const workspace=ctx.uiWorkspace, original=workspace?.forkSession;
+    if(typeof original!=='function')return;
+    const bridge=function(sessionId,onChild,options){
+      const row=ctx.sessions.list.getSnapshot().byId[sessionId];
+      const projection=ctx.sessions.binding(sessionId)?.session.projections.faceOf(REMOTE_SESSION_PROJECTION_KEY).getSnapshot()||row?.projectionValues?.[REMOTE_SESSION_PROJECTION_KEY];
+      if(projection?.remote!==true)return original.call(workspace,sessionId,onChild,options);
+      return api('sessionFork',{sessionId,operationId:crypto.randomUUID()}).then(result=>{
+        if(!result.ok){ctx.contextMenus.notify(formatError(result),false);return;}
+        onChild?.(result.sessionId);
+        if(ctx.uiSession.adapter.current.getSnapshot().key===sessionId)openSession(result.sessionId);
+        else ctx.contextMenus.notify(t('session.forked'),true,{label:t('session.openFork'),run:()=>openSession(result.sessionId),failureLabel:t('session.openFailed')});
+        return result;
+      },failure=>{ctx.contextMenus.notify(String(failure?.message||failure),false);});
+    };
+    workspace.forkSession=bridge;
+    return ()=>{if(workspace.forkSession===bridge)workspace.forkSession=original;};
+  });
   function titleUpdate(event) {
     if(disposed||event.type!=='title_sync'||typeof event.sessionId!=='string')return;
     retries=0;

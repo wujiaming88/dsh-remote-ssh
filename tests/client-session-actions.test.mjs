@@ -10,7 +10,7 @@ const declaration=ast.body.find(node=>node.type==='ExportNamedDeclaration'&&node
 const install=new Function('api','formatError','NAMESPACE','REMOTE_SESSION_PROJECTION_KEY','ActionsDialog',source.slice(declaration.start,declaration.end)+'\nreturn installSessionActions;');
 const deferred=()=>{let resolve;const promise=new Promise(yes=>{resolve=yes});return{promise,resolve}};
 function fixture(t,handle){
- const providers=new Map(),calls=[],opened=[],toasts=[],cleanup=[];let dialogRegistration,current='remote',onUpdate;
+ const providers=new Map(),calls=[],opened=[],toasts=[],cleanup=[],nativeForks=[];let dialogRegistration,current='remote',onUpdate;
  const metadata={ok:true,remote:true,sessionId:'remote',title:'Source',pinned:false,canFork:true,canClose:true,acpId:'remote-acp',busy:false,archived:false,titleSync:null,forkOperation:null};
  const api=async(method,args,signal)=>{calls.push({method,args,signal});const overridden=await handle?.(method,args);if(overridden!==undefined)return overridden;
   if(method==='sessionActions')return{...metadata,sessionId:args.sessionId};
@@ -23,15 +23,21 @@ function fixture(t,handle){
   locale:{bind:()=>key=>key},
   sessions:{list:observable,binding:id=>({session:{projections:{faceOf:()=>({getSnapshot:()=>({remote:id==='remote'})})}}})},
   workspaces:{list:observable},uiSession:{adapter:{current:{getSnapshot:()=>({key:current})}}},
-  uiWorkspace:{openSession:id=>opened.push(id)},
+  uiWorkspace:{openSession:id=>opened.push(id),forkSession:(...args)=>{nativeForks.push(args);return Promise.resolve();}},
   contextMenus:{register:definition=>{providers.set(definition.target,definition);return()=>providers.delete(definition.target);},notify:(...args)=>toasts.push(args)},
   slots:{inject(_name,fn){const result=fn();if(typeof result==='function')cleanup.push(result);},register(options){dialogRegistration=options;return()=>{};}},
  };
  install(api,formatError,'namespace','fact',()=>{throw Error('No renderer is invoked by these tests')})(ctx,{watch:(_method,_args,signal,listener)=>{onUpdate=listener;if(signal.aborted)return Promise.resolve();return new Promise(resolve=>signal.addEventListener('abort',resolve,{once:true}));}});
  const dispose=()=>{for(const action of cleanup.reverse())action();};t.after(dispose);
- return{ctx,providers,calls,opened,toasts,metadata,dispose,update:event=>onUpdate(event),select:id=>{current=id;},props:()=>dialogRegistration.inject(),dialog:()=>dialogRegistration.inject().hooks.actionDialog.getSnapshot()};
+ return{ctx,providers,calls,opened,toasts,nativeForks,metadata,dispose,update:event=>onUpdate(event),select:id=>{current=id;},props:()=>dialogRegistration.inject(),dialog:()=>dialogRegistration.inject().hooks.actionDialog.getSnapshot()};
 }
 async function header(f){return f.providers.get('remote-agent-session').resolve({sessionId:'remote'},new AbortController().signal)}
+test('native fork service is routed to remote fork and delegated for local sessions',async t=>{
+ const f=fixture(t);
+ let analysed=null;await f.ctx.uiWorkspace.forkSession('remote',id=>{analysed=id;});assert.equal(analysed,'child');
+ const call=f.calls.find(value=>value.method==='sessionFork');assert.ok(call);assert.equal(call.args.sessionId,'remote');assert.deepEqual(f.opened,['child']);
+ await f.ctx.uiWorkspace.forkSession('local');assert.equal(f.nativeForks.length,1);assert.equal(f.nativeForks[0][0],'local');
+});
 test('header uses native structured actions and local row menus remain untouched',async t=>{
  const f=fixture(t);const actions=await header(f);assert.deepEqual(actions.map(action=>action.id),['rename','pin','fork','terminate']);
  const count=f.calls.length;assert.deepEqual(await f.providers.get('session').resolve({sessionId:'local'},new AbortController().signal),[]);assert.equal(f.calls.length,count);
