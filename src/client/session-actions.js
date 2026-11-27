@@ -124,19 +124,6 @@ export function installSessionActions(ctx, {watch=stream,onClosed=()=>{}} = {}) 
         {id:'terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')},
       ];
     }}));
-  // The native Session menu keeps its single fork item. For a remote Session,
-  // uiWorkspace.forkSession is routed to the Host remote fork below; this
-  // registration contributes only the remote terminate action, not a duplicate
-  // fork entry.
-  ctx.effect(()=>ctx.contextMenus.register({id:'remote-session.terminate',target:'session',order:290,
-    observe:()=>[ctx.sessions.list,ctx.workspaces.list,ctx.locale],
-    resolve:async(target,signal)=>{
-      const row=ctx.sessions.list.getSnapshot().byId[target.sessionId];
-      const projection=ctx.sessions.binding(target.sessionId)?.session.projections.faceOf(REMOTE_SESSION_PROJECTION_KEY).getSnapshot()||row?.projectionValues?.[REMOTE_SESSION_PROJECTION_KEY];
-      if(projection?.remote!==true)return[];
-      const metadata=await getMetadata(target,signal);if(!metadata.remote)return[];
-      return[{id:'remote-terminate',label:t('session.terminate'),disabled:metadata.canClose!==true,run:()=>openDialog('terminate',metadata),failureLabel:t('session.terminateFailed')}];
-    }}));
   ctx.slots.inject('shell.overlay',()=>ctx.slots.register({name:'shell.overlay',id:'remote-session.actions',locale:NAMESPACE,
     inject:()=>({hooks:{actionDialog:source},dismissAction:()=>{if(!current?.busy)publish(null);},submitAction:submit,
       allowNewFork:value=>{if(current&&!current.busy)publish({...current,allowNew:value});}})},ActionsDialog));

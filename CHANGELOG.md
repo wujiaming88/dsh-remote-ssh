@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.55 — remove remote terminate row action
+
+- Removed the extra **结束远端会话** row-menu registration. The sidebar Session row now keeps only the native **分叉会话** (routed to the remote fork) plus native actions.
+- The header-level remote menu remains unchanged.
+- Plugin tests: **1078/1078**.
+
+## 3.0.0-rc.54 — one fork entry, remote-safe
 ## 3.0.0-rc.54 — one fork entry, remote-safe
 
 - The native **Fork Session** action and `⌘F` shortcut now route remote Sessions through the Host ACP `sessionFork` path. Native local Sessions still use DSH's original fork.

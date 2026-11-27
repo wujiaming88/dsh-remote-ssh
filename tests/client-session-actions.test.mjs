@@ -40,7 +40,7 @@ test('native fork service is routed to remote fork and delegated for local sessi
 });
 test('header uses native structured actions and local row menus remain untouched',async t=>{
  const f=fixture(t);const actions=await header(f);assert.deepEqual(actions.map(action=>action.id),['rename','pin','fork','terminate']);
- const count=f.calls.length;assert.deepEqual(await f.providers.get('session').resolve({sessionId:'local'},new AbortController().signal),[]);assert.equal(f.calls.length,count);
+ const count=f.calls.length;assert.equal(f.providers.get('session'),undefined);assert.equal(f.calls.length,count);
 });
 test('pin operates on the captured session, not whichever session is now selected',async t=>{
  const f=fixture(t),actions=await header(f);f.select('other');await actions.find(action=>action.id==='pin').run();
