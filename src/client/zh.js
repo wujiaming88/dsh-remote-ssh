@@ -45,6 +45,7 @@ export default {
   "agents.parent": "上级",
   "agents.loading": "加载中…",
   "acp.hero": "远端 Agent",
+  "acp.quoteSelection": "引用文本",
   "acp.messageHistory": "会话消息",
   "acp.historyScrollHint": "向上滚动查看更早的消息",
   "acp.historyLoading": "正在加载更早的消息…",

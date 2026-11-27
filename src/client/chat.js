@@ -50,8 +50,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
   const primaryMode=resolveDeliveryMode(busyEnter,state.running);
   const draftRef=React.useRef(draft);draftRef.current=draft;
   const editorRef=React.useRef(null);
+  const sectionRef=React.useRef(null);
+  const [quoteSelection,setQuoteSelection]=React.useState(null);
   const setDraft=value=>{composer.setDraft(value);draftRef.current=composer.getSnapshot().draft;};
-  React.useLayoutEffect(() => installQuoteBridge(inputActions, text => {
+  const insertQuote=React.useCallback(text => {
     const snapshot=composer.getSnapshot();
     if(snapshot.sending)return false;
     const node=editorRef.current;
@@ -62,7 +64,26 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
     composer.setDraft(inserted.draft);draftRef.current=inserted.draft;
     requestAnimationFrame(()=>{const editor=editorRef.current;if(editor){editor.focus({preventScroll:true});editor.setSelectionRange(inserted.caret,inserted.caret);}});
     return true;
-  }), [inputActions, composer]);
+  }, [composer]);
+  React.useLayoutEffect(() => installQuoteBridge(inputActions, insertQuote), [inputActions, insertQuote]);
+  React.useEffect(() => {
+    const update = () => {
+      const selection=window.getSelection();
+      if(!selection||selection.isCollapsed||!selection.rangeCount||!selection.toString().trim()){setQuoteSelection(null);return;}
+      const range=selection.getRangeAt(0), container=sectionRef.current;
+      const node=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement;
+      if(!container||!node||!container.contains(node)||node.closest('.rssh-native-composer-root,.ra-acp-cmd-panel')){setQuoteSelection(null);return;}
+      const rect=range.getBoundingClientRect();
+      if(!rect||(!rect.width&&!rect.height)){setQuoteSelection(null);return;}
+      setQuoteSelection({text:selection.toString(),left:rect.left+rect.width/2,top:Math.max(8,rect.top-42)});
+    };
+    const clear=()=>setQuoteSelection(null);
+    document.addEventListener('selectionchange',update);
+    document.addEventListener('mouseup',update);
+    document.addEventListener('keyup',update);
+    window.addEventListener('scroll',clear,true);
+    return ()=>{document.removeEventListener('selectionchange',update);document.removeEventListener('mouseup',update);document.removeEventListener('keyup',update);window.removeEventListener('scroll',clear,true);};
+  }, []);
   const setAttachments=composer.setAttachments;
   const attachmentInput=React.useRef(null);
   const [busy, setBusy] = React.useState('');
@@ -184,7 +205,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
       itemTop: selected.offsetTop - panel.clientTop, itemHeight: selected.offsetHeight });
   }, [activeChoice, commandOpen, commandQuery, fileQuery, fileOptions, state.commands]);
 
-  return h('section', { className: 'ra-acp-view', 'aria-label': t('acp.hero') },
+  return h('section', { ref: sectionRef, className: 'ra-acp-view', 'aria-label': t('acp.hero') },
     preparePlan ? h(PrepareRuntimeDialog, { plan: preparePlan, onConfirm: () => prepare(true), onClose: () => { if (!busy) setPreparePlan(null); }, busy: !!busy }) : null,
     state.loading || !state.binding || state.failure ? h(ConversationStatus, {
       kind: state.loading ? 'loading' : 'error',
@@ -285,5 +306,10 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
           mode:primaryMode,pendingKind,disabled:inputUnavailable,
           onStop:()=>action('acpCancel'),onSend:()=>send()}),
         dock: h(React.Fragment,null,h(SessionStatsPill,{state}),h(UsagePill,{state}),h(UsageMeter,{state})),
-      }))));
+      }))),
+    quoteSelection?h('button',{type:'button',className:'rssh-quote-selection','data-quote-fallback':'',
+      style:{left:`${quoteSelection.left}px`,top:`${quoteSelection.top}px`},
+      onPointerDown:event=>event.preventDefault(),
+      onClick:()=>{if(insertQuote(quoteSelection.text)){window.getSelection()?.removeAllRanges();setQuoteSelection(null);}}},
+      t('acp.quoteSelection')):null);
 }

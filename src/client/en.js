@@ -45,6 +45,7 @@ export default {
   "agents.parent": "Up",
   "agents.loading": "Loading…",
   "acp.hero": "Remote Agent",
+  "acp.quoteSelection": "Quote text",
   "acp.messageHistory": "Conversation messages",
   "acp.historyScrollHint": "Scroll up for earlier messages",
   "acp.historyLoading": "Loading earlier messages…",

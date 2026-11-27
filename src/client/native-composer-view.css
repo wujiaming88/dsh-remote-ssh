@@ -510,3 +510,6 @@
 .rssh-native-composer-overlayAnchor > .ra-acp-cmd-panel {
   position: absolute; bottom: 8px; left: 0; z-index: 2; width: 100%; max-width: 100%; margin: 0;
 }
+
+.rssh-quote-selection{position:fixed;z-index:80;transform:translateX(-50%);padding:5px 10px;border:1px solid var(--dsw-alias-border-l3, rgba(0,0,0,.12));border-radius:999px;background:var(--dsw-alias-button-floating-fill,#fff);box-shadow:var(--dsw-elevation-panel,0 4px 16px rgba(0,0,0,.12));color:var(--dsw-alias-label-primary,inherit);font:var(--dsw-font-xs-13,13px/1.2 sans-serif);cursor:pointer}
+.rssh-quote-selection:hover{background:var(--dsw-alias-button-floating-hover,#f5f5f5)}

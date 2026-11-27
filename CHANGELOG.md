@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.45 — visible remote quote action
+
+- The remote ChatPane does not render DSH's native text-interaction slot, so bridging `insertQuote` alone left no visible quote action. Added a remote selection action: selecting nonblank transcript text shows **引用文本 / Quote text**, which inserts the selection as a Markdown blockquote at the remote composer caret or replaces the selected draft span.
+- The action is scoped to the remote transcript, ignores composer/picker selections, clears on scroll, and preserves the selection while clicking. It works for Codex, Claude Code and Pi.
+- Plugin tests: **1074/1074**.
+
+## 3.0.0-rc.44 — Pi errors are visible, devbox Pi auth repaired
 ## 3.0.0-rc.44 — Pi errors are visible, devbox Pi auth repaired
 
 - Pi assistant `message_end.stopReason=error` is now rejected through ACP with code `pi_model_error` and the original message. Previously the adapter discarded the error and returned an empty `end_turn`, so the UI showed “已完成” with no reply.
