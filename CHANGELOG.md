@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.0.0-rc.44 — Pi errors are visible, devbox Pi auth repaired
+
+- Pi assistant `message_end.stopReason=error` is now rejected through ACP with code `pi_model_error` and the original message. Previously the adapter discarded the error and returned an empty `end_turn`, so the UI showed “已完成” with no reply.
+- **devbox 10.37.91.120** was still on Pi 1.5.0. It is upgraded to **1.6.1**, and its `local` provider apiKey (a literal, unexecuted shell command) was replaced with the working gateway key. Raw Pi now returns text and token usage.
+- Real plugin SSH transport E2E passes on all three hosts with adapter 0.1.5 and valid auth:
+  - devbox: 77 commands, **10490** tokens
+  - devbox2: 32 commands, **5753** tokens
+  - devbox_sg: 35 commands, **6455** tokens
+- Adapter `@wujiaming88/pi-agent-acp@0.1.5`; line coverage **98.57%**. Plugin tests: **1074/1074**.
+
+## 3.0.0-rc.43 — native selection quote in remote sessions
 ## 3.0.0-rc.43 — native selection quote in remote sessions
 
 - DSH selection quotes submit ordinary Markdown blockquotes (`> ` per line). The remote pane replaces the native composer, so the native quote button was writing into the hidden composer instead of the remote draft.
