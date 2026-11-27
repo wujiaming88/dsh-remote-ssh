@@ -26,5 +26,8 @@ try {
   const result = await controller.prompt('Reply with exactly PI_PLUGIN_E2E_OK and no other text.');
   const text = events.filter(update => update.sessionUpdate === 'agent_message_chunk').map(update => update.content?.text || '').join('');
   if (result.stopReason !== 'end_turn' || !text.includes('PI_PLUGIN_E2E_OK')) throw new Error(`Unexpected Pi response: ${result.stopReason} ${text}`);
+  const tokens = result.response?._meta?.quota?.token_count?.total_tokens;
+  if (!Number.isSafeInteger(tokens) || tokens <= 0) throw new Error(`Pi prompt response omitted token usage: ${JSON.stringify(result.response?._meta)}`);
+  console.log('TOKENS', tokens);
   console.log('PLUGIN_E2E_OK');
 } finally { await controller.close(); }

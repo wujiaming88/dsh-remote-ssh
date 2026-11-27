@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.41 — Pi per-turn token usage
+
+- Pi's session stats are cumulative, so the adapter now snapshots them at prompt start and writes the turn delta into ACP `PromptResponse._meta.quota.token_count` (`input_tokens`, `output_tokens`, `cached_read_input_tokens`, `cache_creation_input_tokens`, `total_tokens`).
+- The existing DSH footer usage projection now receives real Pi token data instead of “— tok”. Context-window `usage_update` remains unchanged.
+- Adapter `@wujiaming88/pi-agent-acp@0.1.2` (tag `v0.1.2`), unit line coverage **98.52%**.
+- Real validation on both devboxes: adapter E2E tokens **5757 / 6447**; plugin SSH transport E2E tokens **5781 / 6455**, with `PLUGIN_E2E_OK` on both.
+- Plugin tests: **1070/1070**.
+
+## 3.0.0-rc.40 — validated Pi on both devboxes
 ## 3.0.0-rc.40 — validated Pi on both devboxes
 
 - Pin the Pi adapter to `@wujiaming88/pi-agent-acp@0.1.1` / tag `v0.1.1`; missing Pi now rejects the ACP session instead of crashing with an unhandled child-process error.
