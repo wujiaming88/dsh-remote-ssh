@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.56 — recover stale remote fork reservations
+
+- Diagnosed the repeated **“Fork requires an idle source with no pending actions”** on devbox2’s `agentkit-fde-cli`: the source worker still had the reservation from the earlier failed fork (`reserved`, no child session), so every retry was busy forever.
+- Before a remote fork, release a reservation older than two minutes that has no `remoteSessionId`; recent in-flight forks are left untouched.
+- Plugin tests: **1078/1078**.
+
+## 3.0.0-rc.55 — remove remote terminate row action
 ## 3.0.0-rc.55 — remove remote terminate row action
 
 - Removed the extra **结束远端会话** row-menu registration. The sidebar Session row now keeps only the native **分叉会话** (routed to the remote fork) plus native actions.
