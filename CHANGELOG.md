@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-rc.47 — slash commands survive old-session snapshots
+
+- A resumed/old Session could have its locally replayed command roster overwritten by an empty `commands` array from a snapshot, leaving `/` with no menu. Snapshot hydration now preserves a non-empty roster when the snapshot omits it.
+- The command panel is also derived directly from a slash-prefixed draft (with Escape dismissal), so a stale `commandOpen` flag cannot hide the menu.
+- Plugin tests: **1076/1076**.
+
+## 3.0.0-rc.46 — native-style remote quote chips
 ## 3.0.0-rc.46 — native-style remote quote chips
 
 - Remote selection quotes now render as composer quote chips (`“ summary`) instead of inserting raw `> ...` text into the editor, matching the native DSH composer shape.

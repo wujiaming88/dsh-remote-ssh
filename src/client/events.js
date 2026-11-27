@@ -27,7 +27,7 @@ function queueProjection(state,queuedMessages,cursor) {
 export function applySnapshot(state, snapshot = {}) {
   return { ...state, ...queueProjection(state,snapshot.queuedMessages,snapshot.cursor), binding: { ...state.binding, ...snapshot }, loading: false,
     config: snapshot.config || state.config, capabilities: snapshot.capabilities || state.capabilities,
-    commands: Array.isArray(snapshot.commands) ? snapshot.commands : state.commands,
+    commands: Array.isArray(snapshot.commands) && (snapshot.commands.length > 0 || state.commands.length === 0) ? snapshot.commands : state.commands,
     running: snapshot.busy === true || snapshot.status === 'prompting' || snapshot.status === 'starting',
     permissions: list(snapshot.pendingPermissions), elicitations: list(snapshot.pendingElicitations),
     title: snapshot.title || state.title, error: snapshot.lastError || '' };

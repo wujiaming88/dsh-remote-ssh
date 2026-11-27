@@ -117,4 +117,5 @@ test('snapshot restores command roster so a resumed session keeps its slash comm
   assert.equal(base.commands.length,2);assert.equal(base.commands[0].name,'/help');
   const empty=applySnapshot(initialState(),{id:'acp'});assert.deepEqual(empty.commands,[]);
   const replayed=applySnapshot({...initialState(),commands:[{name:'/kept'}]},{id:'acp'});assert.equal(replayed.commands.length,1);
+  const emptyList=applySnapshot({...initialState(),commands:[{name:'/kept'}]},{id:'acp',commands:[]});assert.equal(emptyList.commands.length,1);
 });

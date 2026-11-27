@@ -88,6 +88,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
   const error=actionError||composerState.error||(state.binding?.status==='closed'?state.error:'');
   const [preparePlan, setPreparePlan] = React.useState(null);
   const [commandOpen, setCommandOpen] = React.useState(false);
+  const [commandDismissed,setCommandDismissed]=React.useState(false);
   const [fileQuery, setFileQuery] = React.useState(null);
   const [fileOptions, setFileOptions] = React.useState([]);
   const [choice, setChoice] = React.useState(0);
@@ -116,8 +117,9 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
 
   const commandQuery = draft.startsWith('/') ? draft.slice(1).trim() : '';
   const commands = acpCommandGroups(state.commands, commandQuery).flatMap(group => group.items);
+  const commandMenuOpen = commandOpen || (!!draft.startsWith('/') && !/\s/.test(draft) && !commandDismissed);
   function input(value) {
-    setDraft(value); setChoice(0);
+    setDraft(value); setChoice(0); setCommandDismissed(false);
     setCommandOpen(value.startsWith('/') && !/\s/.test(value));
     setFileQuery(/(?:^|\s)@([^\s]*)$/.exec(value)?.[1] ?? null);
   }
@@ -128,7 +130,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
     setAttachments(previous => [...previous, { id: crypto.randomUUID(), path: file.path, name: file.name }]);
     input(draftRef.current.replace(/@[^\s]*$/, ''));
   }
-  function chooseCommand(command) { input(`/${acpCommandName(command)} `); setCommandOpen(false); }
+  function chooseCommand(command) { input(`/${acpCommandName(command)} `); setCommandOpen(false); setCommandDismissed(false); }
   async function send(gesture='enter') {
     if (!client || inputUnavailable || busy || sending || readingFiles || (!draft.trim() && !quotes.length && !attachments.length)) return;
     const mode=resolveDeliveryMode(busyEnter,state.running,gesture);
@@ -200,7 +202,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
     if (!selected) return;
     panel.scrollTop = pickerScrollTop({ scrollTop: panel.scrollTop, height: panel.clientHeight,
       itemTop: selected.offsetTop - panel.clientTop, itemHeight: selected.offsetHeight });
-  }, [activeChoice, commandOpen, commandQuery, fileQuery, fileOptions, state.commands]);
+  }, [activeChoice, commandMenuOpen, commandQuery, fileQuery, fileOptions, state.commands]);
 
   return h('section', { ref: sectionRef, className: 'ra-acp-view', 'aria-label': t('acp.hero') },
     preparePlan ? h(PrepareRuntimeDialog, { plan: preparePlan, onConfirm: () => prepare(true), onClose: () => { if (!busy) setPreparePlan(null); }, busy: !!busy }) : null,
@@ -267,7 +269,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
           }
           if (event.dataTransfer.files.length) { event.preventDefault(); receiveFiles([...event.dataTransfer.files]); }
         }},
-        overlay: commandOpen || fileQuery !== null ? h('div', { ref: pickerPanel, className: 'ra-acp-cmd-panel', role: 'dialog', 'aria-label': t(fileQuery !== null ? 'acp.fileMentions' : 'acp.commandsPanel') },
+        overlay: commandMenuOpen || fileQuery !== null ? h('div', { ref: pickerPanel, className: 'ra-acp-cmd-panel', role: 'dialog', 'aria-label': t(fileQuery !== null ? 'acp.fileMentions' : 'acp.commandsPanel') },
         (fileQuery !== null ? fileOptions : commands).length === 0
           ? h('div', { className: 'ra-acp-cmd-empty', role: 'status' }, t(fileQuery !== null ? 'acp.noFiles' : 'acp.noCommands'))
           : (fileQuery !== null ? fileOptions : commands).map((value, index) => h('button', { key: value.path || value.name, type: 'button',
@@ -290,8 +292,8 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
             if (event.isComposing || event.nativeEvent.isComposing || event.keyCode===229 || event.nativeEvent.keyCode===229) return;
             const gesture=composerEnterGesture(event);
             if(event.key==='Enter'&&gesture===null)return;
-            if ((commandOpen || fileQuery !== null) && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
-              if (event.key === 'Escape') { event.preventDefault(); setCommandOpen(false); setFileQuery(null); return; }
+            if ((commandMenuOpen || fileQuery !== null) && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
+              if (event.key === 'Escape') { event.preventDefault(); setCommandOpen(false); setCommandDismissed(true); setFileQuery(null); return; }
               const values = fileQuery !== null ? fileOptions : commands;
               if (values.length && !event.shiftKey) {
                 event.preventDefault();

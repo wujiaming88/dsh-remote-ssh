@@ -15,7 +15,7 @@ test('InputBar and DraftEditor trees are copied as explicit props-only presentat
   for(const name of ['root','card','overlayAnchor','accessory','scroll','grow','input','placeholder','row','tools','modes','trailing','standardControls','activity','dock'])assert.ok(view.includes(`rssh-native-composer-${name}`),name);
   for(const marker of ['data-composer-card','data-composer-overlay','data-input-scroll','data-composer-placeholder','data-composer-dock'])assert.ok(view.includes(marker));
   assert.match(chat,/h\(NativeComposerView/);assert.match(chat,/editor: \{value: draft, readOnly: sending/);
-  assert.match(chat,/overlay: commandOpen/);assert.match(chat,/modes: permission, controls: configs/);
+  assert.match(chat,/overlay: commandMenuOpen/);assert.match(chat,/modes: permission, controls: configs/);
   assert.match(chat,/primary: h\(ComposerControls/);assert.match(chat,/dock: h\(React.Fragment/);
   assert.doesNotMatch(view,/useSession|useInput|useProjection|@deepseek-ai|querySelector|createRoot/);
   assert.doesNotMatch(chat,/className: 'ra-acp-composer'|className: 'ra-acp-compose-bar'/);
