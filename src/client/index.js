@@ -8,6 +8,7 @@ import { ChatPane } from './chat.js';
 import {SessionClientPool} from './session-pool.js';
 import {SessionStatusStore} from './session-status-store.js';
 import {installSessionStatus,messages as sessionStatusMessages} from './session-status.js';
+import {installSessionAgentMark} from './session-agent.js';
 import { SessionSetup, messages as setupMessages } from './session-setup.js';
 import { NewRemoteSession } from './new-session.js';
 import { RemoteFilesSidebar, assertFileCloseAllowed, messages as fileMessages } from './files.js';
@@ -74,6 +75,7 @@ export function apply(ctx) {
   installSessionActions(ctx,{onClosed:(sessionId,snapshot)=>clients.markClosed(sessionId,snapshot)});
   const sessionStatuses=new SessionStatusStore();
   installSessionStatus(ctx,sessionStatuses);
+  installSessionAgentMark(ctx,sessionStatuses);
   ctx.effect(()=>{sessionStatuses.start();return ()=>sessionStatuses.dispose();});
   ctx.effect(() => {
     const style = document.createElement('style'); style.textContent = nativeControlsCss + "\n" + nativeOverlaysCss + "\n" + nativeTextCss + "\n" + uiCss + "\n" + toolCss + "\n" + css + "\n" + nativeMessageCss + "\n" + turnSummaryCss + "\n" + nativeToolRowCss + "\n" + nativeComposerCss + "\n" + queueCss + "\n" + nativeAttachmentCss + "\n" + filesCss + "\n" + attachmentCss + "\n" + sentAttachmentCss + "\n" + outputImageCss; document.head.appendChild(style);

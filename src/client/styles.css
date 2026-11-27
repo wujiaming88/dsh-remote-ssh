@@ -830,5 +830,6 @@
   gap: 6px;
 }
 /* Sidebar glyphs are plugin-owned, using the shared theme and motion rules. */
+.rssh-agent-title-icon { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; flex: none; background: currentColor; opacity: .82; -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }
 .rssh-session-status-dot { width: 10px; height: 10px; vertical-align: middle; }
 .rssh-session-status-dot[data-state=ongoing] { width: 14px; height: 14px; }

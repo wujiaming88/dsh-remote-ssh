@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.51 — agent marks before session titles
+
+- Add 14px monochrome agent marks before remote Session titles in the sidebar: Claude/Anthropic, Codex/OpenAI and Pi.
+- The mark is inserted at the title start (not in the `sidebar.session.row.leading` status cell) through a hidden trailing marker; the title text starts after the icon. It follows DSH label colors and theme.
+- Sources: Simple Icons Anthropic/OpenAI (CC0) and the official `pi.dev/logo-auto.svg` geometric mark.
+- Plugin tests: **1077/1077**.
+
+## 3.0.0-rc.50 — Host-level fork validated for all three agents
 ## 3.0.0-rc.50 — Host-level fork validated for all three agents
 
 - Pi's lack of an ACP session mode is no longer treated as an unconfirmed source/child permission during fork. Pi source and child permission snapshots now persist as the requested safe backend permission.

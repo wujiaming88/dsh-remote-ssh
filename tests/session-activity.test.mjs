@@ -48,7 +48,7 @@ test('activity distinguishes actual turns from alive transports and stale cold f
 test('snapshot covers persisted bound sessions but does not infer historical completion', () => {
   const f = fixture(); f.data.states = [{ ...ready, detached: true, alive: false, status: 'detached', busy: true, requests: [{ status: 'completed' }] }];
   f.data.bindings.push({ ...binding, sessionId: 'blank' }, { ...binding, sessionId: 'local', backend: { type: 'dsh' } });
-  assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status: 'disconnected' }, { sessionId: 'blank', status: 'idle' }]);
+  assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', agent: 'claude', status: 'disconnected' }, { sessionId: 'blank', agent: 'claude', status: 'idle' }]);
 });
 
 test('identity mismatches and obsolete instances cannot override authoritative active binding', () => {
@@ -75,7 +75,7 @@ test('completion identity is stable across duplicate stop, refresh, heartbeat an
   const stop = { type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'private-turn-one' };
   const expected = createHash('sha256').update(JSON.stringify(['acp', 'g', stop.turnId])).digest('hex');
   f.activity.onEvent(stop, ready); await tick();
-  const row = { sessionId: 'native', status: 'completed', completionId: expected };
+  const row = { sessionId: 'native', agent: 'claude', status: 'completed', completionId: expected };
   assert.deepEqual(f.activity.snapshot(), [row]);
   f.open(); assert.deepEqual(f.res.frames[0], { type: 'snapshot', sessions: [row] });
   const eventCount = f.events.length;
@@ -122,23 +122,23 @@ test('child, inherited and unsubmitted stops cannot create or replace a root com
     f.activity.onEvent({ ...stop, turnId: 'other-turn', ...patch }, ready); await tick();
     assert.deepEqual(f.activity.snapshot()[0], root);
     const blank = fixture(); blank.activity.onEvent({ ...stop, ...patch }, ready); await tick();
-    assert.deepEqual(blank.activity.snapshot(), [{ sessionId: 'native', status: 'idle' }]);
+    assert.deepEqual(blank.activity.snapshot(), [{ sessionId: 'native', agent: 'claude', status: 'idle' }]);
   }
 });
 
 test('invalid identities and noncompleted outcomes never manufacture an unread token', async () => {
   for (const turnId of [undefined, null, '', '   ', 123, {}]) {
     const f = fixture(); f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId }, ready); await tick();
-    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status: 'completed' }]);
+    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', agent: 'claude', status: 'completed' }]);
   }
   for (const field of ['id', 'generation']) {
     const f = fixture(); const state = { ...ready, [field]: '' }; f.data.states = [state];
     f.activity.onEvent({ type: 'stop', submitted: true, stopReason: 'end_turn', turnId: 'turn' }, state); await tick();
-    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status: 'completed' }]);
+    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', agent: 'claude', status: 'completed' }]);
   }
   for (const [stopReason, status] of [['cancelled', 'stopped'], ['error', 'error'], ['max_tokens', 'idle']]) {
     const f = fixture(); f.activity.onEvent({ type: 'stop', submitted: true, stopReason, turnId: 'turn' }, ready); await tick();
-    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', status }]);
+    assert.deepEqual(f.activity.snapshot(), [{ sessionId: 'native', agent: 'claude', status }]);
   }
 });
 
@@ -161,7 +161,7 @@ test('token and historical tool errors never produce sidebar churn; state update
   await tick(); assert.equal(f.data.calls, before); assert.equal(f.events.length, 0);
   f.data.states[0].busy = true;
   for (let i = 0; i < 20; i++) f.activity.onEvent({ type: 'user_message', text: 'SECRET' }, ready);
-  await tick(); assert.equal(f.data.calls, before + 1); assert.deepEqual(f.events, [{ type: 'upsert', session: { sessionId: 'native', status: 'running' } }]);
+  await tick(); assert.equal(f.data.calls, before + 1); assert.deepEqual(f.events, [{ type: 'upsert', session: { sessionId: 'native', agent: 'claude', status: 'running' } }]);
   f.activity.onEvent({ type: 'error', message: 'old tool error', fatal: false }, ready); await tick(); assert.equal(f.events.length, 1);
 });
 
@@ -175,7 +175,7 @@ test('stream snapshot only contains authorized canonical sessions and sanitizes 
   const f = streamFixture(sid => sid !== 'hidden');
   f.data.bindings.push({ ...binding, sessionId: 'hidden' });
   Object.assign(f.data.states[0], { lastError: 'SECRET', cwd: '/mirror', title: 'SECRET', pendingPermissions: [{ message: 'SECRET', options: ['SECRET'] }], config: { token: 'SECRET' } });
-  f.open(); assert.deepEqual(f.res.frames, [{ type: 'snapshot', sessions: [{ sessionId: 'native', status: 'waiting', waitingFor: 'permission' }] }]);
+  f.open(); assert.deepEqual(f.res.frames, [{ type: 'snapshot', sessions: [{ sessionId: 'native', agent: 'claude', status: 'waiting', waitingFor: 'permission' }] }]);
   assert.doesNotMatch(JSON.stringify(f.res.frames), /SECRET|mirror|permission.*options|configuredRemotePath/);
   f.clock.fire(); assert.equal(f.res.frames.at(-1).type, 'heartbeat'); assert.equal(f.clock.tasks.size, 1);
 });
@@ -185,7 +185,7 @@ test('per-session revocation removes only previously visible entry and does not 
   f.data.bindings.push({ ...binding, sessionId: 'other' }); f.open();
   grants.delete('native'); f.clock.fire(); assert.deepEqual(f.res.frames.slice(-2), [{ type: 'remove', sessionId: 'native' }, { type: 'heartbeat' }]);
   assert.equal(f.res.writableEnded, false); assert.equal(f.clock.tasks.size, 1);
-  grants.add('other'); f.clock.fire(); assert.deepEqual(f.res.frames.at(-2), { type: 'upsert', session: { sessionId: 'other', status: 'idle' } });
+  grants.add('other'); f.clock.fire(); assert.deepEqual(f.res.frames.at(-2), { type: 'upsert', session: { sessionId: 'other', agent: 'claude', status: 'idle' } });
 });
 
 test('global revocation emits nonprivate reset and closes without leaking later updates', async () => {
@@ -256,7 +256,7 @@ test('real runtime background turns, permission/elicitation, terminal outcomes a
     await tick(); assert.equal(activity.snapshot()[0].waitingFor, 'elicitation');
     await session.elicitation({ requestId: 'form', action: 'cancel' }); await form; await tick(); assert.equal(activity.snapshot()[0].status, 'running');
     pending[0].resolve({ stopReason: 'end_turn' }); const completed = await turn; await tick();
-    assert.deepEqual(activity.snapshot()[0], { sessionId: 'native', status: 'completed', completionId: createHash('sha256').update(JSON.stringify([session.id, session.generation, completed.turnId])).digest('hex') });
+    assert.deepEqual(activity.snapshot()[0], { sessionId: 'native', agent: 'claude', status: 'completed', completionId: createHash('sha256').update(JSON.stringify([session.id, session.generation, completed.turnId])).digest('hex') });
     const next = session.prompt('next'); await tick(); assert.equal(activity.snapshot()[0].status, 'running');
     pending[1].reject(Error('SECRET failure')); await assert.rejects(next); await tick(); assert.equal(activity.snapshot()[0].status, 'error');
     await runtime.shutdownSession('acp', { reason: 'archived' }); await tick(); assert.equal(activity.snapshot()[0].status, 'disconnected');

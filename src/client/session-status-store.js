@@ -7,11 +7,12 @@ const TERMINAL_ERRORS=new Set([...AUTH_ERRORS,'api_not_found','http_404']);
 export function sessionStatusEntry(value) {
   if(!value||typeof value.sessionId!=='string'||!value.sessionId||value.sessionId.length>1024)return null;
   const entry={sessionId:value.sessionId,status:STATES.has(value.status)?value.status:'unknown'};
+  if(['claude','codex','pi'].includes(value.agent))entry.agent=value.agent;
   if(entry.status==='waiting'&&['permission','elicitation'].includes(value.waitingFor))entry.waitingFor=value.waitingFor;
   if(entry.status==='completed'&&validCompletionId(value.completionId))entry.completionId=value.completionId;
   return entry;
 }
-const sameEntry=(a,b)=>a?.sessionId===b?.sessionId&&a?.status===b?.status&&a?.waitingFor===b?.waitingFor&&a?.completionId===b?.completionId&&a?.completionUnread===b?.completionUnread&&a?.lastCompletionId===b?.lastCompletionId;
+const sameEntry=(a,b)=>a?.sessionId===b?.sessionId&&a?.agent===b?.agent&&a?.status===b?.status&&a?.waitingFor===b?.waitingFor&&a?.completionId===b?.completionId&&a?.completionUnread===b?.completionUnread&&a?.lastCompletionId===b?.lastCompletionId;
 
 // One overview connection for the whole sidebar, not a retained Agent/ACP stream
 // for each row. No titles, paths, prompts or permission payloads enter this store.
