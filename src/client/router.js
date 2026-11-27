@@ -37,7 +37,7 @@ export function createBackendRouter({ load, show }) {
     Promise.resolve().then(() => load(sessionId)).then(result => {
       if (disposed || generation !== request) return;
       if (!result?.ok || result.sessionId !== sessionId) throw new Error(formatError(result));
-      const remote = result.remote === true && result.workspace && ['claude', 'codex'].includes(result.backend?.type);
+      const remote = result.remote === true && result.workspace && ['claude', 'codex', 'pi'].includes(result.backend?.type);
       const selection = result.remote === true && result.workspace && result.selectionRequired === true && result.backend === null;
       if (facts.recorded === true && !remote) throw new Error('The recorded remote conversation is currently unavailable');
       publish({ phase: selection ? 'selection' : remote ? 'remote' : 'native', ownsRemote: !!selection, sessionId, value: result, error: '' });

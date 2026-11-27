@@ -158,7 +158,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
     onChange:modeId=>action('acpSetMode',{modeId})}) : null;
   const waiting = state.permissions.length || state.elicitations.length;
   const hasVisibleContent=state.items.some(visibleTranscriptItem);
-  const agentLabel = backend.backend?.type === 'claude' ? 'Claude Code' : backend.backend?.type === 'codex' ? 'Codex' : '';
+  const agentLabel = backend.backend?.type === 'claude' ? 'Claude Code' : backend.backend?.type === 'codex' ? 'Codex' : backend.backend?.type === 'pi' ? 'Pi' : '';
   const remotePath = backend.workspace?.remotePath || backend.canonicalRemotePath || '';
   const startMeta = [agentLabel, remotePath].filter(Boolean).join(' · ');
   const activeChoice = Math.min(choice, Math.max((fileQuery !== null ? fileOptions : commands).length - 1, 0));

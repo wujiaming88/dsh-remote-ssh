@@ -21,7 +21,7 @@ export function createFreshSession({ createSession, openSession, beginNavigation
 }
 
 export function sessionBackendPayload(sessionId, form) {
-  if (!sessionId || !['claude', 'codex'].includes(form.type) || !['plan', 'acceptEdits', 'bypass'].includes(form.permission)) return { error: 'invalid' };
+  if (!sessionId || !['claude', 'codex', 'pi'].includes(form.type) || !['plan', 'acceptEdits', 'bypass'].includes(form.permission)) return { error: 'invalid' };
   if (form.permission === 'bypass' && form.confirmBypass !== true) return { error: 'bypassConfirm' };
   return { value: { sessionId, backend: { type: form.type, permission: form.permission },
     ...(form.permission === 'bypass' ? { confirmBypass: true } : {}) } };

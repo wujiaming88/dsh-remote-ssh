@@ -35,7 +35,7 @@ Version **3.0.0-rc.22** passes **1005 automated tests**, the **83-module client 
 - Remote Node.js 22+, npm and bash; Python 3 for files/worktrees and Git for worktrees.
 - Valid remote CLI authentication, proxy/model gateway and quota. Detecting an executable does not verify model access.
 
-Pinned remote dependencies: ACP SDK `2.9.1`, Claude adapter `0.109.1`, Codex adapter `2.9.0`. Preparing them requires an explicit installation-plan confirmation. The default remote prefix is `~/.local/share/dsh-remote-acp/v1`; preparation uses no sudo, changes no shell configuration and does not install system Node.
+Pinned remote dependencies: ACP SDK `2.9.1`, Claude adapter `0.109.1`, Codex adapter `2.9.0`, Pi adapter `pi-agent-acp 0.1.0` (pinned from a GitHub tag). Pi requires Pi 1.6.1+ on the remote host. Preparing them requires an explicit installation-plan confirmation. The default remote prefix is `~/.local/share/dsh-remote-acp/v1`; preparation uses no sudo, changes no shell configuration and does not install system Node.
 
 ## Use
 

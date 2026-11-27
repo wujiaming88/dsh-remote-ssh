@@ -10,7 +10,7 @@ const session=(agent='claude',extra={})=>new AcpSession({id:'acp-fixture',dshSes
 
 test('default is a valid runtime permission and never normalizes into acceptEdits or bypass',()=>{
   assert.equal(normalizePermission('default'),'default');
-  for(const type of ['claude','codex']){
+  for(const type of ['claude','codex','pi']){
     assert.equal(normalizeBackend({type,permission:'default'}).permission,'default');
     assert.equal(normalizeRemoteBackend({type,permission:'default'}).permission,'default');
   }
@@ -43,6 +43,13 @@ test('an explicit advertised default mode stays default through ACP startup',asy
   assert.equal(acp.requestedPermission,'default');await acp.start();
   assert.deepEqual(modes,['default']);assert.equal(acp.state().permission,'default');
   assert.equal(acp.state().permissionStatus.effective,'default');
+});
+test('Pi starts without claiming an ACP permission mode',async t=>{
+  const modes=[],controller={ready:Promise.resolve({sessionId:'remote',protocolCwd:'/remote',initialize:{agentCapabilities:{}},sessionResponse:{sessionId:'remote',configOptions:[]}}),async setMode(mode){modes.push(mode);return {};},async close(){},async dispose(){}};
+  const acp=session('pi',{permission:'acceptEdits',connectImpl:()=>controller});t.after(()=>acp.dispose());
+  await acp.start();
+  assert.deepEqual(modes,[]);assert.equal(acp.state().permission,'default');
+  assert.deepEqual(acp.state().permissionStatus,{requested:'acceptEdits',supported:false,applied:false,effective:'default'});
 });
 test('an adapter without advertised default cannot silently substitute acceptEdits or bypass',async t=>{
   const modes=[],controller={ready:Promise.resolve({sessionId:'remote',protocolCwd:'/remote',initialize:{agentCapabilities:{}},sessionResponse:{sessionId:'remote',modes:{currentModeId:'acceptEdits',availableModes:[{id:'acceptEdits',name:'Accept edits'},{id:'bypassPermissions',name:'Bypass'}]}}}),

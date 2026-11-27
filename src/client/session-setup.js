@@ -18,6 +18,7 @@ export const messages = {
     'session.setup.new': '新建会话',
     'session.setup.newHint': '在同一工作区新建独立会话，重新选择 Agent；当前会话保留。',
     'session.setup.archived': '此会话已归档，请先取消归档再选择 Agent。',
+    'session.setup.piPermission': 'Pi 使用自身的工具策略；上方权限选择不会限制 Pi 的内置工具。',
   },
   en: {
     'session.setup.loading': 'Loading remote session',
@@ -32,6 +33,7 @@ export const messages = {
     'session.setup.new': 'New session',
     'session.setup.newHint': 'Create a separate session in this workspace and choose its Agent. The current session is preserved.',
     'session.setup.archived': 'This session is archived. Unarchive it before choosing an Agent.',
+    'session.setup.piPermission': 'Pi uses its own tool policy. The permission selector above does not restrict Pi built-in tools.',
   },
 };
 const css = `
@@ -74,8 +76,9 @@ export function SessionSetup({ backend, onSelected }) {
       h('h2', null, t('session.setup.title')),
       h('div', { className: 'rssh-session-setup-path' }, backend.workspace.remotePath),
       h('p', { className: 'rssh-flow-muted' }, t('session.setup.description')),
-      field(t('rssh.flow.backend'), select('type', [['', t('session.setup.choose')], ['claude', 'Claude Code'], ['codex', 'Codex']])),
+      field(t('rssh.flow.backend'), select('type', [['', t('session.setup.choose')], ['claude', 'Claude Code'], ['codex', 'Codex'], ['pi', 'Pi']])),
       field(t('rssh.flow.permission'), select('permission', ['plan', 'acceptEdits', 'bypass'].map(value => [value, t('rssh.flow.' + value)]))),
+      form.type === 'pi' ? h('p', {className:'rssh-flow-warning', role:'status'}, t('session.setup.piPermission')) : null,
       form.permission === 'bypass' ? h('div', { className: 'rssh-flow-warning' }, h('p', null, t('rssh.flow.bypassWarning')),
         h(ui.Checkbox, { checked: form.confirmBypass, disabled, onChange: value => change('confirmBypass', value), label: t('rssh.flow.bypassConfirm') })) : null,
       h('div', { className: 'rssh-flow-muted' }, t('session.setup.fixed')),

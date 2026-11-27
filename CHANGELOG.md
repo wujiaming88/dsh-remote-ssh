@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.39 — Pi backend via pi-agent-acp
+
+- Add the **Pi** agent as a third remote backend. It uses the independent `@wujiaming88/pi-agent-acp@0.1.0` adapter, pinned from GitHub tag `v0.1.0`, which translates Pi 1.6.1's native `--mode rpc` protocol to ACP v1.
+- Pi supports session/new, load/resume/close, streaming text/thinking, tool calls, model and thinking-level config, Pi slash commands/skills, native `steer`, cancellation, and Pi extension confirmations/selections through ACP permission requests.
+- Add Pi to the Host agent registry, Config schema, durable record validation, session activity, remote preparation, setup UI and labels. Remote preparation installs the adapter from the public GitHub tag and verifies the Pi CLI is available.
+- Pi permission modes are not enforceable by Pi's ACP adapter; the setup UI explicitly warns that the Host permission selector does not restrict Pi built-in tools. Pi uses its own tool policy.
+- Pi adapter repository: `https://github.com/wujiaming88/pi-agent-acp`. Unit line coverage: **98.44%** (>95% requirement). Real E2E on the devbox with Pi 1.6.1 passed: streamed text, a real bash tool call, native steering while a tool ran, session close/load, and clean process shutdown.
+- Plugin tests: **1070/1070** pass; 91 client modules and 11 remote modules built.
+
 ## 3.0.0-rc.38 — keep the Host awake whenever the switch is on
 
 - Change “运行时防止系统休眠” from turn-gated to unconditional: when the switch is on, the Host starts the sleep assertion immediately and keeps it across idle periods, closed pages, empty queues and sessions with no turns.

@@ -57,7 +57,7 @@ test('native steering accepts common blocks intact without reading linked files'
     blob('image/webp')
   ];
   const original = structuredClone(prompt);
-  for (const agent of ['claude', 'codex']) {
+  for (const agent of ['claude', 'codex', 'pi']) {
     assert.equal(prepareSteeringPrompt(prompt, capabilities, agent), prompt);
     assert.deepEqual(prepareSteeringPrompt('text', capabilities, agent), [{ type: 'text', text: 'text' }]);
   }

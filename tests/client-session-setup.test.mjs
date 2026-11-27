@@ -6,7 +6,7 @@ import { sessionBackendPayload, createSessionSelection, createFreshSession } fro
 
 const form = { type: 'claude', permission: 'acceptEdits', confirmBypass: false };
 test('Agent selection is session scoped, explicit, and validates permissions', () => {
-  for (const type of ['claude', 'codex']) {
+  for (const type of ['claude', 'codex', 'pi']) {
     assert.deepEqual(sessionBackendPayload('s', { ...form, type }).value, { sessionId: 's', backend: { type, permission: 'acceptEdits' } });
   }
   for (const patch of [{ type: '' }, { type: 'dsh' }, { type: 'unknown' }, { permission: 'unknown' }]) {
@@ -90,4 +90,10 @@ test('Setup UI stays localized and accessible and cannot mount the runtime befor
   assert.doesNotMatch(workspace, /form\.type|form\.permission|form\.confirmBypass/);
   const index = readFileSync(new URL('../src/client/index.js', import.meta.url), 'utf8');
   assert.match(index, /routing.phase === 'selection' \? h\(SessionSetup, \{ key: props.sessionId/);
+});
+test('Pi is selectable and its autonomous tool policy is disclosed', () => {
+  const source = readFileSync(new URL('../src/client/session-setup.js', import.meta.url), 'utf8');
+  assert.match(source, /\['pi', 'Pi'\]/);
+  assert.match(source, /session\.setup\.piPermission/);
+  assert.match(source, /form\.type === 'pi'/);
 });
