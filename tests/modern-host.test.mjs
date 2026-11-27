@@ -35,7 +35,7 @@ const profile = { id: 'p1', name: 'fixture', host: 'example.invalid', user: 'fix
 function runtimeFixture() {
   const live = new Map(), saved = new Map(); const calls = { create: 0, shutdown: 0, probe: 0, prepare: 0, list: 0 };
   const runtime = {
-    store: { get: id => saved.get(id) }, get: id => live.get(id), findActive: sid => [...live.values()].find(s => s.dshSessionId === sid),
+    store: { get: id => saved.get(id) }, get: id => live.get(id), findActive: sid => [...live.values()].find(s => s.dshSessionId === sid), forkOperation: () => null,
     list: args => { calls.list++; return [...saved.values()].filter(s => !args?.dshSessionId || s.dshSessionId === args.dshSessionId); },
     preparationPlan: () => ({ nodeRequirement: '>=22', packages: ['@agentclientprotocol/sdk@2.9.1'], payload: { runtimeDir: '~/.local/share/dsh-remote-acp/v1' } }),
     probeRemote: async () => { calls.probe++; return { cwd: '/remote/repo', ok: true }; },
@@ -91,6 +91,17 @@ if (!installed) {
     assert.match(result.stdout, /tests [1-9][0-9]*/); process.stdout.write(result.stdout);
   });
 } else {
+test('Host activation and disposal expose current bounded-lifecycle timings', async () => {
+  const f = await fixture();
+  try {
+    assert.ok(Number.isFinite(f.host.performanceTimings.totalMs)); assert.ok(Number.isFinite(f.host.performanceTimings.actionsMs));
+    assert.notEqual(f.host.performanceTimings, f.host.performanceTimings);
+    await f.host.dispose();
+    const timings = f.host.performanceTimings;
+    for (const key of ['stopActionsMs', 'shutdownRuntimeMs', 'flushRecorderMs', 'disposeMs']) assert.ok(Number.isFinite(timings[key]), key);
+    await f.host.dispose();
+  } finally { await f.close(); }
+});
 test('explicit close requires original identity and confirmation, retains history, and reopens without remote execution', async () => {
   const f = await fixture();
   try {

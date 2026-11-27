@@ -261,10 +261,13 @@ test('same remote ID cannot masquerade as a fork',async t=>{
   assert.equal(f.source.sessionId,'remote-0')
 })
 
-test('runtime shutdown waits for fork then disposes both independent controllers',async t=>{
+test('runtime shutdown interrupts local fork work and disposes independent controllers',async t=>{
   const gate=deferred(),f=await fixture(t,{forkGate:gate})
   const pending=f.runtime.fork('source',{operationId:'shutdown'})
-  await tick();const shutdown=f.runtime.shutdown();gate.resolve();await pending;await shutdown
+  for(let i=0;i<20&&!f.calls.some(c=>c[0]==='fork');i++)await tick()
+  assert.equal(f.calls.filter(c=>c[0]==='fork').length,1)
+  const shutdown=f.runtime.shutdown();gate.resolve()
+  await assert.rejects(pending,{code:'runtime_shutdown'});await shutdown
   assert.deepEqual(new Set(f.calls.filter(c=>c[0]==='dispose').map(c=>c[1])),new Set([0,1]))
   assert.equal(f.runtime.sessions.size,0)
 })

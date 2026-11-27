@@ -64,6 +64,8 @@ if (!installed) {
       fork: (sourceId, args) => {
         calls.fork++; const source = live.get(sourceId); assert.ok(!operations.has(args.operationId)); source.forking = true;
         return (async () => {
+          await args.onProgress?.({ processed: 1, total: 2 });
+          await args.onProgress?.({ processed: 2, total: 2 });
           const id = 'child-' + calls.fork, cut = { generation: source.generation, seq: source.eventSeq };
           const op = { operationId: args.operationId, sourceId, sourceSessionId: source.sessionId, childId: id, dshSessionId: args.dshSessionId, remoteSessionId: 'remote-' + id, cut, outcome: 'completed' };
           const child = remote(id, args.dshSessionId, { permission: source.requestedPermission, modeId: source.config.mode, forkOrigin: { sourceId, sourceDshSessionId: source.dshSessionId, sourceSessionId: source.sessionId, cut }, forkOperation: op });
@@ -356,6 +358,21 @@ if (!installed) {
       assert.equal(await readFile(join(f.directory, 'session-actions.json'), 'utf8'), '{invalid');
     } finally { await f.close(); }
   });
+  test('confirmed runtime children make interrupted remotePending metadata recoverable without a rewrite', async () => {
+    const f = await fixture();
+    try {
+      await f.actions.api.sessionFork({ sessionId: f.native.id, operationId: 'confirmed-view' });
+      const completed = f.actions.store.fork('confirmed-view');
+      await f.actions.store.saveFork({ ...completed, phase: 'remotePending', childId: null, remoteSessionId: null, outcome: 'unknown', error: { code: 'interrupted', message: 'interrupted' } });
+      const metadata = await f.actions.api.sessionActions({ sessionId: f.native.id });
+      assert.equal(metadata.forkOperation.recoverable, true); assert.equal(metadata.forkOperation.recoveryKind, 'resume'); assert.equal(metadata.forkOperation.runState, 'interrupted');
+      assert.equal(f.actions.forkSnapshot().find(event => event.operation.operationId === 'confirmed-view').operation.recoverable, true);
+      assert.equal(f.actions.store.fork('confirmed-view').phase, 'remotePending');
+      f.operations.delete('confirmed-view');
+      await f.actions.store.saveFork({ ...f.actions.store.fork('confirmed-view'), remoteSessionId: completed.remoteSessionId });
+      assert.equal((await f.actions.api.sessionActions({ sessionId: f.native.id })).forkOperation.recoverable, true);
+    } finally { await f.close(); }
+  });
   test('Host stop during remote fork preserves the committed child without native publication', async () => {
     const f = await fixture(); const response = deferred(), entered = deferred();
     try {
@@ -365,6 +382,41 @@ if (!installed) {
       await assert.rejects(fork, e => e.code === 'host_stopped' && e.details.remoteCreated); await stop;
       assert.equal(f.calls.nativeCreated, 0); assert.ok(f.actions.store.fork('stop-op').childId);
     } finally { response.resolve(); await f.close(); }
+  });
+  test('stop bounds a stalled persistence tail and remains safe to drain again', { timeout: 2000 }, async () => {
+    const f = await fixture();
+    try {
+      const original = f.actions.store.tail, started = Date.now();
+      f.actions.store.tail = new Promise(() => {});
+      await f.actions.stop();
+      assert.ok(Date.now() - started >= 900 && Date.now() - started < 1500);
+      f.actions.store.tail = original;
+      await f.actions.stop();
+    } finally { f.actions.store.tail = Promise.resolve(); await f.close(); }
+  });
+  test('fork stream publishes persisted progress, timings and a reconnectable completed snapshot', async () => {
+    const f = await fixture(); const activeStreams = new Set();
+    try {
+      const { createSessionActionEventStream } = await import('../lib/index.js');
+      const stream = createSessionActionEventStream({ sessionActions: f.actions, activeStreams });
+      const res = streamResponse(); stream(new EventEmitter(), res, () => true);
+      const result = await f.actions.api.sessionFork({ sessionId: f.native.id, operationId: 'observable-fork' });
+      assert.equal(result.operation.phase, 'completed'); assert.equal(result.operation.runState, 'completed');
+      const events = res.frames.filter(frame => frame.type === 'fork');
+      assert.deepEqual(events.map(frame => frame.operation.phase), ['accepted', 'prepared', 'remotePending', 'remotePending', 'remotePending', 'remoteCreated', 'bound', 'nativeCreated', 'completed']);
+      assert.deepEqual(events.map(frame => frame.operation.activeStep), ['checking', 'checking', 'creatingRemote', 'copyingHistory', 'creatingRemote', 'binding', 'restoringNative', 'flushing', 'completed']);
+      assert.ok(events.every((frame, index) => frame.operation.revision === index + 1));
+      const copied = events.find(frame => frame.operation.activeStep === 'copyingHistory');
+      assert.deepEqual(copied.operation.progress, { processed: 1, total: 2 });
+      assert.equal(copied.operation.runState, 'running'); assert.ok(copied.operation.durationMs >= 0);
+      assert.equal(events.at(-1).operation.sessionId, result.sessionId);
+      assert.ok(events.at(-1).operation.stepDurations.copyingHistory >= 0);
+      const metadata = await f.actions.api.sessionActions({ sessionId: f.native.id });
+      assert.equal(metadata.activeForkOperation, undefined); assert.equal(metadata.forkOperation.phase, 'completed');
+      const reconnected = streamResponse(); stream(new EventEmitter(), reconnected, () => true);
+      const snapshot = reconnected.frames.find(frame => frame.type === 'fork' && frame.operation.operationId === 'observable-fork');
+      assert.equal(snapshot.snapshot, true); assert.equal(snapshot.operation.runState, 'completed');
+    } finally { for (const close of [...activeStreams]) close(); await f.close(); }
   });
   test('title metadata stream snapshots interrupted work and publishes native sidebar failures only after persistence', async () => {
     const f = await fixture(); const activeStreams = new Set(); const req = new EventEmitter(), res = streamResponse();
@@ -466,12 +518,22 @@ if (!installed) {
       await root.fiber.dispose(); assert.equal(response.writableEnded, true); assert.equal(request.listenerCount('aborted'), 0);
     } finally { await root.fiber.dispose(); }
   });
+  test('missing public native services reject before remote fork submission', async () => {
+    const f = await fixture(), get = f.actionCtx.get;
+    try {
+      f.actionCtx.get = name => name === 'sessionQuery' || name === 'agents' ? null : get(name);
+      await assert.rejects(f.actions.api.sessionFork({ sessionId: f.native.id, operationId: 'missing-native-services' }), { code: 'native_fork_unavailable' });
+      assert.equal(f.calls.fork, 0); assert.equal(f.calls.nativeCreated, 0);
+    } finally { f.actionCtx.get = get; await f.close(); }
+  });
   test('archived source rejects without resume or fork', async () => {
     const f = await fixture();
     try {
       await f.root.workspaceRegistry.archiveSession(f.native.id);
       await assert.rejects(f.actions.api.sessionFork({ sessionId: f.native.id, operationId: 'archived-op' }), { code: 'session_archived' });
       assert.equal(f.calls.fork, 0); assert.equal(f.calls.resume, 0);
+      const op = f.actions.store.fork('archived-op');
+      assert.equal(op.phase, 'accepted'); assert.equal(op.error.code, 'session_archived'); assert.ok(op.revision >= 2);
     } finally { await f.close(); }
   });
 }

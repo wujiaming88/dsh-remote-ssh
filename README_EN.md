@@ -2,20 +2,20 @@
 
 English | [中文](./README.md)
 
-Remote Claude Code / Codex conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.22** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
+Remote Claude Code / Codex / Pi conversations over SSH, integrated with DSH workspaces. **3.0.0-rc.58** implements one current DSH contract and a complete remote ACP runtime, without backward-compatibility layers.
 
 > Offline tests are not GUI acceptance; dark/light theme, focus and pixel-level appearance still need manual verification in a browser.
 
 ## Current capabilities
 
-- **Remote Claude Code / Codex**: connect over SSH or Kerberos/GSSAPI and execute in the actual remote working directory, without taking over local DSH conversations.
+- **Remote Claude Code / Codex / Pi**: connect over SSH or Kerberos/GSSAPI and execute in the actual remote working directory, without taking over local DSH conversations.
 - **Native-style conversations**: locally adapt message, tool-row, composer and attachment views from distributed DSH 0.2.2-rc.5 source. Action names sit next to paths, and only the final reply of each authoritatively completed turn has a message-copy icon. Copy controls appear on hover or keyboard focus on hover-capable devices and stay visible on devices without hover support.
 - **Conversation controls**: streaming, permission and form requests, model/mode selection, send/stop, history loading, reconnect, and remote-session rename, pin and fork.
 - **Attachments and files**: text, images and ordinary files; ordinary files upload on Send and provide verified remote-path references. Remote file browsing, editing, upload/download and optional Git worktrees are also supported.
 - **Durable execution and message delivery**: newly created durable tasks keep their remote owner across local network loss or Host exit, with native steering and removable queued input. When “Prevent system sleep while running” is enabled, the Host continuously holds a local sleep assertion (macOS `caffeinate -i -m -s`, Linux `systemd-inhibit`) whether or not any remote turn is running. A locked screen on power can keep working; turning the switch off releases it. It may use more power while enabled. Lid-close sleep, power loss or forced system sleep can still stop the local Host, but never cancel the remote task. Finish legacy tasks before upgrading; see [recovery and upgrade boundaries](<docs/DURABLE_EXECUTION.md>) and [delivery contracts](<docs/MESSAGE_DELIVERY.md>).
 - **Factual status**: turn status and elapsed time, context occupancy and unread-completion indicators, without inventing statistics absent from the protocol.
 
-Version **3.0.0-rc.22** passes **1005 automated tests**, the **83-module client build** and the **11-module remote worker build**. Real GUI visual and interaction acceptance remains pending.
+Version **3.0.0-rc.58** passes **1120 automated tests**, the **94-module client build** and the **11-module remote worker build**. Changed production-line coverage is **98.31%**. Real GUI visual and interaction acceptance remains pending.
 
 [Changelog](./CHANGELOG.md) · [Native UI sources and adaptation boundaries](./docs/NATIVE_UI.md)
 
@@ -35,13 +35,13 @@ Version **3.0.0-rc.22** passes **1005 automated tests**, the **83-module client 
 - Remote Node.js 22+, npm and bash; Python 3 for files/worktrees and Git for worktrees.
 - Valid remote CLI authentication, proxy/model gateway and quota. Detecting an executable does not verify model access.
 
-Pinned remote dependencies: ACP SDK `2.9.1`, Claude adapter `0.109.1`, Codex adapter `2.9.0`, Pi adapter `pi-agent-acp 0.1.0` (pinned from a GitHub tag). Pi requires Pi 1.6.1+ on the remote host. Preparing them requires an explicit installation-plan confirmation. The default remote prefix is `~/.local/share/dsh-remote-acp/v1`; preparation uses no sudo, changes no shell configuration and does not install system Node.
+Pinned remote dependencies: ACP SDK `2.9.1`, Claude adapter `0.109.1`, Codex adapter `2.9.0`, Pi adapter `pi-agent-acp 0.2.0` (pinned from a GitHub tag). Pi requires Pi 1.6.1+ on the remote host. Preparing them requires an explicit installation-plan confirmation. The default remote prefix is `~/.local/share/dsh-remote-acp/v1`; preparation uses no sudo, changes no shell configuration and does not install system Node.
 
 ## Use
 
 1. In **Settings → Remote SSH**, create a key/Kerberos profile or select SSH config data and explicitly save it. Test the connection.
 2. In **Add workspace → Remote workspace**, select only a connection, directory and optional owned worktree, without choosing an Agent.
-3. Use the workspace's native **New Session** action. Choose **Claude Code / Codex** and permissions in the main conversation, then click **Start session**. Accept edits is the default permission; Bypass requires explicit confirmation. No remote Agent starts or workspace default binds before selection.
+3. Use the workspace's native **New Session** action. Choose **Claude Code / Codex / Pi** and permissions in the main conversation, then click **Start session**. Accept edits is the default permission; Bypass requires explicit confirmation. No remote Agent starts or workspace default binds before selection.
 4. When dependencies are missing, inspect and confirm **Prepare remote runtime**. Errors remain explicit; the plugin does not intentionally switch a confirmed remote conversation to a local execution backend.
 
 After selecting an Agent, **New session** in the conversation header creates an independent session in the same workspace and lets you choose another Agent, preserving the current session. Unlike the native workspace entry, it does not reuse an already-selected blank that has not sent its first message.
@@ -85,9 +85,11 @@ The remote conversation header's native ellipsis menu provides **Rename / Pin (U
 
 Only the **latest whole context** is supported. The source must be idle, with no queued turns, approvals or configuration operations; unarchive it first if necessary. Forks share the working directory and do not copy files or create a worktree.
 
-The native session-row menu additionally offers **Fork remote conversation**. DSH's ordinary Fork command/shortcut only clones its own log, so it is explicitly refused for remote conversations; local DSH forks are unchanged.
+The native **Fork Session** row action and shortcut route remote Sessions through the ACP fork above, while local DSH Sessions retain their native fork. No duplicate remote-fork or terminate row action is registered. A running fork appears in the source row's trailing slot, never in `sidebar.session.row.leading`.
 
-Persistent operation IDs distinguish remote completion from local publication. Recoverable failures reuse the same child rather than forking again. Unknown outcomes are not automatically retried; a new attempt requires explicit acknowledgement. Inherited events carry provenance and do not replay tools or create new native turns.
+The dialog opens immediately with the current stage and total elapsed time. Copying shows real processed/total counts; later stages use indeterminate progress. Closing it does not cancel work, and repeated clicks reuse the same operation ID. Completion after dismissal or a Session switch notifies instead of stealing navigation. Reconnect snapshots, operation revisions, and request versions prevent stale Promises, metadata, or historical events from regressing newer state.
+
+Persistent operation IDs, stage timings, and two-phase results distinguish remote completion from local publication. Recoverable failures reuse the same child rather than forking again. Only `remotePending` without a confirmed remote identity is unknown: it is not automatically retried, and a new attempt requires explicit acknowledgement. History is copied in one asynchronous streaming pass, bounded to 1,000 events and 8 MiB of actual serialized bytes per batch. Inherited events carry provenance and do not replay tools or create new native turns.
 
 ### Files and worktrees
 

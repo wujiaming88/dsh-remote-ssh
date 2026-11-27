@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, realpathSync, appendFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync, appendFileSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AcpStore } from '../lib/acp-store.js';
@@ -54,4 +54,66 @@ test('backward pagination skips a torn tail and preserves Unicode across chunk b
   assert.equal(tail.events.at(-1).text.endsWith('400'), true);
   const earlier = store.readEvents(id, { tail: true, beforeSeq: 398, limit: 3 });
   assert.deepEqual(earlier.events.map(e => e.seq), [395,396,397]);
+});
+
+test('streaming iteration matches forward reads, filters without paging and preserves Unicode and torn-tail handling', async t => {
+  const store = fixture(t), id = 'streaming';
+  for (let seq = 1; seq <= 600; seq++) store.appendEvent(id, event(seq, 'row-' + seq + '-🙂'.repeat(500)));
+  appendFileSync(store.historyPath(id), '{"eventVersion":1,"seq":');
+  const expected = store.readEvents(id, { limit: 1000 }).events;
+  const streamed = [];
+  for await (const ev of store.streamEvents(id)) streamed.push(ev);
+  assert.deepEqual(streamed, expected);
+  const filtered = [];
+  for await (const ev of store.streamEvents(id, { sinceSeq: 50, beforeSeq: 55 })) filtered.push(ev.seq);
+  assert.deepEqual(filtered, [51,52,53,54]);
+});
+
+test('streaming yields a valid unterminated final record and retries event-directory creation failures', async t => {
+  const store = fixture(t), id = 'unterminated';
+  store.appendEvent(id, event(1));
+  appendFileSync(store.historyPath(id), JSON.stringify(event(2, 'final-without-newline')));
+  const seen = []; for await (const ev of store.streamEvents(id)) seen.push(ev.seq);
+  assert.deepEqual(seen, [1,2]);
+  const blocked = fixture(t), directory = blocked.path + '.events';
+  writeFileSync(directory, 'not a directory');
+  await assert.rejects(blocked.appendEvents('retry', [event(1)]), error => ['EEXIST','ENOTDIR'].includes(error.code));
+  assert.equal(blocked.eventDirectoryReady, null);
+  unlinkSync(directory); await blocked.appendEvents('retry', [event(1)]);
+  assert.deepEqual(blocked.readEvents('retry').events.map(ev => ev.seq), [1]);
+});
+
+test('streaming iteration applies journal validation and promptly propagates abort reasons', async t => {
+  const store = fixture(t), id = 'stream-validation';
+  store.appendEvent(id, event(1));
+  appendFileSync(store.historyPath(id), '\n{"eventVersion":2,"generation":"g","seq":2,"type":"text"}\n');
+  await assert.rejects(async () => { for await (const ev of store.streamEvents(id)) void ev; }, { code: 'history_schema_unsupported' });
+
+  const other = 'stream-abort';
+  for (let seq = 1; seq <= 20; seq++) store.appendEvent(other, event(seq));
+  const controller = new AbortController(), seen = [];
+  await assert.rejects(async () => {
+    for await (const ev of store.streamEvents(other, { signal: controller.signal })) {
+      seen.push(ev.seq);
+      if (seen.length === 3) controller.abort(Error('stop streaming'));
+    }
+  }, /stop streaming/);
+  assert.deepEqual(seen, [1,2,3]);
+});
+
+test('async batch appends preserve exact journal bytes and reject an invalid batch before writing', async t => {
+  const store = fixture(t), id = 'batch', first = event(1, 'first'), second = event(2, 'second🙂');
+  await store.appendEvents(id, [first, second]);
+  const expected = '\n' + JSON.stringify(first) + '\n\n' + JSON.stringify(second) + '\n';
+  assert.equal(readFileSync(store.historyPath(id), 'utf8'), expected);
+  await store.appendEvents(id, []);
+  assert.equal(readFileSync(store.historyPath(id), 'utf8'), expected);
+  await assert.rejects(store.appendEvents(id, [event(3), { ...event(4), eventVersion: 2 }]), { code: 'history_schema_unsupported' });
+  await assert.rejects(store.appendEvents(id, [event(3)], []), { code: 'history_corrupt' });
+  await assert.rejects(store.appendEvents(id, [event(3)], [null]), { code: 'history_corrupt' });
+  assert.equal(readFileSync(store.historyPath(id), 'utf8'), expected);
+  const third = event(3, 'serialized');
+  await store.appendEvents(id, [third], [JSON.stringify(third)]);
+  assert.equal(readFileSync(store.historyPath(id), 'utf8'), expected + '\n' + JSON.stringify(third) + '\n');
+  assert.deepEqual(store.readEvents(id).events, [first, second, third]);
 });

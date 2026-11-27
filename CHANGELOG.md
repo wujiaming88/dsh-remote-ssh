@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-rc.58 — streaming, recoverable fork progress
+
+- Replaced paged O(n²)/synchronous journal copying with one asynchronous streaming pass. Batches are limited to 1,000 events and 8 MiB of **actual serialized UTF-8 bytes**, with one stringify per inherited event and awaited ordered writes.
+- Persisted operation IDs, phases, revisions, real copy counts, total/step timings, reconnect snapshots, and recovery identity. A runtime-confirmed child remains resumable even if Host metadata stopped at `remotePending`; only an unconfirmed remote outcome requires new-operation consent.
+- Fork dialogs open immediately and can be dismissed without cancelling work. Repeated native **Fork Session** clicks reuse one canonical task; source-row status stays in the trailing slot, and late completion notifies without stealing navigation.
+- Added stale snapshot/metadata/Promise ordering, cross-client live-operation merging, accessible stage-only live announcements, and determinate progress only while copying history.
+- Host activation/disposal and fork stop/drain now have bounded diagnostics and cleanup. Shutdown preserves a confirmed remote child but prevents late native/completed commits; replay yields every 64 canonical events.
+- Real large devbox2 `agentkit-fde-cli` case: **169.7 s → 6.177 s total** (copy **3.442 s**, remote child start **2.735 s**), with corrected maximum Host heartbeat lag of **4 ms**. The child prompt returned `end_turn`.
+- Real Electron Host E2E passed for devbox2 Claude, devbox_sg Claude/Codex, and devbox2 Pi adapter 0.2.0; every child returned `end_turn`. Pi used an isolated test-only no-extension launch because the user's global Pi extension was broken; no user extension or product default was changed.
+- Real Host restart recovery reused the same operation, ACP child, and remote Session through a cold resume and child prompt. Changed production-line coverage: **523/532 (98.31%)**.
+- Plugin tests: **1120/1120**; 94 client modules and 11 remote worker modules. Real Host/SSH/ACP and real slot-component tests are not browser visual acceptance; dark/light theme, focus, and pixel-level GUI verification remain pending.
+
 ## 3.0.0-rc.57 — visible native fork progress
 
 - The native **Fork Session** action now opens the plugin fork dialog and auto-submits it. The dialog shows the submitted/waiting state, errors, unknown/recovery state, and opens the child (or offers it in a toast) on success.

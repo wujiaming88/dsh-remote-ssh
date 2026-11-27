@@ -834,4 +834,69 @@
 .rssh-session-status-dot { width: 10px; height: 10px; vertical-align: middle; }
 .rssh-session-status-dot[data-state=ongoing] { width: 14px; height: 14px; }
 
-.rssh-fork-progress { margin: 8px 0 0; color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size-secondary, 13px); }
+.rssh-fork-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-1);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+}
+.rssh-fork-progress-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.rssh-fork-step { color: var(--dsw-alias-label-primary); font-weight: 500; }
+.rssh-fork-elapsed, .rssh-fork-counts { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rssh-fork-progress progress {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  accent-color: var(--dsw-alias-state-info-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.rssh-fork-progress progress::-webkit-progress-bar { background: var(--dsw-alias-interactive-bg-hover); }
+.rssh-fork-progress progress::-webkit-progress-value { background: var(--dsw-alias-state-info-primary); border-radius: 999px; }
+.rssh-fork-progress progress::-moz-progress-bar { background: var(--dsw-alias-state-info-primary); border-radius: 999px; }
+.rssh-fork-progress progress:indeterminate { animation: rssh-fork-progress-pulse 1.2s ease-in-out infinite; }
+.rssh-fork-background-note, .rssh-fork-recovery { color: var(--dsw-alias-label-secondary); font-size: var(--dsh-content-font-size-secondary, 13px); }
+.rssh-fork-recovery { color: var(--dsw-alias-state-warn-label); }
+@keyframes rssh-fork-progress-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .rssh-fork-progress progress:indeterminate { animation: none; } }
+.rssh-session-fork-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: var(--dsh-content-font-size-secondary, 12px);
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rssh-session-fork-status > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rssh-session-fork-status[data-state=recovery] { color: var(--dsw-alias-state-warn-label); }
+.rssh-session-fork-status[data-recovery-kind=unknown] { color: var(--dsw-alias-state-error-primary); }
+@media (hover: hover) {
+  .rssh-session-fork-status:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
+}
+.rssh-session-fork-status:focus-visible { outline: 2px solid var(--dsw-alias-state-info-primary); outline-offset: 1px; }
