@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-rc.50 — Host-level fork validated for all three agents
+
+- Pi's lack of an ACP session mode is no longer treated as an unconfirmed source/child permission during fork. Pi source and child permission snapshots now persist as the requested safe backend permission.
+- Real DSH Host durable fork E2E passed for **Claude Code, Codex and Pi**:
+  - Claude: source `a25b4d50…` → child `ebffc0b5…`, `completed/completed`, child `end_turn`
+  - Codex: source `01a21b80…` → child `8b71a45a…`, `completed/completed`, child `end_turn`
+  - Pi: source `01a21b81…` → child `54daf19f…`, `completed/completed`, child `end_turn`
+  - all three printed `HOST_FORK_OK`
+- This validates the real Host path: durable runtime → SSH → ACP `session/fork` → native fork seed → child remote prompt, not just adapter-level calls.
+- Plugin tests: **1076/1076**.
+
+## 3.0.0-rc.49 — Pi fork and cross-agent fork validation
 ## 3.0.0-rc.49 — Pi fork and cross-agent fork validation
 
 - Pi now implements ACP `session/fork` via `pi --fork <session>`, advertises `sessionCapabilities.fork`, and returns a distinct forked session. Pi adapter version **0.2.0**.
