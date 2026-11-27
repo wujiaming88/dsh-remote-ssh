@@ -12,7 +12,7 @@ export const messages={
     'session.forkDescription':'复制当前最新、已完成的 Agent 上下文，创建独立会话。两个会话仍使用同一工作目录；这不会复制文件或创建 worktree。',
     'session.forkBusy':'源会话尚未就绪。请先打开会话，等待当前回合和审批结束；已归档会话请先取消归档。',
     'session.renaming':'正在同步会话名称…','session.incompleteFork':'前次分叉未完成，请保留恢复信息。再次创建需明确确认。',
-    'session.forking':'正在分叉远端会话…','session.recoverFork':'恢复未完成的分叉',
+    'session.forkProgress':'分叉请求已提交，正在等待远端返回…','session.forking':'正在分叉远端会话…','session.recoverFork':'恢复未完成的分叉',
     'session.unknownFork':'前次远端分叉结果未知。不会自动重复请求，请保留下面的恢复信息。',
     'session.newAfterUnknown':'我已了解前次恢复信息，明确发起一个新的分叉操作。',
     'session.forked':'远端会话已分叉','session.openFork':'打开分叉会话','session.openFailed':'无法打开分叉会话',
@@ -29,7 +29,7 @@ export const messages={
     'session.forkDescription':'Copy the latest completed Agent context into an independent conversation. Both conversations still use the same working directory; files and worktrees are not copied.',
     'session.forkBusy':'Open the source conversation and wait for its turn and pending approvals to finish. Unarchive it first if necessary.',
     'session.renaming':'Synchronizing session name…','session.incompleteFork':'The previous fork did not complete. Keep its recovery information and explicitly confirm any new attempt.',
-    'session.forking':'Forking remote conversation…','session.recoverFork':'Recover unfinished fork',
+    'session.forkProgress':'Fork request submitted; waiting for the remote response…','session.forking':'Forking remote conversation…','session.recoverFork':'Recover unfinished fork',
     'session.unknownFork':'The previous remote fork outcome is unknown. It will not be retried automatically. Keep the recovery information below.',
     'session.newAfterUnknown':'I have reviewed the previous recovery information and explicitly want a new fork operation.',
     'session.forked':'Remote conversation forked','session.openFork':'Open fork','session.openFailed':'Could not open fork',
@@ -63,6 +63,7 @@ function ActionsDialog(props) {
       fork&&(dialog.metadata.archived||!dialog.metadata.canFork&&!dialog.operation?.recoverable)?h('p',{role:'status'},t('session.forkBusy')):null,
       dialog.kind==='rename'&&dialog.syncStatus==='pending'&&!dialog.busy?h('p',{role:'status'},t('session.renaming')):null,
       dialog.error?h('p',{className:'ra-acp-error',role:'alert'},dialog.error):null,
+      fork&&dialog.busy?h('p',{className:'rssh-fork-progress',role:'status'},t('session.forkProgress'),dialog.operation?.phase?' · '+dialog.operation.phase:''):null,
       unknown?h(React.Fragment,null,h('p',{role:'alert'},t(dialog.operation?.outcome==='unknown'?'session.unknownFork':'session.incompleteFork')),
         h(ui.Checkbox,{checked:dialog.allowNew,disabled:dialog.busy,label:t('session.newAfterUnknown'),onChange:props.allowNewFork})):null,
       dialog.operation?h('details',null,h('summary',null,dialog.operation.operationId),h('pre',{className:'ra-acp-json'},JSON.stringify(dialog.operation,null,2))):null));
@@ -137,12 +138,15 @@ export function installSessionActions(ctx, {watch=stream,onClosed=()=>{}} = {}) 
       const row=ctx.sessions.list.getSnapshot().byId[sessionId];
       const projection=ctx.sessions.binding(sessionId)?.session.projections.faceOf(REMOTE_SESSION_PROJECTION_KEY).getSnapshot()||row?.projectionValues?.[REMOTE_SESSION_PROJECTION_KEY];
       if(projection?.remote!==true)return original.call(workspace,sessionId,onChild,options);
-      return api('sessionFork',{sessionId,operationId:crypto.randomUUID()}).then(result=>{
-        if(!result.ok){ctx.contextMenus.notify(formatError(result),false);return;}
-        onChild?.(result.sessionId);
-        if(ctx.uiSession.adapter.current.getSnapshot().key===sessionId)openSession(result.sessionId);
-        else ctx.contextMenus.notify(t('session.forked'),true,{label:t('session.openFork'),run:()=>openSession(result.sessionId),failureLabel:t('session.openFailed')});
-        return result;
+      return getMetadata({sessionId}).then(metadata=>{
+        if(!metadata.remote)return original.call(workspace,sessionId,onChild,options);
+        openDialog('fork',metadata);
+        const dialog=current;
+        // The native menu click already expressed the fork intent. Submit the
+        // same dialog used by the remote menu so its busy/progress/error/result
+        // surface is visible and a second click can recover the same operation.
+        queueMicrotask(()=>{if(current?.key===dialog.key&&current.kind==='fork')void submit();});
+        return {ok:true};
       },failure=>{ctx.contextMenus.notify(String(failure?.message||failure),false);});
     };
     workspace.forkSession=bridge;

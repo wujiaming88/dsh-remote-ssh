@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.57 — visible native fork progress
+
+- The native **Fork Session** action now opens the plugin fork dialog and auto-submits it. The dialog shows the submitted/waiting state, errors, unknown/recovery state, and opens the child (or offers it in a toast) on success.
+- Clicking fork again while an operation is running reuses the same dialog/operation instead of silently starting another native request.
+- Verified against the real devbox2 `agentkit-fde-cli` case: stale reservation released, fork operation completed, child `acp_773a9465-38dc-49f2-90ce-2d735813a46e` created and ready.
+- Plugin tests: **1078/1078**.
+
+## 3.0.0-rc.56 — recover stale remote fork reservations
 ## 3.0.0-rc.56 — recover stale remote fork reservations
 
 - Diagnosed the repeated **“Fork requires an idle source with no pending actions”** on devbox2’s `agentkit-fde-cli`: the source worker still had the reservation from the earlier failed fork (`reserved`, no child session), so every retry was busy forever.

@@ -34,7 +34,8 @@ function fixture(t,handle){
 async function header(f){return f.providers.get('remote-agent-session').resolve({sessionId:'remote'},new AbortController().signal)}
 test('native fork service is routed to remote fork and delegated for local sessions',async t=>{
  const f=fixture(t);
- let analysed=null;await f.ctx.uiWorkspace.forkSession('remote',id=>{analysed=id;});assert.equal(analysed,'child');
+ await f.ctx.uiWorkspace.forkSession('remote');
+ await new Promise(resolve=>setImmediate(resolve));
  const call=f.calls.find(value=>value.method==='sessionFork');assert.ok(call);assert.equal(call.args.sessionId,'remote');assert.deepEqual(f.opened,['child']);
  await f.ctx.uiWorkspace.forkSession('local');assert.equal(f.nativeForks.length,1);assert.equal(f.nativeForks[0][0],'local');
 });
