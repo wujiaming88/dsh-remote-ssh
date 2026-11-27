@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-rc.40 — validated Pi on both devboxes
+
+- Pin the Pi adapter to `@wujiaming88/pi-agent-acp@0.1.1` / tag `v0.1.1`; missing Pi now rejects the ACP session instead of crashing with an unhandled child-process error.
+- Upgrade **devbox2** from Node 22.16.0 / Pi 0.74.2 (user-local install) to Node 22.23.4 / Pi 1.6.1, remove its pre-existing broken `flux-bridge.ts` extension, and verify Pi RPC `get_state`.
+- **devbox_sg** was already on Node 22.23.4 / Pi 1.6.1; re-verified with both test layers.
+- Real adapter E2E passed on both hosts: streamed text, real bash tool, native steer while a tool ran, session close/load, clean shutdown. Real plugin SSH transport E2E (`tests/pi-plugin-e2e.mjs`) also passed on both hosts after preparing the pinned adapter.
+- Plugin tests: **1070/1070**; 91 client modules and 11 remote modules built.
+
+## 3.0.0-rc.39 — Pi backend via pi-agent-acp
 ## 3.0.0-rc.39 — Pi backend via pi-agent-acp
 
 - Add the **Pi** agent as a third remote backend. It uses the independent `@wujiaming88/pi-agent-acp@0.1.0` adapter, pinned from GitHub tag `v0.1.0`, which translates Pi 1.6.1's native `--mode rpc` protocol to ACP v1.

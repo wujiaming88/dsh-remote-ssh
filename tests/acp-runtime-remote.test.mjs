@@ -34,9 +34,9 @@ test('Pi launches the pinned adapter entry and GitHub install spec',()=>{
   assert.equal(launch.payload.agent,'pi')
   assert.equal(launch.payload.adapterPackage,'@wujiaming88/pi-agent-acp')
   assert.equal(launch.payload.adapterEntry,'src/index.js')
-  assert.equal(launch.payload.installSpecs['@wujiaming88/pi-agent-acp'],'github:wujiaming88/pi-agent-acp#v0.1.0')
+  assert.equal(launch.payload.installSpecs['@wujiaming88/pi-agent-acp'],'github:wujiaming88/pi-agent-acp#v0.1.1')
   const plan=remoteAcpPreparationPlan({profile,agent:'pi'})
-  assert.ok(plan.packages.includes('@wujiaming88/pi-agent-acp@github:wujiaming88/pi-agent-acp#v0.1.0'))
+  assert.ok(plan.packages.includes('@wujiaming88/pi-agent-acp@github:wujiaming88/pi-agent-acp#v0.1.1'))
 })
 test('remote launcher constructs strict SSH stdio command without embedding secrets', () => {
   const launch=buildRemoteAcpLaunchSpec({profile:{...profile,password:'not-exported'},agent:'codex',remotePath:"/work/quote';$(not-a-command)",remoteRuntimeDir:'~/.private runtime'})
@@ -94,7 +94,7 @@ test('prepare has explicit consent gate and installs fixed packages only in remo
   assert.equal(spawned,0)
   const result=await executeBootstrap({action:'prepare'})
   assert.equal(result.writes,1);assert.equal(result.installations.length,1)
-  assert.deepEqual(Array.from(result.installations[0].args),['install','--prefix','/home/alice/.local/share/dsh-remote-acp/v1','--ignore-scripts','--include=optional','--no-audit','--no-fund','--save-exact','@agentclientprotocol/sdk@2.9.1','@agentclientprotocol/claude-agent-acp@0.109.1','@agentclientprotocol/codex-acp@2.9.0','@wujiaming88/pi-agent-acp@github:wujiaming88/pi-agent-acp#v0.1.0'])
+  assert.deepEqual(Array.from(result.installations[0].args),['install','--prefix','/home/alice/.local/share/dsh-remote-acp/v1','--ignore-scripts','--include=optional','--no-audit','--no-fund','--save-exact','@agentclientprotocol/sdk@2.9.1','@agentclientprotocol/claude-agent-acp@0.109.1','@agentclientprotocol/codex-acp@2.9.0','@wujiaming88/pi-agent-acp@github:wujiaming88/pi-agent-acp#v0.1.1'])
   assert.equal(result.installations[0].opts.stdio[1],2)
 })
 
