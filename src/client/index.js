@@ -53,7 +53,7 @@ function RemoteConversation(props) {
         workspaceId: routing.value.workspace.shellWorkspaceId, createSession: props.createRemoteSession, openSession: props.openSession, beginNavigation: props.beginNavigation }) : null,
       routing.value?.backend ? props.renderFactorySlot('contextMenu.button', {target:{kind:'remote-agent-session',value:{sessionId:props.sessionId}},label:t('session.more'),size:'sm'}) : null,
       h(ui.Button, { size: 'sm', variant: 'ghost', 'aria-label': t('acp.sidebar'), onClick: props.toggleFiles }, h(ui.IconFolderOpenOutline16, { size: 16 }))),
-    routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, clients:props.clients, preferences, busyEnter:conversationPreferences?.busyEnter, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile })
+    routing.phase === 'remote' ? h(ChatPane, { key: props.sessionId, backend: routing.value, clients:props.clients, preferences, busyEnter:conversationPreferences?.busyEnter, renderFactorySlot:props.renderFactorySlot, openRemoteFile: props.openRemoteFile, inputActions: props.inputActions })
       : routing.phase === 'selection' ? h(SessionSetup, { key: props.sessionId, backend: routing.value, onSelected: props.refreshBackend })
       : h(ConversationStatus, { kind: routing.phase === 'loading' ? 'loading' : 'error',
         title: t(routing.phase === 'loading' ? 'session.setup.loading' : 'session.setup.loadFailed'),

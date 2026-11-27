@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-rc.43 — native selection quote in remote sessions
+
+- DSH selection quotes submit ordinary Markdown blockquotes (`> ` per line). The remote pane replaces the native composer, so the native quote button was writing into the hidden composer instead of the remote draft.
+- Bridge the session `inputActions.insertQuote` into the remote composer at the current caret/selection, preserving the remote draft and cursor. The quote text then follows the normal prompt/queue/steer path, so Codex, Claude Code and Pi all receive it without adapter changes.
+- Add pure quote formatting/caret tests and bridge intercept/restore tests; plugin tests: **1074/1074**.
+- Release install/build output remains hidden until the session is refreshed.
+
+## 3.0.0-rc.42 — Pi slash-command menu
 ## 3.0.0-rc.42 — Pi slash-command menu
 
 - Fix the empty Pi `/` menu: commands were announced before the ACP client had learned the session id. The adapter now includes `_meta.pi.commands` in session/new, load and resume responses, and still sends `available_commands_update` after the response; the Host accepts command updates that arrive during startup.

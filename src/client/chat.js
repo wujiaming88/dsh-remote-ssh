@@ -17,6 +17,7 @@ import {NativeComposerView} from './native-composer-view.js';
 import {NativeQueueView} from './native-queue-view.js';
 import {resolveDeliveryMode,composerEnterGesture,deliveryConflicts} from './composer-delivery-model.js';
 import {composerConfiguration} from './native-composer-model.js';
+import {installQuoteBridge,insertQuoteIntoDraft} from './quote-bridge.js';
 
 function useClient(backend,clients) {
   const [client,setClient]=React.useState(()=>clients.peek(backend));
@@ -36,7 +37,7 @@ export function ChatPane({backend,clients,...props}) {
   return client?h(ConnectedChatPane,{...props,key:client.viewKey,backend,client}):h(ConversationStatus,{kind:binding.error?'error':'loading',
     title:t(binding.error?'session.setup.loadFailed':'session.setup.loading'),description:binding.error?.message,onRetry:binding.error?binding.retry:undefined});
 }
-function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyEnter, renderFactorySlot }) {
+function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyEnter, renderFactorySlot, inputActions }) {
   const t = useT(), sid = backend.sessionId;
   const labels=React.useMemo(()=>acpBlockLabels(t),[t]);
   const attachmentContext=React.useMemo(()=>({id:client.state.binding?.id,dshSessionId:sid}),[client,sid,client.state.binding?.id]);
@@ -48,7 +49,20 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
   const inputUnavailable=remoteStatus.offline||remoteStatus.closed||!state.connected;
   const primaryMode=resolveDeliveryMode(busyEnter,state.running);
   const draftRef=React.useRef(draft);draftRef.current=draft;
+  const editorRef=React.useRef(null);
   const setDraft=value=>{composer.setDraft(value);draftRef.current=composer.getSnapshot().draft;};
+  React.useLayoutEffect(() => installQuoteBridge(inputActions, text => {
+    const snapshot=composer.getSnapshot();
+    if(snapshot.sending)return false;
+    const node=editorRef.current;
+    const start=node?.selectionStart ?? draftRef.current.length;
+    const end=node?.selectionEnd ?? start;
+    const inserted=insertQuoteIntoDraft(snapshot.draft,text,start,end);
+    if(!inserted)return false;
+    composer.setDraft(inserted.draft);draftRef.current=inserted.draft;
+    requestAnimationFrame(()=>{const editor=editorRef.current;if(editor){editor.focus({preventScroll:true});editor.setSelectionRange(inserted.caret,inserted.caret);}});
+    return true;
+  }), [inputActions, composer]);
   const setAttachments=composer.setAttachments;
   const attachmentInput=React.useRef(null);
   const [busy, setBusy] = React.useState('');
@@ -219,6 +233,7 @@ function ConnectedChatPane({ backend, client, openRemoteFile, preferences, busyE
           if(result?.outcome!=='injected')throw Object.assign(new Error('Queued message was not injected; it remains queued'),{code:result?.outcome==='promptRequired'?'queue_awaiting_turn':'queue_not_injected'});
           return result;},t}),
       h(NativeComposerView, {
+        editorRef,
         notice: pendingKind&&!sending?t('acp.pendingSubmissionNotice'):null,
         cardProps: {onDragOver: event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); },
         onDrop: event => {
